@@ -10,6 +10,7 @@ stabilize the grid. In effect it should reduce overall costs, bared by society b
 People who want to use their energy in the most effective way.
 People who want to start reducing CO2 emissions right now.
 Grid operators who want to improve the grid stability.
+test
 
 ## 2. Overall Description
 ### 2.1 User Roles
