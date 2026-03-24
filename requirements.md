@@ -10,17 +10,20 @@ stabilize the grid. In effect it should reduce overall costs, bared by society b
 People who want to use their energy in the most effective way.
 People who want to start reducing CO2 emissions right now.
 Grid operators who want to improve the grid stability.
-test
 
 ## 2. Overall Description
 ### 2.1 User Roles
 *   WIP
 
 ### 2.2 Tech Stack (Non-Functional)
-*   DECIDE WASM VS FLUTTER
+*   Typescript + HTML
 
 ## 3. Functional Requirements (MoSCoW)
-yes
+    User shall be able to add home apliances like washing machine, dishwasher, ...
+    The 
+    API call from "https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise"
+    Process data from API call
+
 
 ### 3.1 Must-Have (MVP)
 - [ ] **FR-1:** 
