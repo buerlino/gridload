@@ -20,7 +20,7 @@ test
 *   DECIDE WASM VS FLUTTER
 
 ## 3. Functional Requirements (MoSCoW)
-
+yes
 
 ### 3.1 Must-Have (MVP)
 - [ ] **FR-1:** 
