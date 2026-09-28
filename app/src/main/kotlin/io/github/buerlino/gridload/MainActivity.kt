@@ -99,6 +99,7 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onSelectRegion: (Regio
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            state.notice?.let { Text(it, color = content) }
             state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
             Button(
                 onClick = onRefresh,

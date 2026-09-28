@@ -8,6 +8,7 @@ import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
 import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.fetchPrices
+import io.github.buerlino.gridload.core.mayFetch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,14 +23,18 @@ data class UiState(
     val loading: Boolean = false,
     val error: String? = null,
     val fetchedAt: Instant? = null,
+    /** Shown when a refresh was skipped because of the cooldown; cleared by the next recompute. */
+    val notice: String? = null,
 )
 
 /**
  * Holds the day's slots so rotation doesn't refetch. The API is rate limited and one response
- * covers the whole day, so we fetch only when nothing usable is cached or the user refreshes.
+ * covers the whole day, so we fetch only when nothing usable is cached or the user refreshes,
+ * and never more often than the cooldown in core allows.
  */
 class MainViewModel : ViewModel() {
     private var slots: List<PriceSlot> = emptyList()
+    private var lastAttempt: Instant? = null
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
 
@@ -42,20 +47,29 @@ class MainViewModel : ViewModel() {
     /** Cheap, no network: call periodically so the colour follows slot boundaries. */
     fun recompute() {
         val status = classify(slots, Instant.now())
-        _state.update { it.copy(status = status) }
+        _state.update { it.copy(status = status, notice = null) }
     }
 
     /** Switching region drops the cached slots, since they belong to the old region's tariff. */
     fun selectRegion(region: Region) {
         if (region == _state.value.region) return
         slots = emptyList()
+        lastAttempt = null
         _state.update { UiState(region = region) }
         refresh()
     }
 
     fun refresh() {
         if (_state.value.loading) return
-        _state.update { it.copy(loading = true, error = null) }
+        val now = Instant.now()
+        val hasData = _state.value.status != null
+        if (!mayFetch(lastAttempt, now, hasData)) {
+            val notice = if (hasData) "Already up to date" else "Please wait a few seconds"
+            _state.update { it.copy(notice = notice) }
+            return
+        }
+        lastAttempt = now
+        _state.update { it.copy(loading = true, error = null, notice = null) }
         val region = _state.value.region
         viewModelScope.launch {
             try {

@@ -58,4 +58,20 @@ class CoreTest {
         assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") })
         assertEquals(CKW, REGIONS.first())
     }
+
+    @Test
+    fun cooldownBlocksRapidFetches() {
+        val last = at("12:00")
+        assertEquals(true, mayFetch(null, last, hasCurrentData = true))
+        assertEquals(false, mayFetch(last, at("12:04:59"), hasCurrentData = true))
+        assertEquals(true, mayFetch(last, at("12:05"), hasCurrentData = true))
+        assertEquals(true, mayFetch(last, at("12:10"), hasCurrentData = true))
+    }
+
+    @Test
+    fun retryIsQuickerWhenThereIsNothingToShow() {
+        val last = at("12:00")
+        assertEquals(false, mayFetch(last, at("12:00:29"), hasCurrentData = false))
+        assertEquals(true, mayFetch(last, at("12:00:30"), hasCurrentData = false))
+    }
 }
