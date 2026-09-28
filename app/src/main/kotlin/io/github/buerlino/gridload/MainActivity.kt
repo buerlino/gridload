@@ -8,8 +8,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -65,17 +69,27 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private val GREEN = Color(0xFF2E7D32)
+private val ORANGE = Color(0xFFFFA000)
+private val RED = Color(0xFFC62828)
+private val GREY = Color(0xFF616161)
+
+private data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
+
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 @Composable
 private fun Screen(state: UiState, onRefresh: () -> Unit, onSelectRegion: (Region) -> Unit) {
     val status = state.status
-    val (background, content, label) = when (status?.level) {
-        Level.GREEN -> Triple(Color(0xFF2E7D32), Color.White, "Run now!")
-        Level.ORANGE -> Triple(Color(0xFFFFA000), Color.Black, "Only if you must")
-        Level.RED -> Triple(Color(0xFFC62828), Color.White, "Not now")
-        null -> Triple(Color(0xFF616161), Color.White, if (state.loading) "Loading…" else "No data")
+    val style = when (status?.level) {
+        Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
+        Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
+        Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
+        null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No data", null)
     }
+    val (background, content, label, hint) = style
+    var showHelp by remember { mutableStateOf(false) }
+    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background).padding(24.dp)) {
         RegionPicker(
             state.region,
@@ -83,12 +97,16 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onSelectRegion: (Regio
             onSelectRegion,
             Modifier.align(Alignment.TopCenter),
         )
+        TextButton(onClick = { showHelp = true }, modifier = Modifier.align(Alignment.TopEnd)) {
+            Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(label, color = content, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
             if (status != null) {
                 Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
             }
@@ -124,6 +142,37 @@ private fun RegionPicker(region: Region, color: Color, onSelect: (Region) -> Uni
                     onClick = { open = false; onSelect(r) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+        title = { Text("How GridLoad works") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("The colour shows whether electricity is cheap right now compared with the rest of today. Cheap times are when the grid has the most to spare, for example at midday when solar power peaks.")
+                LegendRow(GREEN, "Good time", "Cheap. Run the dishwasher, washing machine or EV charger now.")
+                LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
+                LegendRow(RED, "Bad time", "Expensive and busy. Wait if you can.")
+                Text("Each 15-minute price is compared with today's lowest and highest: the cheapest third is green, the most expensive third red.")
+                Text("Region: prices come from your local electricity utility, so pick your region at the top. Only Central Switzerland (CKW) is available for now.")
+                Text("Today's prices are loaded once and kept. Refresh checks for new data, at most every 5 minutes.")
+            }
+        },
+    )
+}
+
+@Composable
+private fun LegendRow(color: Color, title: String, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.padding(top = 4.dp).size(16.dp).background(color, CircleShape))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold)
+            Text(text)
         }
     }
 }

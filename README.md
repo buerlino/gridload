@@ -14,9 +14,9 @@ One field showing a single traffic-light status:
 
 | Colour | Meaning |
 |--------|---------|
-| Red    | Not good to run appliances |
-| Orange | Run only if you must |
-| Green  | Run now! |
+| Red    | Bad time: electricity is expensive and busy, wait if you can |
+| Orange | Fair time: average price, only run what you need |
+| Green  | Good time: cheap, run your appliances now |
 
 The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so the app has a **region switcher** at the top of the screen.
 
