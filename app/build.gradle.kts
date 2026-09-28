@@ -1,0 +1,64 @@
+import java.util.Properties
+
+// AGP 9 has built-in Kotlin: do not apply org.jetbrains.kotlin.android here.
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+}
+
+// Release signing comes from keystore.properties (local, gitignored) or GRIDLOAD_* env vars (CI).
+// Without either, the release build is left unsigned, which is what F-Droid expects.
+val keystoreProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.reader()?.use { load(it) }
+}
+fun signingValue(prop: String, env: String): String? = keystoreProps.getProperty(prop) ?: System.getenv(env)
+
+android {
+    namespace = "io.github.buerlino.gridload"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "io.github.buerlino.gridload"
+        minSdk = 26
+        targetSdk = 37
+        versionCode = 1
+        versionName = "0.1.0"
+    }
+
+    val releaseKeystore = signingValue("storeFile", "GRIDLOAD_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseKeystore)
+                storePassword = signingValue("storePassword", "GRIDLOAD_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "GRIDLOAD_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "GRIDLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures { compose = true }
+}
+
+dependencies {
+    implementation(project(":core"))
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.material3)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
+    debugImplementation(libs.compose.ui.tooling)
+}

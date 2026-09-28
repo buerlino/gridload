@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "GridLoad"
-include(":core") // add ":app" once app/ exists
+include(":core", ":app")

@@ -44,9 +44,12 @@ Native Android: **Kotlin + Jetpack Compose**. Reasoning, for context if it's eve
 
 ## Architecture
 
-- **Single-Activity Compose app**, one screen: the big colored field, a last-updated timestamp,
-  and a manual refresh (pull-to-refresh or a button). Nothing more.
+- **Single-Activity Compose app**, one screen: the big colored field, a region switcher, a
+  last-updated timestamp, and a manual refresh (pull-to-refresh or a button). Nothing more.
+  The price data is utility-specific (CKW serves only Central Switzerland), so the user picks a
+  region; add new ones to `REGIONS` in `core/.../Region.kt`.
 - **A small, framework-free `core` package/module** holding:
+  - the region list (`Region`, `REGIONS`)
   - the API client — plain `HttpURLConnection` or OkHttp (Apache-2, F-Droid-clean); no
     Retrofit/Ktor, there's only one endpoint
   - the response model + JSON parsing
@@ -111,12 +114,12 @@ assumptions instead of the real response is the most likely place this goes wron
 Last updated 2026-09-28.
 
 1. **Done.** API inspected; schema, thresholds (day-range thirds on `integrated`) and reasoning are in `CLAUDE.md`.
-2. **Partly done.** Package id `io.github.buerlino.gridload` and app name `GridLoad` are confirmed (see `CLAUDE.md` → Decided). Written so far: Gradle wrapper, `settings.gradle.kts`, root `build.gradle.kts`, `gradle.properties`, `gradle/libs.versions.toml`, `gradle/gradle-daemon-jvm.properties`, `core/build.gradle.kts`. Web/TypeScript leftovers were removed from README, CLAUDE.md and `.gitignore`.
-   - **Still to do:** add `":app"` back to `include(...)` in `settings.gradle.kts`, then `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext), plus a launcher theme/strings. For the icon, ask the user whether a placeholder is fine for now.
+2. **Done.** `:app` is in `settings.gradle.kts`; `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext) exist. No launcher icon yet (system default); ask the user whether to add one.
 3. **Done.** `core/`: `Prices.kt` (model + `parsePrices`), `Classify.kt` (`classify(slots, now): Status?`), `PriceApi.kt` (`fetchPrices()`), and `CoreTest.kt`, which uses the real response in `core/src/test/resources/prices-2026-09-28.json`. `./gradlew :core:test` passes (7 tests, daemon on JDK 21).
-4. **Not started.** The UI follows the refresh policy in `CLAUDE.md`.
-5. **Not started.** Build check: `./gradlew :core:test :app:assembleDebug`, then `adb install` on the user's phone.
-6. **Not started.** Signing + GitHub Actions release workflow.
+4. **Done.** `MainActivity.kt` (one screen: colour field, price, updated time, Refresh) and `MainViewModel.kt` (cache, refresh policy from `CLAUDE.md`).
+5. **Done.** `ANDROID_HOME=~/Android/Sdk ./gradlew :core:test :app:assembleDebug` succeeds; installed on the user's phone with `~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk` and confirmed showing a colour (orange on 2026-09-28 evening). `adb` isn't on PATH in Claude's shell.
+5b. **Done.** Region switcher (2026-09-28): `Region.kt` with CKW as the only region, `fetchPrices(region)`, dropdown in the UI. Selection is not persisted yet.
+6. **Partly done.** Signing config in `app/build.gradle.kts` and `.github/workflows/release.yml` are written; unsigned and signed local release builds verified with a throwaway keystore. Still to do: the user generates the real keystore and adds the four GitHub secrets (see `CLAUDE.md`), then pushes a tag to test the workflow.
 7. **Not started.** fdroiddata submission.
 
 Toolchain verified installed on 2026-09-28: JDK 21 at `/usr/lib/jvm/java-21-openjdk`, SDK at

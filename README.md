@@ -18,8 +18,13 @@ One field showing a single traffic-light status:
 | Orange | Run only if you must |
 | Green  | Run now! |
 
-Data source: dynamic prices API
-`https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise`
+The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so the app has a **region switcher** at the top of the screen.
+
+| Region | Utility | Data source |
+|--------|---------|-------------|
+| Central Switzerland (Zentralschweiz) | CKW (Centralschweizerische Kraftwerke AG) | `https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise` |
+
+CKW is the only region for now. It serves only Central Switzerland, so outside that area the colour says nothing about your tariff. More regions (other utilities) are planned.
 
 ## Later ideas
 

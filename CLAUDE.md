@@ -22,6 +22,8 @@ GridLoad: an Android app that shows whether now is a good time to run household 
   - `compileSdk = 37` is required because core-ktx 1.19 and lifecycle 2.11 set minCompileSdk 37. `minSdk = 26` for `java.time`. `targetSdk = 37`. Java/JVM target 17.
 - JDK: the system default `java` is 27-ea, which is too new. [gradle/gradle-daemon-jvm.properties](gradle/gradle-daemon-jvm.properties) makes Gradle run on JDK 21 (`java-21-openjdk-devel` from Rocky appstream).
 - SDK: `~/Android/Sdk` with `platform-tools`, `platforms;android-37.0`, `build-tools;37.0.0`. The user tests on a real phone over adb, with no emulator.
+- Releases: pushing a tag `vX.Y.Z` (must equal `versionName` in `app/build.gradle.kts`) runs `.github/workflows/release.yml`, which builds a signed APK and attaches `gridload-vX.Y.Z.apk` to a GitHub Release for Obtainium. Signing values come from gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) or `GRIDLOAD_KEYSTORE_FILE`/`_KEYSTORE_PASSWORD`/`_KEY_ALIAS`/`_KEY_PASSWORD` env vars. With neither, `assembleRelease` gives an unsigned APK, which is what F-Droid wants. CI secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. The keystore is never committed; losing it means users can't update in place, so back it up.
+- Regions: the app only works where a utility publishes a dynamic tariff, so the user picks a region (dropdown at the top of the screen). Only CKW (Central Switzerland) exists for now; more are planned. `Region(id, name, utility, pricesUrl)` and the `REGIONS` list (first = default) live in `core/.../Region.kt`, and `fetchPrices(region)` takes the region. The selected region is kept in the `ViewModel` only, so it resets to the default on process death; persisting it is a follow-up, since persistence is out of scope for now. Switching region drops the cached slots and fetches.
 - Refresh policy (because of the rate limit): one response covers the whole day. So on resume, recompute the colour from the cached slots, and fetch only when nothing is cached, no slot covers now, or the user taps refresh. Keep the slots in a `ViewModel` so rotation doesn't refetch. Recompute the colour about every minute while the app is visible, so it changes at slot boundaries.
 
 ## Current task scope
@@ -35,9 +37,11 @@ Do not add appliance management, optimization, or persistence yet. The user will
 
 ## Data source
 
-`GET https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise`
+Per region; add new ones to `REGIONS`. Only CKW so far, and its schema and thresholds are below. A new utility will probably need its own parser and schema notes here, and `classify` may need revisiting if its tariff differs.
 
-CKW (Switzerland) dynamic tariff. HTTPS, no auth, `access-control-allow-origin: *`. Rate limited: `x-ratelimit-limit: 4` per window (the reset header said 999 s). Fetch only on app open/resume and manual refresh, and cache responses locally while developing.
+CKW (Central Switzerland): `GET https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise`
+
+CKW serves only Central Switzerland (Zentralschweiz). HTTPS, no auth, `access-control-allow-origin: *`. Rate limited: `x-ratelimit-limit: 4` per window (the reset header said 999 s). Fetch only on app open/resume and manual refresh, and cache responses locally while developing.
 
 ### Response schema (inspected 2026-09-28)
 

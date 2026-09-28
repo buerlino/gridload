@@ -51,4 +51,11 @@ class CoreTest {
         val flat = slots.map { it.copy(price = 0.2) }
         assertEquals(Level.ORANGE, classify(flat, at("13:00"))!!.level)
     }
+
+    @Test
+    fun regionsHaveUniqueIdsAndHttpsUrls() {
+        assertEquals(REGIONS.size, REGIONS.map { it.id }.toSet().size)
+        assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") })
+        assertEquals(CKW, REGIONS.first())
+    }
 }
