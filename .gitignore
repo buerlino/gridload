@@ -1,10 +1,15 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
+# Gradle / build output
+.gradle/
 build/
-*.tsbuildinfo
+.kotlin/
+local.properties
+*.apk
+*.aab
+
+# Signing (never commit keystores or their passwords)
+*.jks
+*.keystore
+keystore.properties
 
 # Env / logs
 .env
@@ -13,5 +18,9 @@ build/
 
 # Editors / OS
 .idea/
+*.iml
 .vscode/
 .DS_Store
+captures/
+.externalNativeBuild/
+.cxx/

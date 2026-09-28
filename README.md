@@ -38,7 +38,7 @@ Data source: dynamic prices API
 
 ## Tech stack
 
-TypeScript + HTML.
+Native Android app (Kotlin + Jetpack Compose), distributed via F-Droid and Obtainium.
 
 ## License
 
