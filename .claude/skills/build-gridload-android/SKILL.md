@@ -111,7 +111,7 @@ assumptions instead of the real response is the most likely place this goes wron
 
 ## Progress (update this as steps finish)
 
-Last updated 2026-09-28.
+Last updated 2026-09-29.
 
 1. **Done.** API inspected; schema, thresholds (day-range thirds on `integrated`) and reasoning are in `CLAUDE.md`.
 2. **Done.** `:app` is in `settings.gradle.kts`; `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext) exist. No launcher icon yet (system default); ask the user whether to add one.
@@ -119,17 +119,76 @@ Last updated 2026-09-28.
 4. **Done.** `MainActivity.kt` (one screen: colour field, price, updated time, Refresh) and `MainViewModel.kt` (cache, refresh policy from `CLAUDE.md`).
 5. **Done.** `ANDROID_HOME=~/Android/Sdk ./gradlew :core:test :app:assembleDebug` succeeds; installed on the user's phone with `~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk` and confirmed showing a colour (orange on 2026-09-28 evening). `adb` isn't on PATH in Claude's shell.
 5b. **Done.** Region switcher (2026-09-28): `Region.kt` with CKW as the only region, `fetchPrices(region)`, dropdown in the UI. Selection is not persisted yet.
-6. **Partly done.** Signing config in `app/build.gradle.kts` and `.github/workflows/release.yml` are written; unsigned and signed local release builds verified with a throwaway keystore. Still to do: the user generates the real keystore and adds the four GitHub secrets (see `CLAUDE.md`), then pushes a tag to test the workflow.
-7. **Not started.** fdroiddata submission.
+5c. **Done.** Fetch cooldown (`Cooldown.kt`), status wording "Good/Fair/Bad time" and a "?" help dialog.
+6. **Done.** Signing + `.github/workflows/release.yml`. The user created the release keystore and the four GitHub secrets. **v0.1.0 was released on 2026-09-28** (tag `v0.1.0` at `7694594`) and installs via Obtainium.
+7. Superseded by Phase 2 of the roadmap below.
 
 Toolchain verified installed on 2026-09-28: JDK 21 at `/usr/lib/jvm/java-21-openjdk`, SDK at
 `~/Android/Sdk` (platform-tools, platforms;android-37.0, build-tools;37.0.0, licenses accepted),
 and `ANDROID_HOME`/`PATH` set in `~/.bashrc`. No phone was connected over adb at the time.
 
+## Roadmap after v0.1.0 (agreed with the user 2026-09-29)
+
+The app is split into two **modes**, chosen on first start and changeable in Settings:
+
+- **Spot price mode:** the app as in v0.1.0. The colour says run everything or wait, so it
+  needs no appliance list.
+- **Peak load mode:** built around the user's appliances and staying under the month's peak.
+
+Work phase by phase and update the status in brackets as things finish. iOS is out of scope
+for now; don't plan or start it.
+
+### Phase 1: v0.2, settings and first start (spot mode only) [not started]
+
+1. **Saved settings:** the chosen mode, the region and "first start done", in
+   SharedPreferences (Android's built-in key-value storage). No database.
+2. **Settings screen** behind an icon at the top left. It holds the mode switch and the region
+   picker. Open: move the region dropdown off the main screen into Settings (Claude's
+   suggestion), or keep it on the main screen. Ask the user.
+3. **Shorter help:** a short general part plus a short section per mode.
+4. **First-start flow:** help screen, then **Next**, then the mode choice (spot price or peak
+   load, each with its own logo). Open: ship v0.2 without the choice step and add it with peak
+   mode in Phase 4 (Claude's suggestion), or show peak mode as "coming soon" now. Ask the user.
+5. **App icon:** the user designs it and hands it over. Until then the system default stays.
+
+### Phase 2: publish on F-Droid [not started]
+
+Right after v0.2, once the icon is in. Needs store texts and screenshots in the repo
+(fastlane metadata) and possibly build tweaks the reviewers ask for. Their review takes weeks,
+so the later phases run while waiting.
+
+### Phase 3: research, no code [not started]
+
+6. **Early vs late in the day:** the colour currently compares now against the whole day,
+   including hours that are over, so late in the evening "wait if you can" can point to a cheap
+   period that has passed. Check whether the API can return tomorrow's prices (published around
+   11:00). If yes, compare against the next 24 hours; if not, against the rest of today.
+   Record the result and the decision in `CLAUDE.md`.
+7. **Other Swiss providers:** which utilities publish dynamic prices with a public API, and how
+   much of Switzerland they would cover. Output: a short list in `CLAUDE.md`. Each new utility
+   is then a separate small task added to `REGIONS`.
+
+### Phase 4: peak load mode [not started]
+
+8. **Peak load discussion with the user first.** It settles where the monthly peak comes from
+   (the app only knows what the user enters; it cannot read the smart meter), whether CKW
+   charges households for peak, and whether peak mode also uses the price. Record the outcome
+   in `CLAUDE.md` before writing code.
+9. **Appliance list:** name, watts, optional run time (e.g. washing machine 2000 W for 1 h),
+   and always on (fridge) or flexible. Saved on the phone. This adds a second screen.
+10. **Switching appliances on and off** in the app, with automatic off when the run time ends.
+    The app sums the current estimated draw.
+11. **Advice:** under the month's peak, adding more is fine. Over it, suggest the smallest
+    *flexible* appliance that brings the draw back under the peak (not simply the smallest
+    one), and never an always-on appliance.
+12. **Mode choice in first start and Settings,** with the two mode logos. Open: the user
+    designs the logos, or Claude uses simple built-in icons (e.g. a lightning bolt and a
+    gauge). Ask the user.
+
 ## Conventions
 
 - Commit only when the user asks; the user pushes themselves — don't `git push`.
-- Keep scope to the MVP above. If a step surfaces a genuinely open product decision (thresholds,
+- Keep scope to the MVP above plus the roadmap phases, in order. If a step surfaces a genuinely open product decision (thresholds,
   package id, app name, whether to add an icon now vs. later), ask rather than guessing — but
   don't ask about anything this skill has already settled (platform, architecture, distribution
   approach).

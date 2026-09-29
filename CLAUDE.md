@@ -8,7 +8,7 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 
 ## Stack
 
-- Native Android: Kotlin + Jetpack Compose, single Activity, one screen. Distributed via F-Droid and Obtainium (GitHub Releases).
+- Native Android: Kotlin + Jetpack Compose, single Activity. One main screen, plus Settings and first-start screens from v0.2 and an appliance screen in peak load mode. Distributed via F-Droid and Obtainium (GitHub Releases).
 - No Flutter / React Native / KMP. No proprietary dependencies (Firebase, Play Services, analytics, ads). Only the `INTERNET` permission.
 - A small `core` package with no Android dependencies holds the API client, the JSON model and the classification. Unit-test it directly.
 - Detailed build plan and progress: [.claude/skills/build-gridload-android/SKILL.md](.claude/skills/build-gridload-android/SKILL.md). Where it and this file disagree, this file wins.
@@ -23,18 +23,22 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 - JDK: the system default `java` is 27-ea, which is too new. [gradle/gradle-daemon-jvm.properties](gradle/gradle-daemon-jvm.properties) makes Gradle run on JDK 21 (`java-21-openjdk-devel` from Rocky appstream).
 - SDK: `~/Android/Sdk` with `platform-tools`, `platforms;android-37.0`, `build-tools;37.0.0`. The user tests on a real phone over adb, with no emulator.
 - Releases: pushing a tag `vX.Y.Z` (must equal `versionName` in `app/build.gradle.kts`) runs `.github/workflows/release.yml`, which builds a signed APK and attaches `gridload-vX.Y.Z.apk` to a GitHub Release for Obtainium. Signing values come from gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) or `GRIDLOAD_KEYSTORE_FILE`/`_KEYSTORE_PASSWORD`/`_KEY_ALIAS`/`_KEY_PASSWORD` env vars. With neither, `assembleRelease` gives an unsigned APK, which is what F-Droid wants. CI secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. The keystore is never committed; losing it means users can't update in place, so back it up.
-- Regions: the app only works where a utility publishes a dynamic tariff, so the user picks a region (dropdown at the top of the screen). Only CKW (Central Switzerland) exists for now; more are planned. `Region(id, name, utility, pricesUrl)` and the `REGIONS` list (first = default) live in `core/.../Region.kt`, and `fetchPrices(region)` takes the region. The selected region is kept in the `ViewModel` only, so it resets to the default on process death; persisting it is a follow-up, since persistence is out of scope for now. Switching region drops the cached slots and fetches.
+- Regions: the app only works where a utility publishes a dynamic tariff, so the user picks a region (dropdown at the top of the screen). Only CKW (Central Switzerland) exists for now; more are planned. `Region(id, name, utility, pricesUrl)` and the `REGIONS` list (first = default) live in `core/.../Region.kt`, and `fetchPrices(region)` takes the region. The selected region is kept in the `ViewModel` only, so it resets to the default on process death; saving it is part of v0.2. Switching region drops the cached slots and fetches.
 - UI: a "?" button at the top right opens a help dialog explaining the colours, the region and refresh. Keep it in sync with the wording above.
 - Refresh policy (because of the rate limit): one response covers the whole day. So on resume, recompute the colour from the cached slots, and fetch only when nothing is cached, no slot covers now, or the user taps refresh. Never fetch more often than a cooldown: 5 minutes after any attempt (successful or not), or 30 seconds when nothing is shown, so tapping refresh repeatedly can't hit the rate limit (`Cooldown.kt`). A blocked refresh shows a short notice instead. Switching region resets the cooldown. Keep the slots in a `ViewModel` so rotation doesn't refetch. Recompute the colour about every minute while the app is visible, so it changes at slot boundaries.
 
 ## Current task scope
 
-Very basic MVP: a single field showing red / orange / green.
+v0.1.0 is released: a single field showing red / orange / green.
 - Red = not good to run appliances (shown as "Bad time", "Wait if you can")
 - Orange = run only if you must (shown as "Fair time", "Only run what you need")
 - Green = run now! (shown as "Good time", "Run your appliances now")
 
-Do not add appliance management, optimization, or persistence yet. The user will give further instructions step by step.
+Next work follows the roadmap in the skill (agreed 2026-09-29): v0.2 with Settings, saved settings and a first-start flow; then the F-Droid submission; then research (tomorrow's prices, other Swiss providers); then peak load mode. The app gets two modes, chosen on first start and switchable in Settings (icon top left):
+- **Spot price mode:** the current behaviour. No appliance tracking, because at any moment you either run everything or wait.
+- **Peak load mode:** appliances with watts and optional run time, an estimated current draw, and advice to stay under the month's peak.
+
+Small saved settings (mode, region, first start done) in SharedPreferences are in scope from v0.2; still no database. Appliances are in scope only with peak load mode (Phase 4), and only after the peak load discussion with the user is recorded here. iOS is out of scope for now. The user will give further instructions step by step.
 
 ## Data source
 
