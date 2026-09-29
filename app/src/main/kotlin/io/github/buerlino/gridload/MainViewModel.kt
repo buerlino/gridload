@@ -1,6 +1,8 @@
 package io.github.buerlino.gridload
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
@@ -19,6 +21,7 @@ import java.time.Instant
 
 data class UiState(
     val region: Region = REGIONS.first(),
+    val firstStartDone: Boolean = true,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
@@ -31,11 +34,18 @@ data class UiState(
  * Holds the day's slots so rotation doesn't refetch. The API is rate limited and one response
  * covers the whole day, so we fetch only when nothing usable is cached or the user refreshes,
  * and never more often than the cooldown in core allows.
+ * The region and "first start done" are saved in SharedPreferences.
  */
-class MainViewModel : ViewModel() {
+class MainViewModel(app: Application) : AndroidViewModel(app) {
+    private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private var slots: List<PriceSlot> = emptyList()
     private var lastAttempt: Instant? = null
-    private val _state = MutableStateFlow(UiState())
+    private val _state = MutableStateFlow(
+        UiState(
+            region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: REGIONS.first(),
+            firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
+        ),
+    )
     val state: StateFlow<UiState> = _state
 
     /** On app start/resume: recompute from the cache, fetch only if no slot covers now. */
@@ -53,10 +63,16 @@ class MainViewModel : ViewModel() {
     /** Switching region drops the cached slots, since they belong to the old region's tariff. */
     fun selectRegion(region: Region) {
         if (region == _state.value.region) return
+        prefs.edit().putString(KEY_REGION, region.id).apply()
         slots = emptyList()
         lastAttempt = null
-        _state.update { UiState(region = region) }
+        _state.update { UiState(region = region, firstStartDone = it.firstStartDone) }
         refresh()
+    }
+
+    fun finishFirstStart() {
+        prefs.edit().putBoolean(KEY_FIRST_START_DONE, true).apply()
+        _state.update { it.copy(firstStartDone = true) }
     }
 
     fun refresh() {
@@ -86,3 +102,6 @@ class MainViewModel : ViewModel() {
         }
     }
 }
+
+private const val KEY_REGION = "region"
+private const val KEY_FIRST_START_DONE = "first_start_done"

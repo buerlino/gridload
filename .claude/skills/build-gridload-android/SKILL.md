@@ -25,8 +25,10 @@ One-screen Android app. It shows a single colored field:
 The color is derived from the dynamic electricity price API:
 `https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise`
 
-Target distribution is F-Droid + Obtainium. Nothing else — no appliance management, no
-scheduling/optimization, no accounts. Keep resisting scope creep; this is deliberately minimal.
+Target distribution is F-Droid + Obtainium. v0.1.0 is exactly this (spot price mode). The
+roadmap below adds Settings, a first-start flow and later a **peak load mode** with an
+appliance list; its design lives in `CLAUDE.md` under "Peak load mode". Beyond the roadmap:
+no accounts, no scheduling/optimization engine, no cloud. Keep resisting scope creep.
 
 ## Platform decision (settled — do not relitigate)
 
@@ -58,9 +60,10 @@ Native Android: **Kotlin + Jetpack Compose**. Reasoning, for context if it's eve
   Keep `core` free of Android framework/UI dependencies and unit-test it directly. This is also
   what would get ported first if a native iOS app ever happens — keep it small and readable for
   that reason too, not just for testability.
-- **No background work for v1.** Fetch on app open/resume plus manual refresh only. This keeps
-  the only required permission to `INTERNET`, and avoids WorkManager complexity that the "very
-  very basic" scope doesn't call for. (Background refresh + notifications are a plausible later
+- **No background work.** Fetch on app open/resume plus manual refresh only. This keeps
+  the only required permission to `INTERNET`, and avoids WorkManager complexity. Peak load mode
+  keeps this: the estimated draw and the monthly peak are computed from saved start/stop times
+  whenever the app is opened. (Background refresh + notifications are a plausible later
   add-on, not now.)
 - **No proprietary/non-free dependencies.** No Firebase, no Play Services, no ads, no
   analytics/crash SDKs. Any of these either breaks F-Droid inclusion outright or adds an
@@ -111,7 +114,7 @@ assumptions instead of the real response is the most likely place this goes wron
 
 ## Progress (update this as steps finish)
 
-Last updated 2026-09-29.
+Last updated 2026-09-29 (peak load discussion recorded).
 
 1. **Done.** API inspected; schema, thresholds (day-range thirds on `integrated`) and reasoning are in `CLAUDE.md`.
 2. **Done.** `:app` is in `settings.gradle.kts`; `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext) exist. No launcher icon yet (system default); ask the user whether to add one.
@@ -138,7 +141,12 @@ The app is split into two **modes**, chosen on first start and changeable in Set
 Work phase by phase and update the status in brackets as things finish. iOS is out of scope
 for now; don't plan or start it.
 
-### Phase 1: v0.2, settings and first start (spot mode only) [not started]
+### Phase 1: v0.2, settings and first start (spot mode only) [built and tested on the phone 2026-09-29; app icon still to come]
+
+The user chose the full plan: region picker moved into Settings, first start with the mode
+choice and peak load shown as "coming soon". Done: items 1 to 4 (the mode isn't saved yet,
+since spot is the only choice). `versionName` is 0.2.0 (`versionCode` 2) but not tagged.
+New file `SettingsScreen.kt` (first start, Settings, mode cards, region picker).
 
 1. **Saved settings:** the chosen mode, the region and "first start done", in
    SharedPreferences (Android's built-in key-value storage). No database.
@@ -168,19 +176,22 @@ so the later phases run while waiting.
    much of Switzerland they would cover. Output: a short list in `CLAUDE.md`. Each new utility
    is then a separate small task added to `REGIONS`.
 
-### Phase 4: peak load mode [not started]
+### Phase 4: peak load mode [discussion started 2026-09-29]
 
-8. **Peak load discussion with the user first.** It settles where the monthly peak comes from
-   (the app only knows what the user enters; it cannot read the smart meter), whether CKW
-   charges households for peak, and whether peak mode also uses the price. Record the outcome
-   in `CLAUDE.md` before writing code.
+8. **Peak load discussion with the user.** [Partly done.] Recorded in `CLAUDE.md` under "Peak
+   load mode": the goal (keep the month's highest quarter-hour average low, then prefer cheap
+   times), the model (baseline + running appliances, averaged per quarter hour), the app
+   tracks the monthly peak itself, and peak mode uses the price too. Still open: the CKW
+   tariff details (the user is getting portal access) and the four open points listed there.
+   Settle those before writing code.
 9. **Appliance list:** name, watts, optional run time (e.g. washing machine 2000 W for 1 h),
-   and always on (fridge) or flexible. Saved on the phone. This adds a second screen.
+   flexible or not, plus the baseline. Saved on the phone as JSON. This adds a second screen.
 10. **Switching appliances on and off** in the app, with automatic off when the run time ends.
-    The app sums the current estimated draw.
-11. **Advice:** under the month's peak, adding more is fine. Over it, suggest the smallest
-    *flexible* appliance that brings the draw back under the peak (not simply the smallest
-    one), and never an always-on appliance.
+    `:core` computes the average draw per quarter hour and the month's peak from the saved
+    runs.
+11. **Advice:** as in `CLAUDE.md`: the peak is the hard limit, the price decides within it.
+    Over the peak, suggest the smallest *flexible* appliance that brings the quarter-hour
+    average back under the peak (not simply the smallest one), and never an always-on one.
 12. **Mode choice in first start and Settings,** with the two mode logos. Open: the user
     designs the logos, or Claude uses simple built-in icons (e.g. a lightning bolt and a
     gauge). Ask the user.
@@ -188,6 +199,8 @@ so the later phases run while waiting.
 ## Conventions
 
 - Commit only when the user asks; the user pushes themselves — don't `git push`.
+- Simplest approach that works (user, 2026-09-29): don't over-engineer, don't clutter the UI
+  or the code. When unsure, or when you see a simpler or better idea, ask the user first.
 - Keep scope to the MVP above plus the roadmap phases, in order. If a step surfaces a genuinely open product decision (thresholds,
   package id, app name, whether to add an icon now vs. later), ask rather than guessing — but
   don't ask about anything this skill has already settled (platform, architecture, distribution
