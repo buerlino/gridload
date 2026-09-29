@@ -18,6 +18,8 @@ One field showing a single traffic-light status:
 | Orange | Fair time: average price, only run what you need |
 | Green  | Good time: cheap, run your appliances now |
 
+The price now is compared with the next 24 hours (tomorrow's prices come out at noon; until then with today), and the screen shows when the next good time starts.
+
 The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so the app has a **region switcher** at the top of the screen.
 
 | Region | Utility | Data source |

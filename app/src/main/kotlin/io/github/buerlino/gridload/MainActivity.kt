@@ -45,6 +45,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.buerlino.gridload.core.Level
 import kotlinx.coroutines.delay
+import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -59,10 +61,9 @@ class MainActivity : ComponentActivity() {
                 val lifecycleOwner = LocalLifecycleOwner.current
                 LaunchedEffect(lifecycleOwner) {
                     lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                        viewModel.onStart()
                         while (true) {
+                            viewModel.update()
                             delay(60_000)
-                            viewModel.recompute()
                         }
                     }
                 }
@@ -121,6 +122,7 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
             hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
             if (status != null) {
                 Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
+                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = 18.sp) }
             }
             state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
         }
@@ -138,6 +140,13 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
             ) { Text("Refresh") }
         }
     }
+}
+
+/** "Next good time: 11:00", with "tomorrow" when it isn't today. */
+private fun nextGoodTime(start: OffsetDateTime): String {
+    val local = start.atZoneSameInstant(ZoneId.systemDefault())
+    val day = if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow "
+    return "Next good time: $day${timeFormat.format(local)}"
 }
 
 @Composable
@@ -159,7 +168,7 @@ fun HelpContent() {
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("Each 15-minute price is compared with the rest of today. Refresh checks for new prices, at most every 5 minutes.")
+        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out at noon; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
     }
 }
 

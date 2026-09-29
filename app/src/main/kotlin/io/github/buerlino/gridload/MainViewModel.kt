@@ -11,6 +11,7 @@ import io.github.buerlino.gridload.core.Status
 import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.mayFetch
+import io.github.buerlino.gridload.core.wantsFetch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,9 +32,10 @@ data class UiState(
 )
 
 /**
- * Holds the day's slots so rotation doesn't refetch. The API is rate limited and one response
- * covers the whole day, so we fetch only when nothing usable is cached or the user refreshes,
- * and never more often than the cooldown in core allows.
+ * Holds the cached slots so rotation doesn't refetch. The API is rate limited and one response
+ * covers today and, from noon, tomorrow, so we fetch only when nothing covers now, when
+ * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
+ * than the cooldown in core allows.
  * The region and "first start done" are saved in SharedPreferences.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -48,14 +50,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
     val state: StateFlow<UiState> = _state
 
-    /** On app start/resume: recompute from the cache, fetch only if no slot covers now. */
-    fun onStart() {
+    /**
+     * On app start/resume and every minute: recompute from the cache, and fetch when [wantsFetch]
+     * says so. Fetches the user didn't ask for always wait the full cooldown.
+     */
+    fun update() {
         recompute()
-        if (_state.value.status == null) refresh()
+        val now = Instant.now()
+        if (wantsFetch(slots, now) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
     }
 
-    /** Cheap, no network: call periodically so the colour follows slot boundaries. */
-    fun recompute() {
+    private fun recompute() {
         val status = classify(slots, Instant.now())
         _state.update { it.copy(status = status, notice = null) }
     }

@@ -84,21 +84,23 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Phase 3: research, no code [not started; the user put the load data import (Phase 4.1) first]
+### Phase 3: research [item 1 done 2026-09-29, not released yet; item 2 not started]
 
-1. **Early vs late in the day:** the colour compares now against the whole day, including hours
-   that are over, so late in the evening "wait if you can" can point to a cheap period that has
-   passed. Check whether the API can return tomorrow's prices (published around 11:00). If yes,
-   compare against the next 24 hours; if not, against the rest of today. Record the result and
-   the decision in `CLAUDE.md`.
+1. **Early vs late in the day [done]:** the API returns tomorrow with `start_timestamp` and
+   `end_timestamp` in UTC (from noon). The app now fetches today + tomorrow, refetches once after
+   noon, compares with the next 24 hours (today before noon) and shows the next good time.
+   Findings, numbers and the rejected "rest of today" are in `CLAUDE.md` under Data source and
+   Classification. To analyse prices again, a request of up to 31 days (past days work) gives
+   plenty of data in one call; mind the rate limit of 4 per window.
 2. **Other Swiss providers:** which utilities publish dynamic prices with a public API, and how
    much of Switzerland they would cover. Output: a short list in `CLAUDE.md`. Each new utility
    is then a separate small task added to `REGIONS`.
 
 ### Phase 4: peak load mode [discussion started 2026-09-29; next: load data import]
 
-The design is in `CLAUDE.md` under "Peak load mode". Still open: the CKW tariff details (the
-user is getting portal access) and the open points listed there.
+The design is in `CLAUDE.md` under "Peak load mode". The CKW price sheet confirms the peak
+charge (1.00 CHF/kW per month on Home dynamic). Still open: the household's product and the
+portal details (the user is getting access), and the open points listed there.
 
 1. **Load data import (next task, user's idea 2026-09-29).** The user has 3 years of smart meter
    data, one Excel sheet per year. Import it (Excel or CSV) and derive monthly peaks, base load

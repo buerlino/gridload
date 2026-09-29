@@ -23,10 +23,10 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 - JDK: the system default `java` is 27-ea, which is too new. [gradle/gradle-daemon-jvm.properties](gradle/gradle-daemon-jvm.properties) makes Gradle run on JDK 21 (`java-21-openjdk-devel` from Rocky appstream).
 - SDK: `~/Android/Sdk` with `platform-tools`, `platforms;android-37.0`, `build-tools;37.0.0`. The user tests on a real phone over adb, with no emulator.
 - Releases: pushing a tag `vX.Y.Z` (must equal `versionName` in `app/build.gradle.kts`) runs `.github/workflows/release.yml`, which builds a signed APK and attaches `gridload-vX.Y.Z.apk` to a GitHub Release for Obtainium. Signing values come from gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) or `GRIDLOAD_KEYSTORE_FILE`/`_KEYSTORE_PASSWORD`/`_KEY_ALIAS`/`_KEY_PASSWORD` env vars. With neither, `assembleRelease` gives an unsigned APK, which is what F-Droid wants. `dependenciesInfo` is off in `app/build.gradle.kts` because F-Droid rejects AGP's encrypted dependency block (it's only in signed release APKs). Each release also needs `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (max 500 characters), which F-Droid shows as the release notes. F-Droid uses reproducible builds: it rebuilds each tag and publishes our signed GitHub APK only if its build is byte-identical apart from the signature, so the build must stay deterministic (no timestamps, build paths or machine-specific values in the APK). CI secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. The keystore is never committed; losing it means users can't update in place, on Obtainium and on F-Droid (the fdroiddata recipe pins its certificate in `AllowedAPKSigningKeys`), so back it up. The recipe `metadata/io.github.buerlino.gridload.yml` lives in fdroiddata, not in this repo; the merge request and the recipe choices are in the skill (Phase 2).
-- Regions: the app only works where a utility publishes a dynamic tariff, so the user picks a region (dropdown at the top of the screen). Only CKW (Central Switzerland) exists for now; more are planned. `Region(id, name, utility, pricesUrl)` and the `REGIONS` list (first = default) live in `core/.../Region.kt`, and `fetchPrices(region)` takes the region. The selected region is saved in SharedPreferences (from v0.2). Switching region drops the cached slots and fetches.
+- Regions: the app only works where a utility publishes a dynamic tariff, so the user picks a region (dropdown at the top of the screen). Only CKW (Central Switzerland) exists for now; more are planned. `Region(id, name, utility, pricesUrl)` and the `REGIONS` list (first = default) live in `core/.../Region.kt`, and `fetchPrices(region)` takes the region and requests today and tomorrow (`PriceApi.kt`). The selected region is saved in SharedPreferences (from v0.2). Switching region drops the cached slots and fetches.
 - UI: a "?" button at the top right opens a help dialog: a short general part, then one short part per mode (colours, refresh). The same text is the first page of the first start. Keep it in sync with the wording above.
 - v0.2 (built 2026-09-29, not released yet): a ⚙ at the top left opens Settings (mode and region picker); the main screen shows the region as plain text. The first start is the help, then **Next**, then the mode choice; peak load is shown disabled as "coming soon". The region and "first start done" are saved in SharedPreferences. The mode isn't saved until peak mode exists, because spot is the only choice. The mode logos are emoji placeholders (⚡ spot, 📊 peak) until the user decides.
-- Refresh policy (because of the rate limit): one response covers the whole day. So on resume, recompute the colour from the cached slots, and fetch only when nothing is cached, no slot covers now, or the user taps refresh. Never fetch more often than a cooldown: 5 minutes after any attempt (successful or not), or 30 seconds when nothing is shown, so tapping refresh repeatedly can't hit the rate limit (`Cooldown.kt`). A blocked refresh shows a short notice instead. Switching region resets the cooldown. Keep the slots in a `ViewModel` so rotation doesn't refetch. Recompute the colour about every minute while the app is visible, so it changes at slot boundaries.
+- Refresh policy (because of the rate limit): one response covers today and, once published, tomorrow. So on resume and every minute while visible, recompute the colour from the cached slots, and fetch only when no slot covers now, when it's after noon and the cache doesn't reach tomorrow yet (`wantsFetch`), or when the user taps refresh. That's about two fetches a day. Fetches the user didn't ask for always wait the full 5-minute cooldown. Never fetch more often than a cooldown: 5 minutes after any attempt (successful or not), or 30 seconds when nothing is shown, so tapping refresh repeatedly can't hit the rate limit (`Cooldown.kt`). A blocked refresh shows a short notice instead. Switching region resets the cooldown. Keep the slots in a `ViewModel` so rotation doesn't refetch. Recomputing about every minute makes the colour change at slot boundaries.
 
 ## Current task scope
 
@@ -35,7 +35,7 @@ v0.2.1 is released (GitHub Releases/Obtainium) and submitted to F-Droid: merge r
 - Orange = run only if you must (shown as "Fair time", "Only run what you need")
 - Green = run now! (shown as "Good time", "Run your appliances now")
 
-Next work follows the roadmap in the skill (agreed 2026-09-29): v0.2 (Settings, saved settings, first start) and the F-Droid submission are done; next is research (tomorrow's prices, other Swiss providers), then peak load mode. The app gets two modes, chosen on first start and switchable in Settings (icon top left):
+Next work follows the roadmap in the skill (agreed 2026-09-29): v0.2 (Settings, saved settings, first start) and the F-Droid submission are done; next is research (other Swiss providers), then peak load mode. Tomorrow's prices are done (2026-09-29, not released yet): the colour compares with the next 24 hours and the screen shows the next good time; see [Classification](#classification-red--orange--green). The app gets two modes, chosen on first start and switchable in Settings (icon top left):
 - **Spot price mode:** the current behaviour. No appliance tracking, because at any moment you either run everything or wait.
 - **Peak load mode:** a baseline plus appliances with watts and optional run time, an estimated draw per quarter hour, and advice that keeps the month's peak low and prefers cheap times. See [Peak load mode](#peak-load-mode-discussed-2026-09-29).
 
@@ -46,6 +46,11 @@ Small saved settings (mode, region, first start done) in SharedPreferences are i
 Per region; add new ones to `REGIONS`. Only CKW so far, and its schema and thresholds are below. A new utility will probably need its own parser and schema notes here, and `classify` may need revisiting if its tariff differs.
 
 CKW (Central Switzerland): `GET https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise`
+
+Query parameters (from CKW's "technische Voraussetzungen" page, tested 2026-09-29), all optional:
+- `tariff_type`: `electricity`, `grid_usage`, `grid` or `integrated`. With one set, the response has only that component. The app asks for `integrated`.
+- `tariff_name`: `home_dynamic` (under 50 MWh/year, households) or `business_dynamic`. The app asks for `home_dynamic`; without it the values were the same.
+- `start_timestamp`, `end_timestamp`: send them in UTC (`2026-09-28T22:00:00Z`), and the response timestamps come back in UTC too (`2026-09-28T22:00Z`). Without them the API returns only today. The span may be at most 31 days (400 otherwise), past days work (August 2026 did), a range past the published data just ends there, and the slot starting at `end_timestamp` is included. The app requests today's local midnight to the midnight after tomorrow and drops that extra slot.
 
 CKW serves only Central Switzerland (Zentralschweiz). HTTPS, no auth, `access-control-allow-origin: *`. Rate limited: `x-ratelimit-limit: 4` per window (the reset header said 999 s). Fetch only on app open/resume and manual refresh, and cache responses locally while developing.
 
@@ -67,32 +72,48 @@ CKW serves only Central Switzerland (Zentralschweiz). HTTPS, no auth, `access-co
 }
 ```
 
-- `prices`: 96 quarter-hour slots covering the current local day (00:00 to 24:00). Published around 11:00 the day before. Without query parameters the endpoint returned only the current day, not tomorrow.
-- Timestamps: ISO 8601 with an explicit offset (Europe/Zurich, `+02:00` in summer and `+01:00` in winter), minute precision, no seconds. Parse them with the offset (`OffsetDateTime`); don't assume a timezone.
+- `prices`: quarter-hour slots, 96 per local day (00:00 to 24:00). Without query parameters only the current day.
+- Tomorrow's prices are published from 12:00 (CKW's wording); `publication_timestamp` was 11:19 and 11:20 local on the days seen. The app looks for them from 12:00 (`TOMORROW_PUBLISHED`).
+- The prices are **hourly**: all four quarters of an hour always had the same price (Aug and Sep 2026). CKW says it follows the forecast grid load, not the market.
+- Timestamps: ISO 8601 with an explicit offset (Europe/Zurich, `+02:00` in summer and `+01:00` in winter, or `Z` when the request used UTC), minute precision, no seconds. Parse them with the offset (`OffsetDateTime`); don't assume a timezone.
 - All components are single-element arrays with unit `CHF_kWh`: already CHF per kWh, so no conversion is needed.
 - `integrated` = `grid` + `electricity` (the total price). On the inspected day `electricity` was flat at 0.12 and all the variation came from `grid` (and `grid_usage`, which is part of `grid`).
-- Observed range on 2026-09-28: `integrated` 0.1513 to 0.2801. Cheapest around 11:00 to 16:00 (PV), peaks at 06:00 to 09:00 and 18:00 to 20:00.
+- CKW's stated range is 0.1 to 32 Rp/kWh for the dynamic part. Observed `integrated`, 1 Aug to 30 Sep 2026: the daily minimum was 0.1513 on nearly every day (a floor), the maximum 0.25 to 0.33.
+- Every day has the same shape: one cheap valley from about 11:00 to 16:00 (PV). The night is **not** cheap (0.21 to 0.27). On weekdays the morning 06:00 to 09:00 is the peak; on weekends the dearest hour is usually midnight. The same hour varies only about ±1.5 Rp across weekdays. Exceptions happen: on 2026-09-09 the morning was 0.31 to 0.33 and the cheapest hour was 04:00.
 
 ### Classification (red / orange / green)
 
 Signal: the `integrated` value of the slot where `start <= now < end`.
 
-Thresholds are relative to that day's range. With `min` and `max` taken over all slots in the response and `range = max - min`:
+Reference window: the 24 hours starting at the current slot (`WINDOW`), about as long as appliances are usually delayed. If the data doesn't reach that far (tomorrow isn't out yet), the window moves back to end with the last known slot. The app fetches today and tomorrow, so before noon the window is today and after noon it's the next 24 hours.
+
+Thresholds are relative to the window's range. With `min` and `max` taken over the window and `range = max - min`:
 - **green** if `price <= min + range/3`
 - **red** if `price >= min + 2*range/3`
 - **orange** otherwise
 - If `range == 0` (a flat day), show **orange**, since no time is better than any other.
 - If no slot covers `now` (stale or missing data), show no colour. Display an error or "no data" state instead of guessing.
 
+When now isn't green, `Status.nextGreen` is the first green slot later in the window. The screen shows it as "Next good time: 11:00" or "Next good time: tomorrow 11:00". If tomorrow's prices are missing in the evening, there is none (today's valley is over), so nothing is shown.
+
 Why: the goal is to shift load to times that are better for the grid than the rest of the same day, not to hit an absolute CHF price. A day-relative split survives tariff changes without retuning, which fixed CHF bands would not. It also only marks slots green or red when they are clearly apart from the rest. The user chose this over rank terciles, which force an even 1/3 split and on 2026-09-28 marked the moderate 20:00 to 23:00 evening red. `integrated` is used rather than `grid` so the colour stays correct if the energy component ever starts varying too.
+
+Why the next 24 hours (checked 2026-09-29 on 1 Aug to 30 Sep 2026): you can't run an appliance in the past, so "wait if you can" should point to a cheaper time that is still coming. The old window, the calendar day, compared the evening with a noon that was over. That worked for CKW only because tomorrow's noon looks the same. Each quarter hour was scored by what waiting up to 24 h would really have saved:
+- With the 24-hour window, green was 33% of the time, orange 22%, red 45%. Waiting would have saved on average 1.1 Rp/kWh at green, 6.9 at orange and 9.8 at red. Only 1.1% of greens missed a saving of more than 5 Rp, and no red had less than 2 Rp to gain.
+- The calendar day scored almost the same (2.1% of greens missed more than 5 Rp) and differed in about 9% of hours, always orange against red. The main gain of the window is the next good time.
+- Rejected: "the rest of today". Late in the evening it compares a few expensive hours with each other and shows green at 0.23 while tomorrow's noon is 0.15; 21% of its greens missed more than 5 Rp.
+- Known weak point, left as is: the maximum is often one expensive hour (a spike to 0.33 moves the red line up and turns that evening orange). A percentile instead of `max` would fix it, but the effect is only orange against red.
 
 ## Peak load mode (discussed 2026-09-29)
 
-### Tariff (not confirmed yet)
+### Tariff (partly confirmed 2026-09-29)
 
-The user's understanding (from university) is that a new peak load tariff bills consumption based on the month's highest 15-minute average draw. The user is getting access to the family's CKW customer portal. Check there, and record the answers here:
-- Does the household tariff have a peak charge at all?
-- How is it charged: CHF per kW of the monthly peak on top of the energy price, or does the peak change the price of all kWh?
+CKW's 2026 price sheet for grid products (Preisinformation Netzprodukte 2026, CKW Netz E/ES/Home dynamic) has a **Leistungstarif**: "Bei der Leistung wird die höchste während 15 Minuten beanspruchte mittlere Leistung (kW) im Monat gemessen und in Rechnung gestellt." It's per kW of the month's peak on top of the kWh prices:
+- Home dynamic: 1.00 CHF/kW per month excl. VAT (1.08 incl. 8.1% VAT).
+- The standard single tariff E9: 1.50 CHF/kW per month (1.62 incl. VAT); ES10: 0.50.
+
+So lowering the monthly peak by 2 kW saves about 2 CHF a month. By comparison, a 1 kWh run at green instead of red saves about 10 Rp. Still to check in the family's CKW customer portal (the user is getting access):
+- Which product the household is on.
 - Are the 15-minute windows the fixed quarter hours (:00, :15, :30, :45), like the price slots?
 - Does the portal show the 15-minute load profile and the month's measured peak? That would let the user calibrate the baseline and check the app's estimate.
 

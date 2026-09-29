@@ -21,3 +21,14 @@ fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Bool
     val cooldown = if (hasCurrentData) FETCH_COOLDOWN else RETRY_COOLDOWN
     return Duration.between(lastAttempt, now) >= cooldown
 }
+
+/**
+ * Whether to fetch without the user asking: no cached slot covers [now], or tomorrow's prices
+ * should be out (from [TOMORROW_PUBLISHED]) but the cache ends today.
+ */
+fun wantsFetch(slots: List<PriceSlot>, now: Instant): Boolean {
+    if (slots.none { !now.isBefore(it.start.toInstant()) && now.isBefore(it.end.toInstant()) }) return true
+    val local = now.atZone(TARIFF_ZONE)
+    val tomorrow = local.toLocalDate().plusDays(1).atStartOfDay(TARIFF_ZONE).toInstant()
+    return !local.toLocalTime().isBefore(TOMORROW_PUBLISHED) && slots.maxOf { it.end.toInstant() } <= tomorrow
+}
