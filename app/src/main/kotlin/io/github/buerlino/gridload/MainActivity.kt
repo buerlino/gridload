@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
@@ -67,10 +68,36 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+                val peak by viewModel.peak.collectAsStateWithLifecycle()
+                val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
+                var showGuide by rememberSaveable { mutableStateOf(false) }
                 when {
-                    !state.firstStartDone -> FirstStartScreen(onDone = viewModel::finishFirstStart)
-                    showSettings -> SettingsScreen(state.region, viewModel::selectRegion, onBack = { showSettings = false })
+                    !state.firstStartDone || showGuide -> SetupGuide(
+                        state.mode, state.region, peak, importMessage,
+                        onImport = viewModel::importLoadData,
+                        onGoalOffset = viewModel::setGoalOffset,
+                        onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
+                        onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
+                    )
+                    showSettings -> SettingsScreen(
+                        state, peak, importMessage,
+                        onSelectMode = viewModel::selectMode,
+                        onSelectRegion = viewModel::selectRegion,
+                        onImport = viewModel::importLoadData,
+                        onGoalOffset = viewModel::setGoalOffset,
+                        onOpenGuide = { showGuide = true },
+                        onBack = { showSettings = false },
+                    )
+                    state.mode == Mode.PEAK -> PeakScreen(
+                        state, peak,
+                        onRefresh = viewModel::refresh,
+                        onOpenSettings = { showSettings = true },
+                        onStart = viewModel::start,
+                        onStop = viewModel::stop,
+                        onSave = viewModel::saveAppliance,
+                        onDelete = viewModel::deleteAppliance,
+                    )
                     else -> Screen(state, onRefresh = viewModel::refresh, onOpenSettings = { showSettings = true })
                 }
             }
@@ -78,43 +105,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val GREEN = Color(0xFF2E7D32)
-private val ORANGE = Color(0xFFFFA000)
-private val RED = Color(0xFFC62828)
-private val GREY = Color(0xFF616161)
+val GREEN = Color(0xFF2E7D32)
+val ORANGE = Color(0xFFFFA000)
+val RED = Color(0xFFC62828)
+val GREY = Color(0xFF616161)
 
-private data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
+data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
 
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 @Composable
 private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> Unit) {
     val status = state.status
-    val style = when (status?.level) {
-        Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
-        Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
-        Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
-        null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No data", null)
-    }
-    val (background, content, label, hint) = style
+    val (background, content, label, hint) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
     if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
-        TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.TopStart)) {
-            Text("⚙", color = content, fontSize = 22.sp)
-        }
-        Text(
-            "${state.region.name} (${state.region.utility})",
-            color = content,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            // Clear of the ⚙ and ? buttons; long names wrap.
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp, start = 48.dp, end = 48.dp),
-        )
-        TextButton(onClick = { showHelp = true }, modifier = Modifier.align(Alignment.TopEnd)) {
-            Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
+        TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -144,15 +152,43 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
     }
 }
 
+fun look(state: UiState): Look = when (state.status?.level) {
+    Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
+    Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
+    Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
+    null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No data", null)
+}
+
+/** ⚙ at the top left, the region in the middle, ? at the top right. */
+@Composable
+fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, onHelp: () -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.TopStart)) {
+            Text("⚙", color = content, fontSize = 22.sp)
+        }
+        Text(
+            "${state.region.name} (${state.region.utility})",
+            color = content,
+            fontSize = 16.sp,
+            textAlign = TextAlign.Center,
+            // Clear of the ⚙ and ? buttons; long names wrap.
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp, start = 48.dp, end = 48.dp),
+        )
+        TextButton(onClick = onHelp, modifier = Modifier.align(Alignment.TopEnd)) {
+            Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 /** "Next good time: 11:00", with "tomorrow" when it isn't today. */
-private fun nextGoodTime(start: OffsetDateTime): String {
+fun nextGoodTime(start: OffsetDateTime): String {
     val local = start.atZoneSameInstant(ZoneId.systemDefault())
     val day = if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow "
     return "Next good time: $day${timeFormat.format(local)}"
 }
 
 @Composable
-private fun HelpDialog(onDismiss: () -> Unit) {
+fun HelpDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
@@ -171,6 +207,8 @@ fun HelpContent() {
         LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
+        Text("Peak load mode", fontWeight = FontWeight.Bold)
+        Text("Your grid bill also counts the highest 15-minute average of each month. Tap Start and Stop when you switch an appliance on and off, and GridLoad estimates the current quarter hour from your load data and keeps you under your goal. Each appliance shows whether it fits now and, with the same colours, whether the price is good.")
     }
 }
 

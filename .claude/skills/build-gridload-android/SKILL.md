@@ -99,26 +99,49 @@ request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffd
    Data source. A new region: test the URL with the app's request, add it to `REGIONS`, the
    table in `CLAUDE.md`, `README.md` and the store description.
 
-### Phase 4: peak load mode [discussion started 2026-09-29; next: load data import]
+### Phase 4: peak load mode [first full version works on the phone, 2026-09-29; not released]
 
 The design is in `CLAUDE.md` under "Peak load mode". The CKW price sheet confirms the peak
 charge (1.00 CHF/kW per month on Home dynamic). Still open: the household's product and the
-portal details (the user is getting access), and the open points listed there.
+portal details (the user is getting access), and the points under "Open" there.
 
-1. **Load data import (next task, user's idea 2026-09-29).** The user has 3 years of smart meter
-   data, one Excel sheet per year. Import it (Excel or CSV) and derive monthly peaks, base load
-   and heating per month; see "Load data import" in `CLAUDE.md`. It must work with any amount
-   of data (a few months with a fresh contract) and be repeatable (each year, import the
-   previous year). Start by asking the user for a
-   file (or its first rows) and settling format, Excel vs CSV and which numbers to derive. Don't
-   commit the user's real data. The results may settle open points 1 and 2 in `CLAUDE.md`.
-2. **Appliance list:** name, watts, optional run time, flexible or not, plus the baseline.
-   Saved on the phone as JSON. This adds a second screen.
-3. **Switching appliances on and off** in the app, with automatic off when the run time ends.
-   `:core` computes the average draw per quarter hour and the month's peak from the saved runs.
-4. **Advice** as in `CLAUDE.md`: the peak is the hard limit, the price decides within it.
-5. **Mode choice** in first start and Settings becomes real; save the mode. Open: the user
-   designs the mode logos, or Claude uses simple built-in symbols. Ask the user.
+1. **Load data import and month function [done].** CKW's `.xlsx` exports: yearly (monthly
+   totals) give the month function, daily (hourly values, several files at once) the baseline
+   by hour of day and the measured peak. `:core`: `CkwExport.kt` (xlsx reader + both parsers),
+   `LoadProfile.kt` (monthly model, `hourlyMonths`, `highestHour`).
+2. **Appliances, runs, goal, advice [done].** `PeakLoad.kt` (appliances, runs, quarter-hour
+   estimate, month peak, `PeakData`), `PeakAdvice.kt` (summer calibration, `PeakStatus` with
+   current and next quarter hour and the raised goal, `fitsAt`/`roomAt`, `suggestStop`).
+   `:app`: `PeakScreen.kt` with the appliance dialog; data in `files/peak.json`.
+3. **Mode choice and setup guide [done].** The mode is saved; Settings differ by mode; the
+   setup guide (`SetupGuide` in `SettingsScreen.kt`) is the first start and can be reopened.
+   The emoji logos (⚡, 📊) stay (user, 2026-09-29).
+4. **Next:** the user tries it on the phone; then the points under "Open" in `CLAUDE.md`, the
+   store texts and screenshots, and a release (v0.4.0) when the user asks.
+
+Testing on the phone:
+- The user's exports are in the phone's Download folder (the days in `Download/september_2026`
+  and `Download/january_2026`; both are imported in the app). The picker reopens the last
+  folder, so go back to Downloads first. Files pushed with adb into a subfolder only show up in the picker
+  after a media scan: `adb shell content call --method scan_volume --uri content://media --arg external_primary`.
+  Several files: long-press one, ⋮ → Select all, then Select.
+- DocumentsUI shows the folders as a grid; tap the tile, not its top-right expand icon, which
+  opens the file in another app instead.
+- A helper that taps the first node containing a text can hit a label instead of a button
+  ("Stop the Heater…" vs "Stop"); match whole texts for buttons.
+- Test runs end up in the user's real `peak.json` and this month's peak. Remove them afterwards:
+  force-stop the app, `run-as io.github.buerlino.gridload cat files/peak.json`, drop
+  `appliances`/`runs`/`goalOffsetKw`, write it back with `run-as ... sh -c 'cat > files/peak.json'`.
+
+### Phase 5: Peak load (whatwatt) mode [planned 2026-09-29; waiting for the device]
+
+The plan, the comparison of the three modes and the open questions are in `CLAUDE.md` under
+"Peak load (whatwatt) mode"; the user's research in `private/smart_meter_research.md` (not in the repo). In
+short: rename the current mode to "Peak load (manual)", add "Peak load (whatwatt)" that reads
+the real draw from a whatwatt Go on the home Wi-Fi over plain HTTP (no MQTT, Pi or library).
+Phase 1 (rename, third mode in setup guide and Settings) needs no hardware; phase 2 can be
+tested against a fake whatwatt on the PC; phase 0 (check the API, the CKW key, Android's local
+network permission) comes first.
 
 ## Conventions
 
