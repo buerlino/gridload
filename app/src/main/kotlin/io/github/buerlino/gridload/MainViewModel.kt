@@ -181,8 +181,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val days = imports.flatMap { it.days }
                 editPeak { it.copy(usage = mergeUsage(it.usage, months), days = mergeDays(it.days, days)) }
                 listOfNotNull(
-                    months.size.takeIf { it > 0 }?.let { "$it months" },
-                    days.size.takeIf { it > 0 }?.let { "$it days with hourly values" },
+                    months.size.takeIf { it > 0 }?.let { if (it == 1) "1 month" else "$it months" },
+                    days.size.takeIf { it > 0 }?.let { (if (it == 1) "1 day" else "$it days") + " with hourly values" },
                 ).joinToString(" and ").ifEmpty { "nothing" }.let { "Imported $it" }
             } catch (e: Exception) {
                 "Couldn't read the file: ${e.message ?: e.javaClass.simpleName}"
