@@ -119,8 +119,14 @@ portal details (the user is getting access), and the points under "Open" there.
 3. **Mode choice and setup guide [done].** The mode is saved; Settings differ by mode; the
    setup guide (`SetupGuide` in `SettingsScreen.kt`) is the first start and can be reopened.
    The emoji logos (⚡, 📊) stay (user, 2026-09-29).
-4. **Next:** the user tries it on the phone; then the points under "Open" in `CLAUDE.md`, the
-   store texts and screenshots, and a release (v0.4.0) when the user asks.
+4. **Release v0.4.0 [ready, the user decides when]:** renamed to "Peak load (manual)", store
+   text and README updated. Tested on the phone 2026-09-29: a fresh first start through the
+   setup guide (peak load, CKW, import of 3 yearly files and 59 day files, goal) and restarts,
+   and in an **R8 release build** (signed with the debug key: `zipalign -p 4`, then
+   `apksigner`): loading the saved JSON, the .xlsx import, appliances with presets,
+   start/stop, deleting and restarts all work. For the release: `versionCode` 6,
+   `versionName` 0.4.0 (v0.3.1 took 5), `changelogs/6.txt`; a store screenshot of peak load
+   mode is optional.
 
 Testing on the phone:
 - The user's exports are in the phone's Download folder (the days in `Download/september_2026`
