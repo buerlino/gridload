@@ -162,7 +162,7 @@ New file `SettingsScreen.kt` (first start, Settings, mode cards, region picker).
    are vector drawables converted from them, combined in `res/mipmap-anydpi/ic_launcher.xml`
    (adaptive icon). No monochrome (themed) layer yet. If the SVGs change, regenerate the XML.
 
-### Phase 2: publish on F-Droid [repo side done 2026-09-29, for v0.2.1]
+### Phase 2: publish on F-Droid [submitted 2026-09-29, waiting for review]
 
 Right after v0.2, once the icon is in. Needs store texts and screenshots in the repo
 (fastlane metadata) and possibly build tweaks the reviewers ask for. Their review takes weeks,
@@ -173,10 +173,16 @@ from `logo/`, four phone screenshots taken in Android demo mode so the status ba
 `changelogs/3.txt`), `dependenciesInfo` off (verified: a signed release APK no longer has
 block `0x504b4453`), version 0.2.1 (code 3).
 
-Next: the user tags and pushes v0.2.1, then forks https://gitlab.com/fdroid/fdroiddata, adds
-`metadata/io.github.buerlino.gridload.yml` on a branch named after the app id, and opens the
-merge request (the user posts it; it's public under their name). Draft recipe, with the full
-commit hash of the v0.2.1 tag filled in:
+Submitted: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583 (from the
+user's fork `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`). Pipeline green on
+2026-09-29, including `fdroid build` (Debian 13, OpenJDK 21 by default, so no `sudo` block
+needed) and the reproducible-build check ("compared built binary to supplied reference binary
+successfully"). Now waiting for the reviewers; answer their comments in the merge request. After
+merge, auto update picks up new tags, so each release only needs the tag + fastlane changelog.
+
+How it was done: the user tagged and pushed v0.2.1, forked https://gitlab.com/fdroid/fdroiddata,
+added `metadata/io.github.buerlino.gridload.yml` on a branch named after the app id and opened
+the merge request (the user posts it; it's public under their name). The submitted recipe:
 
 ```yaml
 AntiFeatures:
@@ -194,14 +200,17 @@ AutoName: GridLoad
 
 RepoType: git
 Repo: https://github.com/buerlino/gridload.git
+Binaries: https://github.com/buerlino/gridload/releases/download/v%v/gridload-v%v.apk
 
 Builds:
   - versionName: 0.2.1
     versionCode: 3
-    commit: <full hash of v0.2.1>
+    commit: 6d5d841c8014f64591e6b034be37d01f535539cc
     subdir: app
     gradle:
       - yes
+
+AllowedAPKSigningKeys: 0b07da4b01a683e890f7f90c77eafe3a762414aef4e9c247252fc7c31a07a113
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
@@ -209,10 +218,14 @@ CurrentVersion: 0.2.1
 CurrentVersionCode: 3
 ```
 
-JDK: the build needs JDK 21 (`gradle-daemon-jvm.properties`). Recent fdroiddata recipes
-(e.g. μLauncher from 0.2.10) no longer install it, so the build server seems to have it. If
-the merge request pipeline fails on the JDK, add to the build entry:
-`sudo: [apt-get update, apt-get install -y openjdk-21-jdk-headless, update-alternatives --auto java]`.
+Reproducible builds (decided 2026-09-29): enabled via `Binaries` + `AllowedAPKSigningKeys`, so
+F-Droid ships the user's signed APK and F-Droid/Obtainium installs are interchangeable. Tested:
+the v0.2.1 GitHub APK (Temurin 21 on Actions) minus its 4096-byte v2 signing block is
+byte-identical to an unsigned build from a fresh clone with the local Rocky OpenJDK 21. Keep it
+that way: nothing time-, path- or machine-dependent in the build.
+
+JDK: the build needs JDK 21 (`gradle-daemon-jvm.properties`); F-Droid's build server (Debian 13)
+has it by default, confirmed by the green pipeline, so the recipe needs no `sudo` block.
 
 ### Phase 3: research, no code [not started]
 
