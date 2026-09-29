@@ -8,7 +8,7 @@ GridLoad tells you at a glance whether now is a good time to run household appli
 
 The price now is compared with the next 24 hours, so red means a cheaper time is coming, and the app shows when the next good time starts. Cheap times are when the grid has the most to spare, for example at midday when solar power peaks. Shifting load to those times lowers your bill and helps the grid.
 
-<b>Regions:</b> the price comes from your local utility, so GridLoad only works where a utility publishes a dynamic tariff. For now that is Central Switzerland (CKW). More regions are planned.
+<b>Regions:</b> the price comes from your local utility, so GridLoad only works where a utility publishes a dynamic tariff. Supported: Central Switzerland (CKW), Canton of Zurich (EKZ), Einsiedeln (EKZ Einsiedeln), Fribourg and Neuchâtel (Groupe E), Northwestern Switzerland (Primeo Energie), Olten area (AVAG) and Gretzenbach (ELAG).
 
 <b>Privacy:</b> no account, no ads, no tracking. The only permission is internet access, used to load today's and tomorrow's prices from the utility.
 

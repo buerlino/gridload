@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
@@ -21,7 +22,7 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 
 data class UiState(
-    val region: Region = REGIONS.first(),
+    val region: Region = CKW,
     val firstStartDone: Boolean = true,
     val status: Status? = null,
     val loading: Boolean = false,
@@ -33,10 +34,11 @@ data class UiState(
 
 /**
  * Holds the cached slots so rotation doesn't refetch. The API is rate limited and one response
- * covers today and, from noon, tomorrow, so we fetch only when nothing covers now, when
+ * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region and "first start done" are saved in SharedPreferences.
+ * The region and "first start done" are saved in SharedPreferences. Nothing is fetched until
+ * the first start has picked a region; installs from before that fall back to CKW.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -44,7 +46,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var lastAttempt: Instant? = null
     private val _state = MutableStateFlow(
         UiState(
-            region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: REGIONS.first(),
+            region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
         ),
     )
@@ -55,9 +57,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * says so. Fetches the user didn't ask for always wait the full cooldown.
      */
     fun update() {
+        if (!_state.value.firstStartDone) return
         recompute()
         val now = Instant.now()
-        if (wantsFetch(slots, now) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
+        if (wantsFetch(slots, now, _state.value.region.tomorrowFrom) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
     }
 
     private fun recompute() {
@@ -75,9 +78,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    fun finishFirstStart() {
-        prefs.edit().putBoolean(KEY_FIRST_START_DONE, true).apply()
-        _state.update { it.copy(firstStartDone = true) }
+    fun finishFirstStart(region: Region) {
+        prefs.edit().putString(KEY_REGION, region.id).putBoolean(KEY_FIRST_START_DONE, true).apply()
+        _state.update { UiState(region = region, firstStartDone = true) }
+        refresh()
     }
 
     fun refresh() {

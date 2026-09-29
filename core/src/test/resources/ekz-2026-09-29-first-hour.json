@@ -1,0 +1,205 @@
+{
+ "publication_timestamp": "2025-12-18T14:45:41+01:00",
+ "prices": [
+  {
+   "start_timestamp": "2026-09-29T00:00:00+02:00",
+   "end_timestamp": "2026-09-29T00:15:00+02:00",
+   "electricity": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.09
+    }
+   ],
+   "grid": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1098
+    }
+   ],
+   "integrated": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1998
+    }
+   ],
+   "metering": [
+    {
+     "unit": "CHF_m",
+     "value": 5.0
+    }
+   ],
+   "regional_fees": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.0016
+    }
+   ]
+  },
+  {
+   "start_timestamp": "2026-09-29T00:15:00+02:00",
+   "end_timestamp": "2026-09-29T00:30:00+02:00",
+   "electricity": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.09
+    }
+   ],
+   "grid": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1098
+    }
+   ],
+   "integrated": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1998
+    }
+   ],
+   "metering": [
+    {
+     "unit": "CHF_m",
+     "value": 5.0
+    }
+   ],
+   "regional_fees": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.0016
+    }
+   ]
+  },
+  {
+   "start_timestamp": "2026-09-29T00:30:00+02:00",
+   "end_timestamp": "2026-09-29T00:45:00+02:00",
+   "electricity": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.09
+    }
+   ],
+   "grid": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1098
+    }
+   ],
+   "integrated": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1998
+    }
+   ],
+   "metering": [
+    {
+     "unit": "CHF_m",
+     "value": 5.0
+    }
+   ],
+   "regional_fees": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.0016
+    }
+   ]
+  },
+  {
+   "start_timestamp": "2026-09-29T00:45:00+02:00",
+   "end_timestamp": "2026-09-29T01:00:00+02:00",
+   "electricity": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.09
+    }
+   ],
+   "grid": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1098
+    }
+   ],
+   "integrated": [
+    {
+     "unit": "CHF_m",
+     "value": 3.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.1998
+    }
+   ],
+   "metering": [
+    {
+     "unit": "CHF_m",
+     "value": 5.0
+    }
+   ],
+   "regional_fees": [
+    {
+     "unit": "CHF_m",
+     "value": 0.0
+    },
+    {
+     "unit": "CHF_kWh",
+     "value": 0.0016
+    }
+   ]
+  }
+ ]
+}

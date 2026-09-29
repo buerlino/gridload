@@ -84,7 +84,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Phase 3: research [item 1 done 2026-09-29, not released yet; item 2 not started]
+### Phase 3: research [done 2026-09-29, not released yet]
 
 1. **Early vs late in the day [done]:** the API returns tomorrow with `start_timestamp` and
    `end_timestamp` in UTC (from noon). The app now fetches today + tomorrow, refetches once after
@@ -92,9 +92,12 @@ request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffd
    Findings, numbers and the rejected "rest of today" are in `CLAUDE.md` under Data source and
    Classification. To analyse prices again, a request of up to 31 days (past days work) gives
    plenty of data in one call; mind the rate limit of 4 per window.
-2. **Other Swiss providers:** which utilities publish dynamic prices with a public API, and how
-   much of Switzerland they would cover. Output: a short list in `CLAUDE.md`. Each new utility
-   is then a separate small task added to `REGIONS`.
+2. **Other Swiss providers [done]:** all public dynamic-tariff APIs follow the VSE/AES standard
+   (same schema as CKW), so EKZ, EKZ Einsiedeln, Groupe E and Primeo (3 grid areas) were added
+   to `REGIONS` with a per-region `tomorrowFrom`. What was tested and rejected (BKW feed-in
+   only, Swisspower needs per-customer tokens, spot markets, ElCom) is in `CLAUDE.md` under
+   Data source. A new region: test the URL with the app's request, add it to `REGIONS`, the
+   table in `CLAUDE.md`, `README.md` and the store description.
 
 ### Phase 4: peak load mode [discussion started 2026-09-29; next: load data import]
 

@@ -37,20 +37,38 @@ import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 
-/** First start: the help, then Next, then the mode choice. Peak load mode is not built yet. */
+/**
+ * First start: the help, then Next, the mode choice and the region choice. Peak load mode is
+ * not built yet.
+ */
 @Composable
-fun FirstStartScreen(onDone: () -> Unit) {
+fun FirstStartScreen(onDone: (Region) -> Unit) {
     var step by rememberSaveable { mutableStateOf(0) }
-    BackHandler(enabled = step > 0) { step = 0 }
+    BackHandler(enabled = step > 0) { step-- }
     Page {
-        if (step == 0) {
-            Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            HelpContent()
-            Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
-        } else {
-            Text("Choose a mode", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text("You can change it later in Settings.")
-            ModeChoice(onSelectSpot = onDone)
+        when (step) {
+            0 -> {
+                Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                HelpContent()
+                Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
+            }
+            1 -> {
+                Text("Choose a mode", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("You can change it later in Settings.")
+                ModeChoice(onSelectSpot = { step = 2 })
+            }
+            else -> {
+                Text("Choose your region", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("Prices come from your local electricity utility, so pick the one that supplies you. You can change it later in Settings.")
+                REGIONS.forEach { r ->
+                    OutlinedCard(onClick = { onDone(r) }, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(r.name, fontWeight = FontWeight.Bold)
+                            Text(r.utility)
+                        }
+                    }
+                }
+            }
         }
     }
 }

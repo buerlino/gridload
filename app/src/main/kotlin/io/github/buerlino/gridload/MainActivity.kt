@@ -108,7 +108,9 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
             "${state.region.name} (${state.region.utility})",
             color = content,
             fontSize = 16.sp,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp),
+            textAlign = TextAlign.Center,
+            // Clear of the ⚙ and ? buttons; long names wrap.
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp, start = 48.dp, end = 48.dp),
         )
         TextButton(onClick = { showHelp = true }, modifier = Modifier.align(Alignment.TopEnd)) {
             Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -168,7 +170,7 @@ fun HelpContent() {
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out at noon; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
+        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
     }
 }
 

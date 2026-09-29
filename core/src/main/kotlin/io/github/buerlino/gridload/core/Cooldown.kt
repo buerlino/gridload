@@ -2,6 +2,7 @@ package io.github.buerlino.gridload.core
 
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalTime
 
 /**
  * The API allows 4 requests per ~1000 s window. Waiting 5 minutes between attempts keeps us
@@ -24,11 +25,11 @@ fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Bool
 
 /**
  * Whether to fetch without the user asking: no cached slot covers [now], or tomorrow's prices
- * should be out (from [TOMORROW_PUBLISHED]) but the cache ends today.
+ * should be out (from the region's [tomorrowFrom]) but the cache ends today.
  */
-fun wantsFetch(slots: List<PriceSlot>, now: Instant): Boolean {
+fun wantsFetch(slots: List<PriceSlot>, now: Instant, tomorrowFrom: LocalTime): Boolean {
     if (slots.none { !now.isBefore(it.start.toInstant()) && now.isBefore(it.end.toInstant()) }) return true
     val local = now.atZone(TARIFF_ZONE)
     val tomorrow = local.toLocalDate().plusDays(1).atStartOfDay(TARIFF_ZONE).toInstant()
-    return !local.toLocalTime().isBefore(TOMORROW_PUBLISHED) && slots.maxOf { it.end.toInstant() } <= tomorrow
+    return !local.toLocalTime().isBefore(tomorrowFrom) && slots.maxOf { it.end.toInstant() } <= tomorrow
 }

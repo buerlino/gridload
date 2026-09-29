@@ -13,13 +13,16 @@ data class PriceSlot(
 
 private val json = Json { ignoreUnknownKeys = true }
 
-/** Parses the CKW dynamic-prices response. Schema is documented in CLAUDE.md. */
+/**
+ * Parses a VSE/AES dynamic-prices response (schema in CLAUDE.md). Some utilities (EKZ) list a
+ * monthly fee (`CHF_m`) next to the kWh price, so pick the `CHF_kWh` entry.
+ */
 fun parsePrices(body: String): List<PriceSlot> =
     json.decodeFromString<Response>(body).prices.map {
         PriceSlot(
             start = OffsetDateTime.parse(it.start_timestamp),
             end = OffsetDateTime.parse(it.end_timestamp),
-            price = it.integrated.single().value,
+            price = it.integrated.single { v -> v.unit == "CHF_kWh" }.value,
         )
     }
 
@@ -35,4 +38,4 @@ private class Slot(
 )
 
 @Serializable
-private class Value(val value: Double)
+private class Value(val unit: String, val value: Double)

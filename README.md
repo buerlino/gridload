@@ -18,15 +18,21 @@ One field showing a single traffic-light status:
 | Orange | Fair time: average price, only run what you need |
 | Green  | Good time: cheap, run your appliances now |
 
-The price now is compared with the next 24 hours (tomorrow's prices come out at noon; until then with today), and the screen shows when the next good time starts.
+The price now is compared with the next 24 hours (until tomorrow's prices come out, between noon and 18:00 depending on the utility, with today), and the screen shows when the next good time starts.
 
 The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so the app has a **region switcher** at the top of the screen.
 
 | Region | Utility | Data source |
 |--------|---------|-------------|
-| Central Switzerland (Zentralschweiz) | CKW (Centralschweizerische Kraftwerke AG) | `https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise` |
+| Central Switzerland (Zentralschweiz) | CKW (Centralschweizerische Kraftwerke AG), Home Dynamic | `https://e-ckw-public-data.de-c1.eu1.cloudhub.io/api/v1/netzinformationen/energie/dynamische-preise` |
+| Canton of Zurich | EKZ (Elektrizitätswerke des Kantons Zürich), Energie Dynamisch + Netz 400D | `https://api.tariffs.ekz.ch/v1/tariffs` |
+| Einsiedeln | EKZ Einsiedeln, Energie Dynamisch + Netz 400D | `https://api.tariffs.ekz.ch/v1/tariffs` |
+| Fribourg and Neuchâtel | Groupe E, Vario | `https://api.tariffs.groupe-e.ch/v2/tariffs` |
+| Northwestern Switzerland | Primeo Energie, NetzDynamisch | `https://tarife.primeo-energie.ch/api/v1/tariffs` |
+| Olten area | AVAG (Aare Versorgungs AG), NetzDynamisch | `https://tarife.primeo-energie.ch/api/v1/tariffs` |
+| Gretzenbach | ELAG (Elektra Gretzenbach AG), NetzDynamisch | `https://tarife.primeo-energie.ch/api/v1/tariffs` |
 
-CKW is the only region for now. It serves only Central Switzerland, so outside that area the colour says nothing about your tariff. More regions (other utilities) are planned.
+All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves only its own grid area, and the colour follows its dynamic tariff, so outside those areas it says nothing about your price.
 
 ## Later ideas
 

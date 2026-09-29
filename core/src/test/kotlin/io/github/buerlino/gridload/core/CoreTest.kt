@@ -93,11 +93,23 @@ class CoreTest {
 
     @Test
     fun fetchesTomorrowOnceItIsPublished() {
-        assertTrue(wantsFetch(emptyList(), sep29("09:00")))
-        assertFalse(wantsFetch(sep29, sep29("11:59")))
-        assertTrue(wantsFetch(sep29, sep29("12:00")))
-        assertFalse(wantsFetch(twoDays, sep29("12:00")))
-        assertTrue(wantsFetch(sep29, OffsetDateTime.parse("2026-09-30T00:00+02:00").toInstant()))
+        val noon = CKW.tomorrowFrom
+        assertTrue(wantsFetch(emptyList(), sep29("09:00"), noon))
+        assertFalse(wantsFetch(sep29, sep29("11:59"), noon))
+        assertTrue(wantsFetch(sep29, sep29("12:00"), noon))
+        assertFalse(wantsFetch(twoDays, sep29("12:00"), noon))
+        assertTrue(wantsFetch(sep29, OffsetDateTime.parse("2026-09-30T00:00+02:00").toInstant(), noon))
+        // A region that publishes later waits for its own time.
+        assertFalse(wantsFetch(sep29, sep29("17:59"), java.time.LocalTime.of(18, 0)))
+    }
+
+    @Test
+    fun picksTheKwhPriceNextToAMonthlyFee() {
+        // EKZ lists a CHF_m fee before the CHF_kWh price (real response, first hour of 29 Sep).
+        val ekz = parsePrices(javaClass.getResource("/ekz-2026-09-29-first-hour.json")!!.readText())
+        assertEquals(4, ekz.size)
+        assertEquals(0.1998, ekz.first().price)
+        assertEquals(OffsetDateTime.parse("2026-09-29T00:00+02:00"), ekz.first().start)
     }
 
     @Test
@@ -111,8 +123,9 @@ class CoreTest {
     @Test
     fun regionsHaveUniqueIdsAndHttpsUrls() {
         assertEquals(REGIONS.size, REGIONS.map { it.id }.toSet().size)
-        assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") })
-        assertEquals(CKW, REGIONS.first())
+        assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") && "?" in it.pricesUrl })
+        assertEquals(REGIONS.sortedBy { it.name }, REGIONS)
+        assertTrue(CKW in REGIONS)
     }
 
     @Test
