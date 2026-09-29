@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.APPLIANCE_PRESETS
@@ -77,9 +75,6 @@ fun PeakScreen(
     onDelete: (Appliance) -> Unit,
 ) {
     val (background, content, label, hint) = look(state)
-    StatusBarIcons(dark = content == Color.Black)
-    var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     var editing by remember { mutableStateOf<Appliance?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
     if (adding || editing != null) {
@@ -95,25 +90,13 @@ fun PeakScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
-        Text(label, color = content, fontSize = 36.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        hint?.let { Text(it, color = content, fontSize = 18.sp, textAlign = TextAlign.Center) }
-        state.status?.let { status ->
-            Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 18.sp)
-            status.nextGreen?.let { Text(nextGoodTime(it.start), color = content) }
-        }
-        state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+        ScreenChrome(state, content, onOpenSettings)
+        PriceHeader(state, content, label, hint, compact = true)
         state.peak?.let { status ->
             Card { GoalCard(status, peak) }
             Card { Appliances(status, peak, state.status?.level, onStart, onStop, onEdit = { editing = it }, onAdd = { adding = true }) }
         }
-        state.notice?.let { Text(it, color = content) }
-        state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
-        Button(
-            onClick = onRefresh,
-            enabled = !state.loading,
-            colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
-        ) { Text("Refresh") }
+        RefreshFooter(state, background, content, onRefresh)
     }
 }
 

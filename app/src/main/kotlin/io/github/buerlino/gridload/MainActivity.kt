@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -116,40 +117,61 @@ val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefa
 
 @Composable
 private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> Unit) {
-    val status = state.status
     val (background, content, label, hint) = look(state)
-    StatusBarIcons(dark = content == Color.Black)
-    var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
-        TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
+        ScreenChrome(state, content, onOpenSettings)
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(label, color = content, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
-            if (status != null) {
-                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
-                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = 18.sp) }
-            }
-            state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+            PriceHeader(state, content, label, hint)
         }
         Column(
             Modifier.align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            state.notice?.let { Text(it, color = content) }
-            state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
-            Button(
-                onClick = onRefresh,
-                enabled = !state.loading,
-                colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
-            ) { Text("Refresh") }
+            RefreshFooter(state, background, content, onRefresh)
         }
     }
+}
+
+/** The status bar style, help dialog and [TopBar], the same on every price screen. */
+@Composable
+fun ScreenChrome(state: UiState, content: Color, onOpenSettings: () -> Unit) {
+    StatusBarIcons(dark = content == Color.Black)
+    var showHelp by remember { mutableStateOf(false) }
+    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
+    TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
+}
+
+/** The headline, hint, price and error, shared by spot and peak load mode. [compact] is smaller, for peak load mode's scrolling layout. */
+@Composable
+fun PriceHeader(state: UiState, content: Color, label: String, hint: String?, compact: Boolean = false) {
+    Text(
+        label, color = content, fontSize = if (compact) 36.sp else 44.sp,
+        lineHeight = if (compact) TextUnit.Unspecified else 52.sp,
+        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+    )
+    hint?.let { Text(it, color = content, fontSize = if (compact) 18.sp else 22.sp, textAlign = TextAlign.Center) }
+    state.status?.let { status ->
+        Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = if (compact) 18.sp else 20.sp)
+        status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = if (compact) TextUnit.Unspecified else 18.sp) }
+    }
+    state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+}
+
+/** The refresh notice, last update time and button, shared by spot and peak load mode. */
+@Composable
+fun RefreshFooter(state: UiState, background: Color, content: Color, onRefresh: () -> Unit) {
+    state.notice?.let { Text(it, color = content) }
+    state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
+    Button(
+        onClick = onRefresh,
+        enabled = !state.loading,
+        colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
+    ) { Text("Refresh") }
 }
 
 fun look(state: UiState): Look = when (state.status?.level) {
