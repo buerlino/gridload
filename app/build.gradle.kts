@@ -21,8 +21,8 @@ android {
         applicationId = "io.github.buerlino.gridload"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.3.1"
     }
 
     val releaseKeystore = signingValue("storeFile", "GRIDLOAD_KEYSTORE_FILE")
@@ -39,7 +39,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinks and optimizes the code (asked for in the F-Droid review). kotlinx.serialization
+            // ships its own keep rules, so no proguard-rules.pro is needed.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
