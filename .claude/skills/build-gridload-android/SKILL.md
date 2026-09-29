@@ -84,7 +84,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Phase 3: research [done 2026-09-29, not released yet]
+### Phase 3: research [done, released as v0.3.0]
 
 1. **Early vs late in the day [done]:** the API returns tomorrow with `start_timestamp` and
    `end_timestamp` in UTC (from noon). The app now fetches today + tomorrow, refetches once after
