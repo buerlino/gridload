@@ -117,7 +117,7 @@ assumptions instead of the real response is the most likely place this goes wron
 Last updated 2026-09-29 (peak load discussion recorded).
 
 1. **Done.** API inspected; schema, thresholds (day-range thirds on `integrated`) and reasoning are in `CLAUDE.md`.
-2. **Done.** `:app` is in `settings.gradle.kts`; `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext) exist. No launcher icon yet (system default); ask the user whether to add one.
+2. **Done.** `:app` is in `settings.gradle.kts`; `app/build.gradle.kts` and `AndroidManifest.xml` (INTERNET only, no cleartext) exist. Launcher icon added 2026-09-29 (see Phase 1, item 5).
 3. **Done.** `core/`: `Prices.kt` (model + `parsePrices`), `Classify.kt` (`classify(slots, now): Status?`), `PriceApi.kt` (`fetchPrices()`), and `CoreTest.kt`, which uses the real response in `core/src/test/resources/prices-2026-09-28.json`. `./gradlew :core:test` passes (7 tests, daemon on JDK 21).
 4. **Done.** `MainActivity.kt` (one screen: colour field, price, updated time, Refresh) and `MainViewModel.kt` (cache, refresh policy from `CLAUDE.md`).
 5. **Done.** `ANDROID_HOME=~/Android/Sdk ./gradlew :core:test :app:assembleDebug` succeeds; installed on the user's phone with `~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk` and confirmed showing a colour (orange on 2026-09-28 evening). `adb` isn't on PATH in Claude's shell.
@@ -141,7 +141,7 @@ The app is split into two **modes**, chosen on first start and changeable in Set
 Work phase by phase and update the status in brackets as things finish. iOS is out of scope
 for now; don't plan or start it.
 
-### Phase 1: v0.2, settings and first start (spot mode only) [built and tested on the phone 2026-09-29; app icon still to come]
+### Phase 1: v0.2, settings and first start (spot mode only) [built and tested on the phone 2026-09-29, icon added; ready to release]
 
 The user chose the full plan: region picker moved into Settings, first start with the mode
 choice and peak load shown as "coming soon". Done: items 1 to 4 (the mode isn't saved yet,
@@ -157,7 +157,10 @@ New file `SettingsScreen.kt` (first start, Settings, mode cards, region picker).
 4. **First-start flow:** help screen, then **Next**, then the mode choice (spot price or peak
    load, each with its own logo). Open: ship v0.2 without the choice step and add it with peak
    mode in Phase 4 (Claude's suggestion), or show peak mode as "coming soon" now. Ask the user.
-5. **App icon:** the user designs it and hands it over. Until then the system default stays.
+5. **App icon:** done. The user's SVGs in `logo/` (108 x 108, yellow background + tower with
+   "GL" as foreground) are the source; `res/drawable/ic_launcher_{background,foreground}.xml`
+   are vector drawables converted from them, combined in `res/mipmap-anydpi/ic_launcher.xml`
+   (adaptive icon). No monochrome (themed) layer yet. If the SVGs change, regenerate the XML.
 
 ### Phase 2: publish on F-Droid [not started]
 
