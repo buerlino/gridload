@@ -1,0 +1,1 @@
+- Smaller app: the code is now shrunk and optimized with R8
