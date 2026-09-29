@@ -1,0 +1,1 @@
+Shows when to run your appliances, based on the dynamic electricity price

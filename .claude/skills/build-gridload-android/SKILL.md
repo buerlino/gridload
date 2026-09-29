@@ -162,11 +162,57 @@ New file `SettingsScreen.kt` (first start, Settings, mode cards, region picker).
    are vector drawables converted from them, combined in `res/mipmap-anydpi/ic_launcher.xml`
    (adaptive icon). No monochrome (themed) layer yet. If the SVGs change, regenerate the XML.
 
-### Phase 2: publish on F-Droid [not started]
+### Phase 2: publish on F-Droid [repo side done 2026-09-29, for v0.2.1]
 
 Right after v0.2, once the icon is in. Needs store texts and screenshots in the repo
 (fastlane metadata) and possibly build tweaks the reviewers ask for. Their review takes weeks,
 so the later phases run while waiting.
+
+Done: `fastlane/metadata/android/en-US/` (title, short/full description, 512 px icon rendered
+from `logo/`, four phone screenshots taken in Android demo mode so the status bar is clean,
+`changelogs/3.txt`), `dependenciesInfo` off (verified: a signed release APK no longer has
+block `0x504b4453`), version 0.2.1 (code 3).
+
+Next: the user tags and pushes v0.2.1, then forks https://gitlab.com/fdroid/fdroiddata, adds
+`metadata/io.github.buerlino.gridload.yml` on a branch named after the app id, and opens the
+merge request (the user posts it; it's public under their name). Draft recipe, with the full
+commit hash of the v0.2.1 tag filled in:
+
+```yaml
+AntiFeatures:
+  NonFreeNet:
+    en-US: Loads the prices from the utility's (CKW) web API.
+Categories:
+  - Market & Price
+License: GPL-3.0-only
+AuthorName: buerlino
+SourceCode: https://github.com/buerlino/gridload
+IssueTracker: https://github.com/buerlino/gridload/issues
+Changelog: https://github.com/buerlino/gridload/releases
+
+AutoName: GridLoad
+
+RepoType: git
+Repo: https://github.com/buerlino/gridload.git
+
+Builds:
+  - versionName: 0.2.1
+    versionCode: 3
+    commit: <full hash of v0.2.1>
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.2.1
+CurrentVersionCode: 3
+```
+
+JDK: the build needs JDK 21 (`gradle-daemon-jvm.properties`). Recent fdroiddata recipes
+(e.g. μLauncher from 0.2.10) no longer install it, so the build server seems to have it. If
+the merge request pipeline fails on the JDK, add to the build entry:
+`sudo: [apt-get update, apt-get install -y openjdk-21-jdk-headless, update-alternatives --auto java]`.
 
 ### Phase 3: research, no code [not started]
 

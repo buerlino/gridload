@@ -21,8 +21,8 @@ android {
         applicationId = "io.github.buerlino.gridload"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
     }
 
     val releaseKeystore = signingValue("storeFile", "GRIDLOAD_KEYSTORE_FILE")
@@ -50,6 +50,12 @@ android {
     }
 
     buildFeatures { compose = true }
+
+    // AGP otherwise embeds an encrypted dependency list that only Google Play can read; F-Droid rejects it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 dependencies {
