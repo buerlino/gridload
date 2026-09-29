@@ -71,13 +71,16 @@ load "coming soon"), region and "first start done" saved, app icon. The mode isn
 since spot is the only choice; save it when peak mode exists. The mode logos are emoji
 placeholders (⚡, 📊).
 
-### Phase 2: F-Droid [submitted 2026-09-29, waiting for review]
+### Phase 2: F-Droid [submitted 2026-09-29, in review]
+
+Review so far: linsui asked for R8 (2026-09-29). Answer: v0.3.1 enables it, and the recipe's
+build moves to v0.3.1 (versionCode 5, commit `02168b8`).
 
 Merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, from the user's fork
 `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`, file
 `metadata/io.github.buerlino.gridload.yml`. The pipeline is green: `fdroid build` (Debian 13,
 JDK 21 by default, so no `sudo` block) and the reproducible-build check. Recipe choices:
-`NonFreeNet` anti-feature (CKW's API), category `Market & Price`, `GPL-3.0-only`, `Binaries` +
+`NonFreeNet` anti-feature (the utilities' APIs), category `Market & Price`, `GPL-3.0-only`, `Binaries` +
 `AllowedAPKSigningKeys` for reproducible builds.
 
 Next: answer reviewer comments in the merge request. The user posts on GitLab (it's public
