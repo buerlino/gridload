@@ -34,9 +34,17 @@ The colour depends on the dynamic tariff of the electricity utility that supplie
 
 All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves only its own grid area, and the colour follows its dynamic tariff, so outside those areas it says nothing about your price.
 
+## Modes
+
+The mode is chosen in the setup guide on first start and can be changed in Settings.
+
+- **Spot price:** the colour above. At any moment you either run everything or wait.
+- **Peak load (manual):** some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). You tap Start and Stop for your appliances (with presets for common ones); GridLoad estimates the current quarter hour from your consumption data and keeps you under a goal: the month's level plus an extra you set, raised to what the month's peak already is. Each appliance shows whether it fits now or when there will be room, and the price colour decides within the goal. Consumption data comes from the CKW customer portal's Excel exports: yearly files give the level of each month, daily files (hourly values) show what runs at which hour, like a water heater at night. The files are read on the phone and never uploaded.
+- **Planned: peak load with a meter.** Reading the real draw from the smart meter's customer interface (with a whatwatt Go on the home Wi-Fi) instead of estimating it.
+
 ## Later ideas
 
-- Users add their appliances and get a recommended start time.
+- A recommended start time per appliance (peak load mode already says when an appliance fits).
 - Optimize the start time by minimizing the integral of emissions (or cost) over the appliance's runtime: `P(t)` (appliance power demand) x `CI(t)` (forecast carbon intensity) over the cycle duration `d`. Carbon Intensity `CI = gCO2e / kWh`.
 - Standard appliance profiles:
 

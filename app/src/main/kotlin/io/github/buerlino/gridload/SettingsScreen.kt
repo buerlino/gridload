@@ -113,7 +113,7 @@ fun SetupGuide(
             else -> {
                 Title("Your goal", onClose)
                 GoalSetting(peak, onGoalOffset)
-                Calibration(null)
+                if (!Baseline(peak).hasHourly(ZonedDateTime.now(TARIFF_ZONE).month)) Calibration(null)
                 Button(
                     onClick = { onDone(chosenMode, REGIONS.first { it.id == chosenRegion }) },
                     modifier = Modifier.align(Alignment.End),
@@ -149,7 +149,7 @@ fun SettingsScreen(
             Text("Goal", fontWeight = FontWeight.Bold)
             GoalSetting(peak, onGoalOffset)
             state.peak?.let(::raisedGoalText)?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-            Calibration(state.peak)
+            if (state.peak?.hourly != true) Calibration(state.peak)
         }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
@@ -185,8 +185,8 @@ private fun ModeChoice(selected: Mode?, onSelect: (Mode) -> Unit) {
         Text("Shows when electricity is cheap, so you know when to run your appliances.")
     }
     OptionCard(selected == Mode.PEAK, { onSelect(Mode.PEAK) }, "📊") {
-        Text("Peak load", fontWeight = FontWeight.Bold)
-        Text("Tracks your appliances and helps keep your monthly peak low, which lowers your grid bill.")
+        Text("Peak load (manual)", fontWeight = FontWeight.Bold)
+        Text("Helps keep your monthly peak low, which lowers your grid bill. You tap start and stop for your appliances; GridLoad estimates the rest from your consumption data.")
     }
 }
 
@@ -290,7 +290,10 @@ private fun GoalSetting(peak: PeakData, onGoalOffset: (Double) -> Unit) {
     )
 }
 
-/** Explains the summer calibration of the baseline; [status] shows where it stands. */
+/**
+ * Explains the summer calibration of the monthly model's baseline; [status] shows where it
+ * stands. Not shown when the month has hourly data, whose baseline doesn't need it.
+ */
 @Composable
 private fun Calibration(status: PeakStatus?) {
     Text("Calibration: from June to August there's no heating. Track all your appliances in the app then, and after a week GridLoad subtracts them from the summer level. What's left is what always runs (fridge, router, standby), and the baseline gets more accurate.")

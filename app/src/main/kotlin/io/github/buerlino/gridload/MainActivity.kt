@@ -207,7 +207,7 @@ fun HelpContent() {
         LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
-        Text("Peak load mode", fontWeight = FontWeight.Bold)
+        Text("Peak load mode (manual)", fontWeight = FontWeight.Bold)
         Text("Your grid bill also counts the highest 15-minute average of each month. Tap Start and Stop when you switch an appliance on and off, and GridLoad estimates the current quarter hour from your load data and keeps you under your goal. Each appliance shows whether it fits now and, with the same colours, whether the price is good.")
     }
 }
