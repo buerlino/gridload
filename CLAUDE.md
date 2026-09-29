@@ -134,10 +134,9 @@ CKW's 2026 price sheet for grid products (Preisinformation Netzprodukte 2026, CK
 - Home dynamic: 1.00 CHF/kW per month excl. VAT (1.08 incl. 8.1% VAT).
 - The standard single tariff E9: 1.50 CHF/kW per month (1.62 incl. VAT); ES10: 0.50.
 
-So lowering the monthly peak by 2 kW saves about 2 CHF a month. By comparison, a 1 kWh run at green instead of red saves about 10 Rp. Still to check in the family's CKW customer portal (the user is getting access):
+So lowering the monthly peak by 2 kW saves about 2 CHF a month. By comparison, a 1 kWh run at green instead of red saves about 10 Rp. Checked in the CKW customer portal (see Load data import): it exports only hourly load and monthly totals, no 15-minute profile or measured peak (the user may ask CKW directly for those). Still to check:
 - Which product the household is on.
-- Are the 15-minute windows the fixed quarter hours (:00, :15, :30, :45), like the price slots?
-- Does the portal show the 15-minute load profile and the month's measured peak? That would let the user calibrate the baseline and check the app's estimate.
+- Are the 15-minute billing windows the fixed quarter hours (:00, :15, :30, :45), like the price slots?
 
 Until then, build against the model below and keep CHF amounts for the peak out of the code.
 
@@ -152,7 +151,7 @@ The app cannot read the smart meter; it knows only the imported monthly totals a
 - **Floor** (`floorKw`): the lowest month, the summer level without heating.
 - **Heating** (`heatingKw(month)`): the month's level minus the floor.
 - **Static baseload** (`staticBaseloadKw`): the floor minus the average draw of the appliances tracked in the app. The always-on load (fridge, standby, router). The user's idea: with all appliances in the app and known, the difference is what always runs.
-- **Calibration (user, 2026-09-29): summer only.** `summerAppliancesKw` measures the tracked appliances only from June to August (`SUMMER`), from the first run on, and only after 7 days of it (`MIN_CALIBRATION`); until then the static baseload is the whole floor, an upper bound. The UI explains this briefly where the user meets it (setup guide's goal step, Settings).
+- **Calibration (user, 2026-09-29): summer only.** `summerAppliancesKw` measures the tracked appliances only from June to August (`SUMMER`), from the first run on, and only after 7 days of it (`MIN_CALIBRATION`); until then the static baseload is the whole floor, an upper bound. The UI explains this briefly where the user meets it (setup guide's goal step, Settings), shown only for months without hourly data: with hourly data the calibration isn't used (that baseline already leaves the household's appliances out), so the note is hidden then.
 - **Baseline for the month** (`baselineKw(month)`): static baseload + that month's heating. This is the **benchmark**: the draw with no tracked appliance running. In January the recommendations are built around the higher level.
 - **Goal (user, 2026-09-29):** the month's baseline + a **goal offset** the user sets (`PeakData.goalOffsetKw`, default 2.0 kW, set in the setup guide and Settings). Without imported data for the month the goal is the offset alone. This is the line to stay under.
 - **Raised goal (user, 2026-09-29):** once a finished quarter hour of this month went above the planned goal, that peak is billed anyway, so anything up to it costs nothing extra: the goal rises to it (`PeakStatus.goalKw = max(plannedGoalKw, pastPeak)`) until the month ends, then it's back to the planned goal on its own (a new month has no runs). Only finished quarter hours count (`pastPeak`), or going over the goal would raise it at once and the warning would never show. The app says so in bold at the top of the goal card and under Goal in Settings (`raisedGoalText`): "Goal raised to 3.8 kW: this month's peak (29 Sep, 17:00) is billed anyway, so anything up to it costs nothing extra. From 1 Oct it's back to your planned 2.8 kW."
@@ -204,7 +203,6 @@ The price colour, headline and price as in spot mode, then two cards: **This qua
 
 - When to release peak load mode (v0.4.0), with store texts and screenshots.
 - **Two versions (user, 2026-09-29):** a meter-free peak load mode now (estimates from imports and tracked appliances), and later a real one reading the smart meter's customer interface live, since only measuring sees the heat pump and water heater. Don't refine the appliance model (power curves) further: for 15-minute averages the heavy phase is what matters, and the unknown heating dwarfs the rest.
-- With hourly data for the month, the summer calibration isn't used (the hourly baseline already leaves the household's appliances out); Settings still shows its note. Hide it then, or keep it for the monthly model only.
 
 ## Peak load (whatwatt) mode (planned 2026-09-29, waiting for the device)
 
