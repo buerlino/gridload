@@ -84,7 +84,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Phase 3: research, no code [not started]
+### Phase 3: research, no code [not started; the user put the load data import (Phase 4.1) first]
 
 1. **Early vs late in the day:** the colour compares now against the whole day, including hours
    that are over, so late in the evening "wait if you can" can point to a cheap period that has
@@ -95,11 +95,18 @@ request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffd
    much of Switzerland they would cover. Output: a short list in `CLAUDE.md`. Each new utility
    is then a separate small task added to `REGIONS`.
 
-### Phase 4: peak load mode [discussion started 2026-09-29]
+### Phase 4: peak load mode [discussion started 2026-09-29; next: load data import]
 
-1. **Settle the open points first.** The design is in `CLAUDE.md` under "Peak load mode". Still
-   open: the CKW tariff details (the user is getting portal access) and the four open points
-   listed there. No code before they're settled.
+The design is in `CLAUDE.md` under "Peak load mode". Still open: the CKW tariff details (the
+user is getting portal access) and the open points listed there.
+
+1. **Load data import (next task, user's idea 2026-09-29).** The user has 3 years of smart meter
+   data, one Excel sheet per year. Import it (Excel or CSV) and derive monthly peaks, base load
+   and heating per month; see "Load data import" in `CLAUDE.md`. It must work with any amount
+   of data (a few months with a fresh contract) and be repeatable (each year, import the
+   previous year). Start by asking the user for a
+   file (or its first rows) and settling format, Excel vs CSV and which numbers to derive. Don't
+   commit the user's real data. The results may settle open points 1 and 2 in `CLAUDE.md`.
 2. **Appliance list:** name, watts, optional run time, flexible or not, plus the baseline.
    Saved on the phone as JSON. This adds a second screen.
 3. **Switching appliances on and off** in the app, with automatic off when the run time ends.

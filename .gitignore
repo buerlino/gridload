@@ -11,6 +11,10 @@ local.properties
 *.keystore
 keystore.properties
 
+# Personal smart meter data (never commit the user's real exports)
+*.xlsx
+*.xls
+
 # Env / logs
 .env
 .env.*

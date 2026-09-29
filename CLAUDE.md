@@ -39,7 +39,7 @@ Next work follows the roadmap in the skill (agreed 2026-09-29): v0.2 (Settings, 
 - **Spot price mode:** the current behaviour. No appliance tracking, because at any moment you either run everything or wait.
 - **Peak load mode:** a baseline plus appliances with watts and optional run time, an estimated draw per quarter hour, and advice that keeps the month's peak low and prefers cheap times. See [Peak load mode](#peak-load-mode-discussed-2026-09-29).
 
-Small saved settings (mode, region, first start done) in SharedPreferences are in scope from v0.2; still no database. Appliances are in scope only with peak load mode (Phase 4). The first peak load discussion is recorded below; its open points and the CKW tariff check come before any peak mode code. iOS is out of scope for now. The user will give further instructions step by step.
+Small saved settings (mode, region, first start done) in SharedPreferences are in scope from v0.2; still no database. **Next task (user, 2026-09-29):** the load data import for peak load mode (see "Load data import" below), starting with a discussion of the file format. Appliances are in scope only with peak load mode (Phase 4). The first peak load discussion is recorded below; its open points and the CKW tariff check come before any peak mode code. iOS is out of scope for now. The user will give further instructions step by step.
 
 ## Data source
 
@@ -119,7 +119,31 @@ The peak is the hard limit; the price decides within it.
 - **Start:** suggest starting a flexible appliance when its whole run stays under the peak, counting what else is running and when those runs end, and the price allows it. If it fits but the price is red, say it fits but a cheaper time is coming. If the price is good but it would set a new peak, say so and say when there will be room (when a running appliance finishes) or which one to stop.
 - **Over the peak:** suggest the smallest flexible appliance whose stop brings the quarter-hour average back under the peak, not simply the smallest one. Never suggest an always-on or non-interruptible appliance.
 
+### Load data import (user idea, 2026-09-29)
+
+The user has the household's smart meter data as one Excel sheet per year for the past 3 years (from CKW). Idea: peak load mode starts with an **import** of such files (Excel or CSV), and the app derives from them what the user would otherwise have to guess. This is the next task; discuss it with the user before building.
+
+The import must not depend on having years of data (the user has 3 years only because that's what the contract covers):
+- **Any amount of data:** one year, or only a few months with a fresh contract. The app derives what the imported period covers.
+- **Repeatable:** each year the user imports the previous year's file. New months are added; months that were already imported are replaced by the newer data.
+- **Months without data** fall back to the app's own tracked peak or a target the user sets.
+
+What the data could give (to discuss, then start with the smallest useful set):
+- **Monthly peaks:** the highest quarter-hour average per month. In Switzerland usually in winter. Gives a realistic target peak per month (open point 1 below).
+- **Base load:** the always-on load, e.g. from night-time lows (a low percentile rather than the absolute minimum, which may be a glitch). Answers open point 2 below. The user's idea: subtract the appliances known to be always on from that minimum to get the static baseline that always runs.
+- **Heating:** monthly average load minus the heating-free (summer) level gives roughly what heating uses, as a function of the month.
+- Possibly a typical daily profile per month (average per quarter hour of the day), to show when peaks usually happen.
+
+To settle first, with a real file in front of us:
+- **The file format:** columns, units (kWh per quarter hour or kW; kWh per 15 min x 4 = average kW), timestamps, time zone and DST changes, one file per year. Look at an actual export before writing any parser.
+- **Excel or CSV:** if the portal can export CSV, parse only CSV (simplest). If it has to be `.xlsx`: that's a zip of XML files, so a small reader with `java.util.zip` and the JDK's XML parser can live in `:core` with no dependency (Claude's suggestion). Not Apache POI (far too big). Old binary `.xls` would be much harder; check what the portal gives.
+- **Storage:** keep only the derived numbers (per month: peak, average, base load), not the raw rows (3 years of quarter hours are about 100,000 rows). Still no database.
+
+Constraints: the file is picked with Android's file picker (Storage Access Framework, `ACTION_OPEN_DOCUMENT`), which needs no permission, so `INTERNET` stays the only one. The data is personal: it stays on the phone, is never uploaded, and the user's real files are not committed to the repo. Tests use a small cut-down or made-up sample, and only with the user's consent if it comes from the real data.
+
 ### Open (settle before code)
+
+The import above may answer points 1 and 2.
 
 1. **Month start.** A tracked peak starts near the baseline, so early in the month every appliance would "set a new peak". Claude's suggestion: a target peak the user sets (e.g. last month's peak from the portal or bill), and the line to stay under is the higher of the target and this month's tracked peak. Once the month's peak has been exceeded, anything under it costs nothing extra.
 2. **Baseline input.** One number the user types in (Claude's suggestion, e.g. read off the portal's night-time load) or a list of always-on appliances that the app sums.
