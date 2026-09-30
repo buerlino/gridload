@@ -27,11 +27,11 @@ class Baseline(data: PeakData) {
 }
 
 /**
- * Where the household stands now. [levelKw] is the month's level, [baseNowKw] the draw without
- * tracked appliances right now. [quarterKw] is the current quarter hour, [nextQuarterKw] the next
- * one if nothing is started or stopped; running appliances weigh fully in the next one.
+ * Where the household stands now. [baseNowKw] is the draw without tracked appliances right now,
+ * [quarterKw] the current quarter hour, [nextQuarterKw] the next one if nothing is started or
+ * stopped; running appliances weigh fully in the next one.
  *
- * [plannedGoalKw] is the level plus the user's offset. The month's billed peak can't be lower
+ * [plannedGoalKw] is the month's level (its average draw) plus the user's offset. The month's billed peak can't be lower
  * than what is sure to happen, so anything up to that costs nothing extra and [goalKw] rises to
  * the highest of:
  * - [usualPeak]: the hour of day with the highest usual draw from hourly data (a water heater and
@@ -41,7 +41,6 @@ class Baseline(data: PeakData) {
  *   finished ones, or going over the goal would raise it at once and never warn).
  */
 data class PeakStatus(
-    val levelKw: Double,
     val baseNowKw: Double,
     val plannedGoalKw: Double,
     val usualPeak: Pair<Int, Double>?,
@@ -80,7 +79,6 @@ fun PeakData.status(now: Instant): PeakStatus? {
     val level = baseline.levelKw(local.month) ?: return null
     val month = YearMonth.from(local)
     return PeakStatus(
-        levelKw = level,
         baseNowKw = baseline.at(now),
         plannedGoalKw = level + goalOffsetKw,
         usualPeak = baseline.usualPeak(local.month),

@@ -94,7 +94,7 @@ fun SetupGuide(
             }
             2 -> {
                 Title("Choose your region", onClose)
-                Text("Prices come from your local electricity utility, so pick the one that supplies you. You can change it later in Settings.")
+                Text("Pick the utility that supplies your electricity.")
                 REGIONS.forEach { r ->
                     OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = {
                         chosenRegion = r.id
@@ -108,24 +108,22 @@ fun SetupGuide(
             3 -> {
                 val region = REGIONS.first { it.id == chosenRegion }
                 val ready = daysIn(peak.days, LocalDate.now(TARIFF_ZONE).month) >= REQUIRED_DAYS
-                Title("Your load data", onClose)
+                Title("Your usage", onClose)
                 Text(
                     if (chosenMode == Mode.SPOT) {
-                        "With a week of your hourly consumption, GridLoad also shows what your home usually draws at this hour and what that costs. Or skip this and just use the prices."
+                        "Optional. With a week of your usage, GridLoad also shows what your home usually uses at this hour and what it costs."
                     } else {
-                        "Peak load mode needs a week of your hourly consumption, to know what your home draws at each hour, like a water heater at night."
+                        "Peak load mode needs a week of your usage to know what runs at each hour."
                     },
                 )
                 LoadData(peak, importMessage, onImport)
                 Column(Modifier.align(Alignment.End), horizontalAlignment = Alignment.End) {
                     if (chosenMode == Mode.SPOT) {
                         Button(onClick = { onDone(Mode.SPOT, region) }, enabled = ready) { Text("Done") }
-                        TextButton(onClick = { onDone(Mode.SPOT, region) }) {
-                            Text(if (peak.days.isEmpty()) "Skip – prices only" else "Skip for now")
-                        }
+                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Skip") }
                     } else {
                         Button(onClick = { step = 4 }, enabled = ready) { Text("Next") }
-                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Use spot price mode instead") }
+                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Use spot price instead") }
                     }
                 }
             }
@@ -160,9 +158,8 @@ fun SettingsScreen(
         Text("Mode", fontWeight = FontWeight.Bold)
         ModeChoice(state.mode, onSelectMode)
         Text("Region", fontWeight = FontWeight.Bold)
-        Text("Prices come from your local electricity utility.")
         RegionPicker(state.region, onSelectRegion)
-        Text("Load data", fontWeight = FontWeight.Bold)
+        Text("Your usage", fontWeight = FontWeight.Bold)
         LoadData(peak, importMessage, onImport, onDeleteLoadData)
         if (state.mode == Mode.PEAK) {
             Text("Goal", fontWeight = FontWeight.Bold)
@@ -200,11 +197,11 @@ private fun Page(content: @Composable ColumnScope.() -> Unit) {
 private fun ModeChoice(selected: Mode?, onSelect: (Mode) -> Unit) {
     OptionCard(selected == Mode.SPOT, { onSelect(Mode.SPOT) }, "⚡") {
         Text("Spot price", fontWeight = FontWeight.Bold)
-        Text("Shows when electricity is cheap, so you know when to run your appliances.")
+        Text("See when electricity is cheap.")
     }
     OptionCard(selected == Mode.PEAK, { onSelect(Mode.PEAK) }, "📊") {
         Text("Peak load", fontWeight = FontWeight.Bold)
-        Text("Helps keep your monthly peak low, which lowers your grid bill. You tap start and stop for your appliances; GridLoad estimates the rest from your consumption data.")
+        Text("Keep your monthly peak low to cut your grid bill.")
     }
 }
 
@@ -256,22 +253,22 @@ private fun LoadData(peak: PeakData, message: String?, onImport: (List<Uri>) -> 
             .mapNotNull { highestHour(peak.days, it) }.maxByOrNull { it.kw }
         Text(
             buildString {
-                append("${m.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} (${hourly.days} days): always on %.2f kW.".format(hourly.staticKw))
-                append(" Usually highest at %02d:00 (%.1f kW).".format(hourly.peakHour, hourly.baseKw[hourly.peakHour]))
-                highest?.let { append(" Highest hour: %.2f kW (%s).".format(it.kw, peakTimeFormat.format(it.quarter))) }
+                append("${m.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: always on %.2f kW".format(hourly.staticKw))
+                append(" · usually highest %.1f kW at %02d:00".format(hourly.baseKw[hourly.peakHour], hourly.peakHour))
+                highest?.let { append(" · highest hour %.2f kW (%s)".format(it.kw, peakTimeFormat.format(it.quarter))) }
             },
         )
     }
     if (onDelete != null && peak.days.isNotEmpty()) {
         var confirm by remember { mutableStateOf(false) }
-        OutlinedButton(onClick = { confirm = true }) { Text("Delete load data") }
+        OutlinedButton(onClick = { confirm = true }) { Text("Delete usage data") }
         if (confirm) {
             AlertDialog(
                 onDismissRequest = { confirm = false },
                 confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text("Delete") } },
                 dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
-                title = { Text("Delete load data?") },
-                text = { Text("GridLoad forgets the imported days. Spot price mode goes back to prices only. Your Excel files aren't touched.") },
+                title = { Text("Delete usage data?") },
+                text = { Text("The imported days are removed from GridLoad. Your Excel files stay.") },
             )
         }
     }
@@ -289,32 +286,32 @@ fun LoadImport(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) 
     val have = daysIn(peak.days, today.month)
     if (have < REQUIRED_DAYS) {
         val week = suggestedWeek(today)
-        Text("GridLoad needs $REQUIRED_DAYS days of hourly values for $month. In the CKW customer portal, open the day view and export each day as Excel, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files here. They stay on this phone.")
+        Text("Export $REQUIRED_DAYS days of $month from the CKW customer portal: day view, one Excel file per day, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files. They stay on your phone.")
     }
     OutlinedButton(onClick = { picker.launch(arrayOf(XLSX, "application/octet-stream")) }) { Text("Import Excel files") }
     Text(if (have >= REQUIRED_DAYS) "$month: $have days ✓" else "$month: $have of $REQUIRED_DAYS days", fontWeight = FontWeight.Bold)
     message?.let { Text(it) }
 }
 
-/** The goal offset: the goal is the month's level plus this. */
+/** The goal offset: the goal is the month's average use (its level) plus this. */
 @Composable
 private fun GoalSetting(peak: PeakData, onGoalOffset: (Double) -> Unit) {
     var text by rememberSaveable { mutableStateOf("%.1f".format(Locale.ROOT, peak.goalOffsetKw)) }
-    Text("Your grid bill counts the highest 15-minute average of each month. GridLoad keeps you under a goal: this month's level (your household's average draw, heating included) plus the extra you allow for appliances.")
+    Text("Your grid bill charges for the month's highest 15-minute average. Your goal is your average use plus room for appliances.")
     OutlinedTextField(
         value = text,
         onValueChange = { value ->
             text = value
             value.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }?.let(onGoalOffset)
         },
-        label = { Text("Extra for appliances (kW)") },
+        label = { Text("Room for appliances (kW)") },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
     )
     val month = ZonedDateTime.now(TARIFF_ZONE).month
     // Without this month's days there is no goal yet (the main screen asks for the import).
     Baseline(peak).levelKw(month)?.let { level ->
-        Text("In ${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: %.2f kW level + %.1f kW = %.2f kW goal.".format(level, peak.goalOffsetKw, level + peak.goalOffsetKw))
+        Text("${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: %.2f kW average use + %.1f kW = %.2f kW goal".format(level, peak.goalOffsetKw, level + peak.goalOffsetKw))
     }
 }
 

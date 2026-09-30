@@ -123,18 +123,20 @@ private fun GoalCard(status: PeakStatus, peak: PeakData) {
     raisedGoalText(status)?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
     val next = timeFormat.format(quarterStart(Instant.now()) + QUARTER)
     when {
-        status.budgetKw >= 0 -> Text("%.1f kW left for appliances you start now".format(status.budgetKw))
+        status.budgetKw >= 0 -> Text("%.1f kW free for appliances".format(status.budgetKw))
         status.quarterKw > status.goalKw -> Text("Over your goal by %.1f kW".format(status.quarterKw - status.goalKw), color = RED, fontWeight = FontWeight.Bold)
-        else -> Text("From $next: %.1f kW, over your goal".format(status.nextQuarterKw), color = RED, fontWeight = FontWeight.Bold)
+        else -> Text("Over your goal from $next (%.1f kW)".format(status.nextQuarterKw), color = RED, fontWeight = FontWeight.Bold)
     }
     if (maxOf(status.quarterKw, status.nextQuarterKw) > status.goalKw) {
         val stop = suggestStop(peak.appliances, peak.runs, status.baseline, status.goalKw, Instant.now())
         val name = stop?.let { run -> peak.appliances.find { it.id == run.applianceId }?.name }
-        Text(if (name != null) "Stop the $name to stay under it." else "Nothing that can be stopped would help; it passes when a run ends.")
+        Text(if (name != null) "Stop the $name to get under it." else "Stopping an appliance wouldn't help.")
     }
-    Text("Planned goal: this month's level %.2f kW (heating included) + %.1f kW for appliances.".format(status.levelKw, peak.goalOffsetKw))
-    Text("At this hour the house usually draws about %.2f kW without the appliances you start here, heating included (from your hourly data).".format(status.baseNowKw))
-    Text("Highest estimate this month: %.1f kW (%s)".format(status.monthPeak.kw, peakTimeFormat.format(status.monthPeak.quarter)))
+    Text("Usually %.1f kW at this hour without your appliances".format(status.baseNowKw))
+    // Only while the estimate is the highest peak known; a higher measured one is in raisedGoalText.
+    if (status.monthPeak.kw >= (status.meterPeak?.kw ?: 0.0)) {
+        Text("Estimated peak this month: %.1f kW (%s)".format(status.monthPeak.kw, peakTimeFormat.format(status.monthPeak.quarter)))
+    }
 }
 
 /**
@@ -144,7 +146,7 @@ private fun GoalCard(status: PeakStatus, peak: PeakData) {
  */
 @Composable
 private fun NeedsDataCard(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
-    Text("Load data", fontWeight = FontWeight.Bold)
+    Text("Your usage", fontWeight = FontWeight.Bold)
     LoadImport(peak, message, onImport)
 }
 
@@ -156,16 +158,11 @@ fun raisedGoalText(status: PeakStatus): String? {
     val reason = status.raisedBy ?: return null
     val goal = "Goal raised to %.1f kW".format(status.goalKw)
     val nextMonth = status.monthPeak.quarter.atZone(TARIFF_ZONE).toLocalDate().withDayOfMonth(1).plusMonths(1)
-    val back = "From %s it's back to your planned %.1f kW.".format(nextMonth.format(DateTimeFormatter.ofPattern("d MMM")), status.plannedGoalKw)
+    val back = "Back to %.1f kW on %s.".format(status.plannedGoalKw, nextMonth.format(DateTimeFormatter.ofPattern("d MMM")))
     return when (reason) {
-        GoalRaise.METER -> status.meterPeak!!.let {
-            "$goal: your meter measured %.1f kW on average over the hour at %s, and the billed quarter hour was at least that, so anything up to it costs nothing extra. $back".format(it.kw, peakTimeFormat.format(it.quarter))
-        }
-        GoalRaise.USUAL -> status.usualPeak!!.let { (hour, _) ->
-            "$goal: your hourly data shows about that nearly every night at %02d:00 (water heater, heating), so it's billed anyway and anything up to it costs nothing extra.".format(hour)
-        }
-        GoalRaise.ESTIMATE ->
-            "$goal: this month's peak (%s) is billed anyway, so anything up to it costs nothing extra. $back".format(peakTimeFormat.format(status.pastPeak.quarter))
+        GoalRaise.METER -> "$goal: your meter measured that on %s, so up to it costs nothing extra. $back".format(peakTimeFormat.format(status.meterPeak!!.quarter))
+        GoalRaise.USUAL -> "$goal: your heating reaches that most nights at %02d:00, so up to it costs nothing extra.".format(status.usualPeak!!.first)
+        GoalRaise.ESTIMATE -> "$goal: this month's peak (%s) already reached it, so up to it costs nothing extra. $back".format(peakTimeFormat.format(status.pastPeak.quarter))
     }
 }
 
@@ -181,7 +178,7 @@ private fun Appliances(
 ) {
     Text("Appliances", fontWeight = FontWeight.Bold)
     if (peak.appliances.isEmpty()) {
-        Text("Add the appliances you switch on yourself, like the washing machine, dishwasher, oven, kettle or car charger. Tap one to edit it.")
+        Text("Add the appliances you switch on yourself, like the washing machine or kettle. Tap one to edit it.")
     }
     val now = Instant.now()
     peak.appliances.forEach { appliance ->
@@ -217,7 +214,7 @@ private fun advice(appliance: Appliance, status: PeakStatus, peak: PeakData, lev
         room == null -> "Would pass your goal. Stop something first." to RED
         room != now -> "Would pass your goal. Room from ${timeFormat.format(room)}." to RED
         level == Level.GREEN -> "Fits. Good time to start." to GREEN
-        level == Level.ORANGE -> "Fits. Only start it if you have to." to ORANGE
+        level == Level.ORANGE -> "Fits. Only if you need it." to ORANGE
         level == Level.RED -> "Fits, but a cheaper time is coming." to RED
         else -> "Fits your goal." to Color.Unspecified
     }
@@ -252,7 +249,7 @@ private fun ApplianceDialog(initial: Appliance?, onSave: (Appliance) -> Unit, on
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 OutlinedTextField(
-                    minutes, { minutes = it }, label = { Text("Run time (min), empty = until stopped") }, singleLine = true,
+                    minutes, { minutes = it }, label = { Text("Run time (min), empty = until you stop it") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -260,7 +257,7 @@ private fun ApplianceDialog(initial: Appliance?, onSave: (Appliance) -> Unit, on
                     Text("Can be stopped midway")
                 }
                 Text(
-                    "Power is the average draw while it runs, and the run time how long that lasts: a washing machine heats at about 2000 W for 30 minutes, then barely draws anything. Heating and hot water are already in your baseline.",
+                    "Enter only the heavy part: a washing machine heats at about 2000 W for 30 min, then uses little. Heating and hot water are already counted.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 onDelete?.let { TextButton(onClick = it) { Text("Delete", color = RED) } }
@@ -280,7 +277,7 @@ private fun ApplianceDialog(initial: Appliance?, onSave: (Appliance) -> Unit, on
 private fun PresetPicker(onPick: (Appliance) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text("Choose a common appliance ▾") }
+        OutlinedButton(onClick = { open = true }) { Text("Common appliances ▾") }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             APPLIANCE_PRESETS.forEach { preset ->
                 DropdownMenuItem(

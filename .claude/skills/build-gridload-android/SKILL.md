@@ -118,7 +118,7 @@ charge (1.00 CHF/kW per month on Home dynamic). Still open: the points under "Ta
    mode shows "Usually 3.8 kW at this hour · about 0.95 CHF/h", or skips the import (prices
    only). `:core`: `CkwExport.kt` (xlsx reader + day parser), `LoadProfile.kt` (`hourlyMonths`,
    `highestHour`, `daysIn`, `suggestedWeek`). Peak load's main screen without this month's
-   data shows a single "Load data" import card (the same `LoadImport` as Settings);
+   data shows a single "Your usage" import card (the same `LoadImport` as Settings);
    `PeakData.status` returns null until the month has `REQUIRED_DAYS`. See `CLAUDE.md` under
    "Main screen (peak load mode)". Known gap: without last year's data for the month (e.g. a
    new meter), peak load mode can't be used until the 8th.
@@ -187,12 +187,11 @@ the real JSON, test whether the `NsdManager` system picker finds the whatwatt (i
 config. **Phase 2** (live reading) can then be tested against a fake whatwatt on the PC. The
 details, and what's still unverified, are in `CLAUDE.md`.
 
-### Phase 6: UI text cleanup [catalogued 2026-09-30, not started]
+### Phase 6: UI text [reworked 2026-09-30, in v0.5.0]
 
-The plan is in `CLAUDE.md` under "UI text": extract the ~90–100 inline strings in the four app
-files into `res/values/strings.xml` (content-preserving), then rewrite that file only for
-concision, cutting the duplicated explanations of region, mode, the goal and load data. Held
-back until the other concurrent sessions are clear of the app's Kotlin files and phone testing.
+Every text rewritten in place for length, with each concept explained once and "Your usage"
+instead of "load data"; the rules are in `CLAUDE.md` under "UI text". `strings.xml` extraction
+was dropped for now (English-only app). Checked on the phone: main screen, Settings, help.
 
 ## Conventions
 

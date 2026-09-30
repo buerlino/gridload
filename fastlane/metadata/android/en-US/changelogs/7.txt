@@ -1,3 +1,4 @@
-- Load data is now a week of hourly values: import 7 daily Excel exports from the CKW customer portal (the current month, or the same month last year). Year and month exports are no longer used.
-- Peak load mode takes each hour's usual draw from them, like a water heater at night, and asks for the import right on its main screen when the month's week is missing
-- Spot price mode can use the data too: what your home usually draws at this hour and what that costs
+- Your usage is now a week of hourly values: import 7 daily Excel exports from the CKW customer portal (this month, or the same month last year). Year and month exports are no longer used.
+- Peak load mode takes each hour's usual draw from them, like a water heater at night, and asks for the import on its main screen when the month's week is missing
+- Spot price mode can use them too: what your home usually uses at this hour and what it costs
+- Shorter, clearer texts throughout

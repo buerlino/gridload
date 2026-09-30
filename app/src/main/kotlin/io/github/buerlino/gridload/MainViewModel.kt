@@ -155,7 +155,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val now = Instant.now()
         val hasData = _state.value.status != null
         if (!mayFetch(lastAttempt, now, hasData)) {
-            val notice = if (hasData) "Already up to date" else "Please wait a few seconds"
+            val notice = if (hasData) "Already up to date" else "Try again in a few seconds"
             _state.update { it.copy(notice = notice) }
             return
         }
@@ -255,10 +255,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 /** "Imported 7 days.", then what was left out and why. */
 private fun importSummary(days: List<DayUsage>, incomplete: Int, errors: List<Throwable>): String = listOfNotNull(
     "Imported ${dayCount(days.size)}.".takeIf { days.isNotEmpty() || (incomplete == 0 && errors.isEmpty()) },
-    incomplete.takeIf { it > 0 }?.let { "${fileCount(it)} had no complete day (today's isn't over yet)." },
+    incomplete.takeIf { it > 0 }?.let { "${fileCount(it)} skipped: that day isn't over yet." },
     errors.firstOrNull()?.let { e ->
         val reason = e.message ?: e.javaClass.simpleName
-        if (errors.size == 1) "1 file left out: $reason" else "${errors.size} files left out, e.g.: $reason"
+        if (errors.size == 1) "1 file skipped: $reason" else "${errors.size} files skipped, e.g.: $reason"
     },
 ).joinToString(" ")
 

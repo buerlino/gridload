@@ -30,12 +30,12 @@ data class DayUsage(val date: String, val kwh: List<Double>) {
 fun parseCkwExport(xlsx: InputStream): List<DayUsage> {
     val rows = readFirstSheet(xlsx)
     val header = rows.indexOfFirst { it.getOrNull(0) == "Zeitraum" }
-    require(header >= 0) { "This isn't an export from the CKW customer portal." }
+    require(header >= 0) { "Not an export from the CKW customer portal." }
     return when (val unit = rows.firstOrNull { it.getOrNull(0) == "Einheit" }?.getOrNull(1)) {
         "Stunde" -> hourRows(rows.drop(header + 1))
-        "Monat" -> error("This is a year export (one value per month). GridLoad needs the day view's exports, with one value per hour.")
-        "Tag" -> error("This is a month export (one value per day). GridLoad needs the day view's exports, with one value per hour.")
-        else -> error("Unknown unit: $unit. GridLoad needs the day view's exports, with one value per hour.")
+        "Monat" -> error("It's a year export. Use the day view's exports.")
+        "Tag" -> error("It's a month export. Use the day view's exports.")
+        else -> error("Unknown format ($unit). Use the day view's exports.")
     }
 }
 
@@ -75,7 +75,7 @@ private fun readFirstSheet(xlsx: InputStream): List<List<String>> {
     val builder = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder()
     fun parse(name: String) = parts[name]?.inputStream()?.use { builder.parse(it).documentElement }
     val shared = parse("xl/sharedStrings.xml")?.children("si")?.map { it.text() }.orEmpty()
-    val sheet = parse("xl/worksheets/sheet1.xml") ?: error("Not an Excel file")
+    val sheet = parse("xl/worksheets/sheet1.xml") ?: error("Not an Excel file.")
     return sheet.getElementsByTagNameNS("*", "row").let { list -> (0 until list.length).map { list.item(it) as Element } }
         .map { row ->
             val cells = sortedMapOf<Int, String>()

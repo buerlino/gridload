@@ -168,7 +168,7 @@ fun PriceHeader(state: UiState, content: Color, label: String, hint: String?, co
 }
 
 /**
- * Spot mode with imported load data: what the home usually draws at this hour and what that
+ * Spot mode with imported usage data: what the home usually draws at this hour and what that
  * costs at the current price. With data, but none for this month, a hint to import it.
  */
 @Composable
@@ -178,7 +178,7 @@ private fun UsualDraw(state: UiState, content: Color) {
     when {
         kw != null -> Text("Usually %.1f kW at this hour · about %.2f CHF/h".format(kw, kw * price), color = content, fontSize = 18.sp, textAlign = TextAlign.Center)
         state.hasLoadData -> Text(
-            "No load data for ${LocalDate.now().month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} yet. Import a week of it in Settings (⚙).",
+            "No usage data for ${LocalDate.now().month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} yet. Import a week in Settings.",
             color = content, textAlign = TextAlign.Center,
         )
     }
@@ -200,7 +200,7 @@ fun look(state: UiState): Look = when (state.status?.level) {
     Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
     Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
     Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
-    null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No data", null)
+    null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No prices", null)
 }
 
 /** ⚙ at the top left, the region in the middle, ? at the top right. */
@@ -245,14 +245,14 @@ fun HelpDialog(onDismiss: () -> Unit) {
 @Composable
 fun HelpContent() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("GridLoad tells you when to use electricity, based on your utility's dynamic price. Cheap times are when the grid has the most to spare, like midday when solar power peaks. Pick your region and mode in Settings (⚙).")
+        Text("GridLoad shows whether now is a good time to use electricity, based on your utility's price. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
         Text("Spot price mode", fontWeight = FontWeight.Bold)
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
-        LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
+        LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes. With a week of your hourly consumption imported (Settings), it also shows what your home usually draws at this hour and what that costs.")
+        Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
         Text("Peak load mode", fontWeight = FontWeight.Bold)
-        Text("Your grid bill also counts the highest 15-minute average of each month. Tap Start and Stop when you switch an appliance on and off, and GridLoad estimates the current quarter hour from your load data and keeps you under your goal. Each appliance shows whether it fits now and, with the same colours, whether the price is good.")
+        Text("Your grid bill also charges for the month's highest 15-minute average. Tap Start and Stop when you switch an appliance on and off. GridLoad keeps each quarter hour under your goal.")
     }
 }
 

@@ -56,9 +56,9 @@ class PeakTest {
     @Test
     fun refusesYearAndMonthExports() {
         val year = fakeExport("01.01.2025 - 31.12.2025", listOf("Jan.-25" to 2232.0, "Feb.-25" to 2016.0))
-        assertTrue(assertFailsWith<IllegalStateException> { parseCkwExport(year.inputStream()) }.message!!.startsWith("This is a year export"))
+        assertTrue(assertFailsWith<IllegalStateException> { parseCkwExport(year.inputStream()) }.message!!.startsWith("It's a year export"))
         val month = fakeExport("01.01.2025 - 31.01.2025", listOf("1.1.2025" to 72.0), unit = "Tag")
-        assertTrue(assertFailsWith<IllegalStateException> { parseCkwExport(month.inputStream()) }.message!!.startsWith("This is a month export"))
+        assertTrue(assertFailsWith<IllegalStateException> { parseCkwExport(month.inputStream()) }.message!!.startsWith("It's a month export"))
     }
 
     @Test
@@ -120,7 +120,7 @@ class PeakTest {
     fun statusUsesTheMonthsBaselineAndGoal() {
         val data = PeakData(days = flatJanuary, runs = listOf(startRun(kettle, jan("07:05"))), goalOffsetKw = 2.0)
         val status = data.status(jan("07:10"))!!
-        assertEquals(3.0, status.levelKw, 1e-9)
+        assertEquals(5.0, status.plannedGoalKw, 1e-9)
         assertEquals(5.0, status.goalKw, 1e-9)
         assertEquals(3.4, status.quarterKw, 1e-9)
         assertEquals(3.0, status.nextQuarterKw, 1e-9)
