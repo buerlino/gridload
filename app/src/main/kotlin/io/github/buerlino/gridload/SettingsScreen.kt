@@ -60,9 +60,9 @@ import java.util.Locale
 
 /**
  * The setup guide: on first start the help, then Next; then the mode, the region, the load data,
- * the whatwatt device (both modes, optional), and for peak load mode the goal. Spot price mode
- * can skip the load data (prices only); peak load mode needs it, or switches to spot price mode.
- * From Settings ([onClose] set) it starts at the mode and can be left with back.
+ * and for peak load mode the goal. Spot price mode can skip the load data (prices only); peak
+ * load mode needs it, or switches to spot price mode. From Settings ([onClose] set) it starts at
+ * the mode and can be left with back.
  */
 @Composable
 fun SetupGuide(
@@ -70,12 +70,8 @@ fun SetupGuide(
     region: Region,
     peak: PeakData,
     importMessage: String?,
-    whatwattAddress: String?,
-    whatwattTestResult: String?,
     onImport: (List<Uri>) -> Unit,
     onGoalOffset: (Double) -> Unit,
-    onWhatwattAddress: (String) -> Unit,
-    onTestWhatwatt: () -> Unit,
     onDone: (Mode, Region) -> Unit,
     onClose: (() -> Unit)?,
 ) {
@@ -123,8 +119,8 @@ fun SetupGuide(
                 LoadData(peak, importMessage, onImport)
                 Column(Modifier.align(Alignment.End), horizontalAlignment = Alignment.End) {
                     if (chosenMode == Mode.SPOT) {
-                        Button(onClick = { step = 4 }, enabled = ready) { Text("Done") }
-                        TextButton(onClick = { step = 4 }) {
+                        Button(onClick = { onDone(Mode.SPOT, region) }, enabled = ready) { Text("Done") }
+                        TextButton(onClick = { onDone(Mode.SPOT, region) }) {
                             Text(if (peak.days.isEmpty()) "Skip – prices only" else "Skip for now")
                         }
                     } else {
@@ -132,16 +128,6 @@ fun SetupGuide(
                         TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Use spot price mode instead") }
                     }
                 }
-            }
-            4 -> {
-                Title("Connect a whatwatt", onClose)
-                WhatwattFields(whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt)
-                Button(
-                    onClick = {
-                        if (chosenMode == Mode.SPOT) onDone(chosenMode, REGIONS.first { it.id == chosenRegion }) else step = 5
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                ) { Text(if (whatwattAddress.isNullOrBlank()) "Not now" else if (chosenMode == Mode.SPOT) "Done" else "Next") }
             }
             else -> {
                 Title("Your goal", onClose)
@@ -160,14 +146,11 @@ fun SettingsScreen(
     state: UiState,
     peak: PeakData,
     importMessage: String?,
-    whatwattTestResult: String?,
     onSelectMode: (Mode) -> Unit,
     onSelectRegion: (Region) -> Unit,
     onImport: (List<Uri>) -> Unit,
     onDeleteLoadData: () -> Unit,
     onGoalOffset: (Double) -> Unit,
-    onWhatwattAddress: (String) -> Unit,
-    onTestWhatwatt: () -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -181,8 +164,6 @@ fun SettingsScreen(
         RegionPicker(state.region, onSelectRegion)
         Text("Load data", fontWeight = FontWeight.Bold)
         LoadData(peak, importMessage, onImport, onDeleteLoadData)
-        Text("whatwatt", fontWeight = FontWeight.Bold)
-        WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt)
         if (state.mode == Mode.PEAK) {
             Text("Goal", fontWeight = FontWeight.Bold)
             GoalSetting(peak, onGoalOffset)
@@ -190,24 +171,6 @@ fun SettingsScreen(
         }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
-}
-
-/**
- * What a whatwatt is for, the device address, "Test connection", and the last test's result.
- * Shared by the setup guide and Settings, so the explanation lives only here.
- */
-@Composable
-private fun WhatwattFields(address: String?, testResult: String?, onAddress: (String) -> Unit, onTest: () -> Unit) {
-    var text by rememberSaveable { mutableStateOf(address.orEmpty()) }
-    Text("Have a whatwatt Go on your smart meter? Enter its address and test the connection. Showing its live readings comes in a later version.")
-    OutlinedTextField(
-        value = text,
-        onValueChange = { text = it; onAddress(it) },
-        label = { Text("Device address, e.g. 192.168.1.50 or whatwatt-ABCDEF.local") },
-        singleLine = true,
-    )
-    OutlinedButton(onClick = onTest, enabled = text.isNotBlank()) { Text("Test connection") }
-    testResult?.let { Text(it) }
 }
 
 /** A page title, with a back arrow when the page can be left. */

@@ -73,28 +73,23 @@ class MainActivity : ComponentActivity() {
                 }
                 val peak by viewModel.peak.collectAsStateWithLifecycle()
                 val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
-                val whatwattTestResult by viewModel.whatwattTestResult.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state.mode, state.region, peak, importMessage, state.whatwattAddress, whatwattTestResult,
+                        state.mode, state.region, peak, importMessage,
                         onImport = viewModel::importLoadData,
                         onGoalOffset = viewModel::setGoalOffset,
-                        onWhatwattAddress = viewModel::setWhatwattAddress,
-                        onTestWhatwatt = viewModel::testWhatwattConnection,
                         onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
-                        state, peak, importMessage, whatwattTestResult,
+                        state, peak, importMessage,
                         onSelectMode = viewModel::selectMode,
                         onSelectRegion = viewModel::selectRegion,
                         onImport = viewModel::importLoadData,
                         onDeleteLoadData = viewModel::deleteLoadData,
                         onGoalOffset = viewModel::setGoalOffset,
-                        onWhatwattAddress = viewModel::setWhatwattAddress,
-                        onTestWhatwatt = viewModel::testWhatwattConnection,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false },
                     )

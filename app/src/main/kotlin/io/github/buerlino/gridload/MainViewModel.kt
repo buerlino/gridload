@@ -18,7 +18,6 @@ import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
 import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.classify
-import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.isRunning
 import io.github.buerlino.gridload.core.mayFetch
@@ -53,8 +52,6 @@ data class UiState(
     val usualKw: Double? = null,
     /** Whether any load data is imported, so spot mode can ask for this month's when it's missing. */
     val hasLoadData: Boolean = false,
-    /** The saved whatwatt device address, or null when none is set. */
-    val whatwattAddress: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
     val fetchedAt: Instant? = null,
@@ -67,7 +64,7 @@ data class UiState(
  * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region, mode, whatwatt address and "first start done" are saved in SharedPreferences, the
+ * The region, mode and "first start done" are saved in SharedPreferences, the
  * imported days and peak load mode's data in `peak.json`. Nothing is fetched until the first start has picked a region; installs from
  * before that fall back to CKW.
  */
@@ -80,14 +77,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
             mode = if (prefs.getString(KEY_MODE, null) == "peak") Mode.PEAK else Mode.SPOT,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
-            whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
         ),
     )
     val state: StateFlow<UiState> = _state
-
-    /** The result of the last "Test connection" tap, shown under the whatwatt address field. */
-    private val _whatwattTestResult = MutableStateFlow<String?>(null)
-    val whatwattTestResult: StateFlow<String?> = _whatwattTestResult
 
     /** Imported hourly days (both modes), and peak load mode's appliances, runs and goal offset. */
     private val peakFile = AtomicFile(File(app.filesDir, "peak.json"))
@@ -131,7 +123,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_REGION, region.id).apply()
         slots = emptyList()
         lastAttempt = null
-        _state.update { UiState(region = region, mode = it.mode, firstStartDone = it.firstStartDone, whatwattAddress = it.whatwattAddress) }
+        _state.update { UiState(region = region, mode = it.mode, firstStartDone = it.firstStartDone) }
         // The load data doesn't depend on the region: restore it now, not only once the fetch is
         // back, or peak load mode shows its "needs 7 days" card while loading.
         recompute()
@@ -211,36 +203,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setGoalOffset(kw: Double) = editPeak { it.copy(goalOffsetKw = kw) }
 
-    /** Saves (or, blank, clears) the whatwatt device address; "Not now" in the setup guide leaves it unset. */
-    fun setWhatwattAddress(address: String) {
-        val trimmed = address.trim()
-        prefs.edit().apply {
-            if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
-        }.apply()
-        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }) }
-        _whatwattTestResult.value = null
-    }
-
-    /** A one-off fetch from the saved address, to check it before relying on it. */
-    fun testWhatwattConnection() {
-        val address = _state.value.whatwattAddress ?: return
-        _whatwattTestResult.value = "Testing…"
-        viewModelScope.launch {
-            _whatwattTestResult.value = withContext(Dispatchers.IO) {
-                try {
-                    val reading = fetchMeterReading(address)
-                    when {
-                        reading.ok -> "Connected. %.2f kW now.".format(reading.powerKw ?: 0.0)
-                        reading.meterStatus != null -> "Connected to the device, but the meter says: ${reading.meterStatus}"
-                        else -> "Connected to the device, but got no reading."
-                    }
-                } catch (e: Exception) {
-                    "Couldn't connect: ${e.message ?: e.javaClass.simpleName}"
-                }
-            }
-        }
-    }
-
     /** Adds [appliance], or replaces the one with the same id. */
     fun saveAppliance(appliance: Appliance) = editPeak { data ->
         val exists = data.appliances.any { it.id == appliance.id }
@@ -307,4 +269,3 @@ private fun fileCount(n: Int) = if (n == 1) "1 file" else "$n files"
 private const val KEY_REGION = "region"
 private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
-private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"
