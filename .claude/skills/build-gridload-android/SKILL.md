@@ -104,30 +104,24 @@ request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffd
    Data source. A new region: test the URL with the app's request, add it to `REGIONS`, the
    table in `CLAUDE.md`, `README.md` and the store description.
 
-### Phase 4: peak load mode [released as v0.4.0, tag `v0.4.0`, versionCode 6, commit `15e270f`]
+### Phase 4: peak load mode [released as v0.4.0; the load data rework as v0.5.0, versionCode 7]
 
 The design is in `CLAUDE.md` under "Peak load mode". The CKW price sheet confirms the peak
 charge (1.00 CHF/kW per month on Home dynamic). Still open: the points under "Tariff" there
 (the household's product, whether the billed quarter hours are the fixed ones).
 
-The load data import was reworked again right after the release (2026-09-30, uncommitted); see
-below.
-
-1. **Load data import [reworked 2026-09-30, built and unit-tested; the import itself smoke-tested
-   on the phone, not yet committed].**
+1. **Load data import [reworked 2026-09-30, released as v0.5.0].**
    Only CKW day exports (hourly), `REQUIRED_DAYS` = 7 of the current calendar month (any year);
    year and month exports are refused with a message. The year export, the monthly model
    (`LoadProfile` class, `MonthUsage`, summer calibration) and its UI are removed; why (tested
    on the real data) is in `CLAUDE.md` under "Load data import". Both modes use the days: spot
    mode shows "Usually 3.8 kW at this hour · about 0.95 CHF/h", or skips the import (prices
    only). `:core`: `CkwExport.kt` (xlsx reader + day parser), `LoadProfile.kt` (`hourlyMonths`,
-   `highestHour`, `daysIn`, `suggestedWeek`). Smoke-tested on the phone: first start, year-export
-   rejection, multi-day import, spot mode's usual-draw line, peak mode's goal calc and
-   raised-goal, delete-load-data. Also built 2026-09-30, not yet tried on the phone: peak load's
-   main screen without this month's data now shows a single "Load data" import card (the same
-   `LoadImport` as Settings) instead of the goal and appliance cards (it used to show a
-   meaningless "0.0 of 2.0 kW"); `PeakData.status` returns null until the month has
-   `REQUIRED_DAYS`. See `CLAUDE.md` under "Main screen (peak load mode)".
+   `highestHour`, `daysIn`, `suggestedWeek`). Peak load's main screen without this month's
+   data shows a single "Load data" import card (the same `LoadImport` as Settings);
+   `PeakData.status` returns null until the month has `REQUIRED_DAYS`. See `CLAUDE.md` under
+   "Main screen (peak load mode)". Known gap: without last year's data for the month (e.g. a
+   new meter), peak load mode can't be used until the 8th.
 2. **Appliances, runs, goal, advice [done].** `PeakLoad.kt` (appliances, runs, quarter-hour
    estimate, month peak, `PeakData`), `PeakAdvice.kt` (`Baseline`, `PeakStatus` with
    current and next quarter hour and the raised goal, `fitsAt`/`roomAt`, `suggestStop`).
@@ -140,8 +134,14 @@ below.
    and in an **R8 release build** (signed with the debug key: `zipalign -p 4`, then
    `apksigner`): loading the saved JSON, the .xlsx import, appliances with presets,
    start/stop, deleting and restarts all work. `versionCode` 6, `versionName` 0.4.0 (v0.3.1 took
-   5), `changelogs/6.txt`. README and store text were updated for the 2026-09-30 load data
-   rework (above, uncommitted); they go out with the next release, not one of their own.
+   5), `changelogs/6.txt`.
+5. **Release v0.5.0 [tagged 2026-09-30].** The load data rework (item 1), README and store text,
+   and whatwatt phase 1 built but hidden (Phase 5). `versionCode` 7, `changelogs/7.txt`.
+   Tested 2026-09-30 in an **R8 release build** (debug-signed as above) on a fresh install: first
+   start through the guide (peak load, CKW, 28 September day files, goal), the year-export
+   refusal, raised goal (5.06 kW, 27 Sep), a preset appliance with start/stop and delete,
+   Settings without whatwatt, region switch (the peak cards stay), delete load data → the
+   "Load data" card → re-import from it, and spot mode's "Usually 0.9 kW at this hour" line.
 
 Testing on the phone:
 - The user's exports are in the phone's Download folder (the days in `Download/september_2026`
@@ -157,7 +157,7 @@ Testing on the phone:
   force-stop the app, `run-as io.github.buerlino.gridload cat files/peak.json`, drop
   `appliances`/`runs`/`goalOffsetKw`, write it back with `run-as ... sh -c 'cat > files/peak.json'`.
 
-### Phase 5: whatwatt [remodeled 2026-09-30; phase 1 built, waiting for the device]
+### Phase 5: whatwatt [remodeled 2026-09-30; phase 1 built and hidden, waiting for the device]
 
 There is no third mode and no `dataSource` setting (user, 2026-09-30). The plan, the
 combinations table, the confirmed hardware/API/permission facts and the open questions are in
@@ -170,8 +170,10 @@ home Wi-Fi over plain HTTP (no MQTT, Pi or library): in spot mode it replaces th
 estimate with a measurement and drops manual appliance start/stop. `Whatwatt.kt` (report
 parser and client) is written and unit-tested.
 
-**Phase 1 [built 2026-09-30, not yet tried on the phone]:** the setup guide step and Settings
-card, both without hardware. Device address field + "Test connection", which calls
+**Phase 1 [built 2026-09-30 in `0f9b17b`, hidden from the UI for v0.5.0]:** the setup guide
+step and Settings card, both without hardware. Hidden because the manifest blocks cleartext
+HTTP, so the test could never connect; revert the commit "Hide the whatwatt setup step and
+Settings card" once phase 0 settles cleartext and the permission. What it does: Device address field + "Test connection", which calls
 `fetchMeterReading` off the main thread and shows the result or the error
 (`MainViewModel.setWhatwattAddress`/`testWhatwattConnection`; the shared UI is `WhatwattFields`
 in `SettingsScreen.kt`, with the one explanation of the device, which says live readings come
