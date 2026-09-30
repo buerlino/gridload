@@ -1,46 +1,26 @@
 package io.github.buerlino.gridload.core
 
+import java.time.LocalDate
 import java.time.Month
 import java.time.YearMonth
 
 /**
- * Adds a new import to the saved months. A month in both is replaced by the new data, which is
- * at least as complete (an export made mid-month is completed by next year's).
+ * Days of hourly values the app asks for per calendar month: a week. Tested on the user's
+ * January and September 2026: any 7 days gave each hour of the month's profile within about
+ * 0.4 kW (January) and 0.1 kW (September) of all days, and the same highest hour.
  */
-fun mergeUsage(saved: List<MonthUsage>, imported: List<MonthUsage>): List<MonthUsage> =
-    (saved + imported).associateBy { it.yearMonth }.values.sortedBy { it.yearMonth }
+const val REQUIRED_DAYS = 7
+
+/** Imported days in [month] of any year; the app asks for [REQUIRED_DAYS] of the current one. */
+fun daysIn(days: List<DayUsage>, month: Month): Int = days.count { it.localDate.month == month }
 
 /**
- * The household's load per calendar month, from imported monthly totals: the month function
- * that peak load mode builds on (model in CLAUDE.md). Months without data are missing from
- * [averageKw], so callers fall back to the tracked peak or a target.
+ * The week to export for [today]'s month: its first 7 days once they are over, else the same
+ * days a year earlier (the profile is per calendar month, so last year's works).
  */
-class LoadProfile(usage: List<MonthUsage>) {
-    /** Average draw per calendar month over all imported years, weighted by hours covered. */
-    val averageKw: Map<Month, Double> = usage.groupBy { Month.of(it.month) }
-        .mapValues { (_, months) -> months.sumOf { it.kwh } / months.sumOf { it.hours } }
-
-    /** The lowest month (summer): everything but heating. Null without data. */
-    val floorKw: Double? = averageKw.values.minOrNull()
-
-    /** What heating adds in [month] on average: that month's level above the floor. */
-    fun heatingKw(month: Month): Double? = averageKw[month]?.let { it - floorKw!! }
-
-    /**
-     * The always-on load: the floor minus the average draw of the appliances tracked in the
-     * app ([appliancesKw], measured over the same kind of month). With nothing tracked yet it is
-     * the floor itself, an upper bound.
-     */
-    fun staticBaseloadKw(appliancesKw: Double = 0.0): Double? = floorKw?.let { (it - appliancesKw).coerceAtLeast(0.0) }
-
-    /**
-     * The benchmark for [month]: static baseload plus that month's heating, the draw with none
-     * of the tracked appliances running. Each quarter hour's estimate is compared with it.
-     */
-    fun baselineKw(month: Month, appliancesKw: Double = 0.0): Double? {
-        val heating = heatingKw(month) ?: return null
-        return staticBaseloadKw(appliancesKw)!! + heating
-    }
+fun suggestedWeek(today: LocalDate): ClosedRange<LocalDate> {
+    val first = today.withDayOfMonth(1).let { if (today.dayOfMonth > REQUIRED_DAYS) it else it.minusYears(1) }
+    return first..first.plusDays(REQUIRED_DAYS - 1L)
 }
 
 /** Adds imported days to the saved ones; a day in both is replaced by the new one. */

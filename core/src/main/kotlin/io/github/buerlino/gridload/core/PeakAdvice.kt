@@ -5,41 +5,12 @@ import java.time.Instant
 import java.time.Month
 import java.time.YearMonth
 
-/** No heating in these months, so the tracked appliances can be measured against the floor. */
-val SUMMER = listOf(Month.JUNE, Month.JULY, Month.AUGUST)
-
-/** Tracked summer time needed before the calibration is trusted. */
-val MIN_CALIBRATION: Duration = Duration.ofDays(7)
-
 /**
- * The tracked appliances' average draw over the summer time tracked so far (from the first run
- * to [now]), or null with less than [MIN_CALIBRATION] of it. The floor minus this is the static
- * baseload (CLAUDE.md, "Peak load mode").
+ * The draw without tracked appliances at a given time, from imported hourly meter data for that
+ * calendar month ([HourlyMonth.baseKw], so a water heater at night counts); 0 without.
  */
-fun summerAppliancesKw(runs: List<Run>, now: Instant): Double? {
-    val first = runs.minOfOrNull { it.start }?.let(Instant::ofEpochSecond) ?: return null
-    var seconds = 0L
-    var kwh = 0.0
-    for (year in first.atZone(TARIFF_ZONE).year..now.atZone(TARIFF_ZONE).year) {
-        val from = maxOf(YearMonth.of(year, SUMMER.first()).atDay(1).atStartOfDay(TARIFF_ZONE).toInstant(), first)
-        val to = minOf(YearMonth.of(year, SUMMER.last()).plusMonths(1).atDay(1).atStartOfDay(TARIFF_ZONE).toInstant(), now)
-        if (to <= from) continue
-        seconds += Duration.between(from, to).seconds
-        kwh += energyKwh(runs, from, to)
-    }
-    if (seconds < MIN_CALIBRATION.seconds) return null
-    return kwh * 3600 / seconds
-}
-
-/**
- * The draw without tracked appliances at a given time. With hourly meter data for that calendar
- * month it follows the hour of day ([HourlyMonth.baseKw], so a water heater at night counts);
- * else it is the monthly model, static baseload + heating ([LoadProfile.baselineKw]); 0 without
- * either. [appliancesKw] is the summer calibration for the monthly model.
- */
-class Baseline(data: PeakData, private val appliancesKw: Double = 0.0) {
+class Baseline(data: PeakData) {
     private val hourly = hourlyMonths(data.days)
-    private val monthly = LoadProfile(data.usage)
 
     fun hasHourly(month: Month): Boolean = month in hourly
 
@@ -48,24 +19,17 @@ class Baseline(data: PeakData, private val appliancesKw: Double = 0.0) {
 
     fun at(instant: Instant): Double {
         val local = instant.atZone(TARIFF_ZONE)
-        hourly[local.month]?.let { return it.baseKw[local.hour] }
-        return monthly.baselineKw(local.month, appliancesKw) ?: 0.0
+        return hourly[local.month]?.baseKw?.get(local.hour) ?: 0.0
     }
 
-    /**
-     * The month's level for the goal: the monthly model, or the hourly data's average; null
-     * without data.
-     */
-    fun levelKw(month: Month): Double? = monthly.baselineKw(month, appliancesKw) ?: hourly[month]?.averageKw
+    /** The month's level for the goal: its average draw; null without data for the month. */
+    fun levelKw(month: Month): Double? = hourly[month]?.averageKw
 }
 
 /**
- * Where the household stands now. [levelKw] is the month's level (null without imported data;
- * the goal is then the offset alone), [baseNowKw] the draw without tracked appliances right now,
- * [hourly] whether that comes from hourly meter data. [quarterKw] is the current quarter hour,
- * [nextQuarterKw] the next one if nothing is started or stopped; running appliances weigh fully in
- * the next one. [calibrated] is false until enough summer time is tracked, so the monthly model's
- * static baseload is still the whole floor.
+ * Where the household stands now. [levelKw] is the month's level, [baseNowKw] the draw without
+ * tracked appliances right now. [quarterKw] is the current quarter hour, [nextQuarterKw] the next
+ * one if nothing is started or stopped; running appliances weigh fully in the next one.
  *
  * [plannedGoalKw] is the level plus the user's offset. The month's billed peak can't be lower
  * than what is sure to happen, so anything up to that costs nothing extra and [goalKw] rises to
@@ -77,9 +41,8 @@ class Baseline(data: PeakData, private val appliancesKw: Double = 0.0) {
  *   finished ones, or going over the goal would raise it at once and never warn).
  */
 data class PeakStatus(
-    val levelKw: Double?,
+    val levelKw: Double,
     val baseNowKw: Double,
-    val hourly: Boolean,
     val plannedGoalKw: Double,
     val usualPeak: Pair<Int, Double>?,
     val pastPeak: Peak,
@@ -87,7 +50,6 @@ data class PeakStatus(
     val quarterKw: Double,
     val nextQuarterKw: Double,
     val monthPeak: Peak,
-    val calibrated: Boolean,
     /** The draw without tracked appliances at a time, for [fitsAt], [roomAt] and [suggestStop]. */
     val baseline: (Instant) -> Double,
 ) {
@@ -101,25 +63,26 @@ data class PeakStatus(
         else -> GoalRaise.ESTIMATE
     }
 
-    val goalRaised: Boolean get() = raisedBy != null
-
     /** What an appliance started now may draw without either quarter passing the goal. */
     val budgetKw: Double get() = goalKw - maxOf(quarterKw, nextQuarterKw)
 }
 
 enum class GoalRaise { METER, USUAL, ESTIMATE }
 
-fun PeakData.status(now: Instant): PeakStatus {
-    val appliancesKw = summerAppliancesKw(runs, now)
-    val baseline = Baseline(this, appliancesKw ?: 0.0)
+/**
+ * Peak load mode's status at [now]; null until this calendar month has [REQUIRED_DAYS] imported
+ * days, since a goal and advice from a zero baseline would mean nothing.
+ */
+fun PeakData.status(now: Instant): PeakStatus? {
     val local = now.atZone(TARIFF_ZONE)
-    val level = baseline.levelKw(local.month)
+    if (daysIn(days, local.month) < REQUIRED_DAYS) return null
+    val baseline = Baseline(this)
+    val level = baseline.levelKw(local.month) ?: return null
     val month = YearMonth.from(local)
     return PeakStatus(
         levelKw = level,
         baseNowKw = baseline.at(now),
-        hourly = baseline.hasHourly(local.month),
-        plannedGoalKw = (level ?: 0.0) + goalOffsetKw,
+        plannedGoalKw = level + goalOffsetKw,
         usualPeak = baseline.usualPeak(local.month),
         // Up to the quarter before the current one; in the month's first quarter, just the baseline.
         pastPeak = monthPeak(month, baseline::at, runs, now - QUARTER),
@@ -127,7 +90,6 @@ fun PeakData.status(now: Instant): PeakStatus {
         quarterKw = quarterHourKw(quarterStart(now), baseline.at(now), runs),
         nextQuarterKw = quarterHourKw(quarterStart(now) + QUARTER, baseline.at(quarterStart(now) + QUARTER), runs),
         monthPeak = monthPeak(month, baseline::at, runs, now),
-        calibrated = appliancesKw != null,
         baseline = baseline::at,
     )
 }

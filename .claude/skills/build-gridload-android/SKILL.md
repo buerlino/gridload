@@ -18,10 +18,11 @@ history is in git.
   Kotlin/Compose is the easiest for F-Droid to build and review. iOS is deferred; if it comes,
   the default is a small native SwiftUI rewrite. Don't build for it now.
 - **Architecture:** single Activity. `:core` (plain Kotlin/JVM, no Android) holds regions, the
-  API client, parsing, classification and later the peak load logic, all unit-tested. `:app`
-  holds the screens: main, Settings, first start (`SettingsScreen.kt`), later appliances.
-- **No background work:** fetch on open/resume and manual refresh only, so `INTERNET` stays the
-  only permission. Peak load mode keeps this by computing everything from saved start/stop times
+  API client, parsing, classification, the load data import and the peak load logic, all
+  unit-tested. `:app` holds the screens: main (`MainActivity.kt`, peak load's cards in
+  `PeakScreen.kt`), Settings and the setup guide (`SettingsScreen.kt`).
+- **No background work:** fetch on open/resume and manual refresh only, so no permission
+  beyond `INTERNET` is needed for it (whatwatt may add `ACCESS_LOCAL_NETWORK`; open, Phase 5). Peak load mode keeps this by computing everything from saved start/stop times
   when the app opens.
 - **No proprietary dependencies** (Firebase, Play Services, ads, analytics, crash SDKs).
 - **Beyond the roadmap:** no accounts, no cloud, no optimization engine.
@@ -62,14 +63,15 @@ SVGs change, regenerate all three. No monochrome (themed) layer yet.
 
 Two **modes**, chosen on first start and changeable in Settings: **spot price** (the colour
 says run everything or wait) and **peak load** (appliances, staying under the month's peak).
-Work phase by phase and update the status in brackets.
+On top of either mode, two add-ons that stack (user, 2026-09-30): the **CKW import** (7 days of
+hourly values for the current month; spot mode can skip it for prices only, peak load needs it)
+and **whatwatt** (live measured draw, phase 5). Work phase by phase and update the status in
+brackets.
 
 ### Phase 1: v0.2, Settings and first start [done, released as v0.2.0]
 
-Settings behind ⚙ (mode cards, region picker), first start (help, Next, mode choice with peak
-load "coming soon"), region and "first start done" saved, app icon. The mode isn't saved yet,
-since spot is the only choice; save it when peak mode exists. The mode logos are emoji
-placeholders (⚡, 📊).
+Settings behind ⚙ (mode cards, region picker), first start (help, Next, mode choice), region
+and "first start done" saved, app icon.
 
 ### Phase 2: F-Droid [submitted 2026-09-29, in review]
 
@@ -102,31 +104,44 @@ request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffd
    Data source. A new region: test the URL with the app's request, add it to `REGIONS`, the
    table in `CLAUDE.md`, `README.md` and the store description.
 
-### Phase 4: peak load mode [first full version works on the phone, 2026-09-29; not released]
+### Phase 4: peak load mode [released as v0.4.0, tag `v0.4.0`, versionCode 6, commit `15e270f`]
 
 The design is in `CLAUDE.md` under "Peak load mode". The CKW price sheet confirms the peak
-charge (1.00 CHF/kW per month on Home dynamic). Still open: the household's product and the
-portal details (the user is getting access), and the points under "Open" there.
+charge (1.00 CHF/kW per month on Home dynamic). Still open: the points under "Tariff" there
+(the household's product, whether the billed quarter hours are the fixed ones).
 
-1. **Load data import and month function [done].** CKW's `.xlsx` exports: yearly (monthly
-   totals) give the month function, daily (hourly values, several files at once) the baseline
-   by hour of day and the measured peak. `:core`: `CkwExport.kt` (xlsx reader + both parsers),
-   `LoadProfile.kt` (monthly model, `hourlyMonths`, `highestHour`).
+The load data import was reworked again right after the release (2026-09-30, uncommitted); see
+below.
+
+1. **Load data import [reworked 2026-09-30, built and unit-tested; the import itself smoke-tested
+   on the phone, not yet committed].**
+   Only CKW day exports (hourly), `REQUIRED_DAYS` = 7 of the current calendar month (any year);
+   year and month exports are refused with a message. The year export, the monthly model
+   (`LoadProfile` class, `MonthUsage`, summer calibration) and its UI are removed; why (tested
+   on the real data) is in `CLAUDE.md` under "Load data import". Both modes use the days: spot
+   mode shows "Usually 3.8 kW at this hour · about 0.95 CHF/h", or skips the import (prices
+   only). `:core`: `CkwExport.kt` (xlsx reader + day parser), `LoadProfile.kt` (`hourlyMonths`,
+   `highestHour`, `daysIn`, `suggestedWeek`). Smoke-tested on the phone: first start, year-export
+   rejection, multi-day import, spot mode's usual-draw line, peak mode's goal calc and
+   raised-goal, delete-load-data. Also built 2026-09-30, not yet tried on the phone: peak load's
+   main screen without this month's data now shows a single "Load data" import card (the same
+   `LoadImport` as Settings) instead of the goal and appliance cards (it used to show a
+   meaningless "0.0 of 2.0 kW"); `PeakData.status` returns null until the month has
+   `REQUIRED_DAYS`. See `CLAUDE.md` under "Main screen (peak load mode)".
 2. **Appliances, runs, goal, advice [done].** `PeakLoad.kt` (appliances, runs, quarter-hour
-   estimate, month peak, `PeakData`), `PeakAdvice.kt` (summer calibration, `PeakStatus` with
+   estimate, month peak, `PeakData`), `PeakAdvice.kt` (`Baseline`, `PeakStatus` with
    current and next quarter hour and the raised goal, `fitsAt`/`roomAt`, `suggestStop`).
    `:app`: `PeakScreen.kt` with the appliance dialog; data in `files/peak.json`.
 3. **Mode choice and setup guide [done].** The mode is saved; Settings differ by mode; the
    setup guide (`SetupGuide` in `SettingsScreen.kt`) is the first start and can be reopened.
    The emoji logos (⚡, 📊) stay (user, 2026-09-29).
-4. **Release v0.4.0 [ready, the user decides when]:** renamed to "Peak load (manual)", store
-   text and README updated. Tested on the phone 2026-09-29: a fresh first start through the
+4. **Release v0.4.0 [done].** Tested on the phone 2026-09-29: a fresh first start through the
    setup guide (peak load, CKW, import of 3 yearly files and 59 day files, goal) and restarts,
    and in an **R8 release build** (signed with the debug key: `zipalign -p 4`, then
    `apksigner`): loading the saved JSON, the .xlsx import, appliances with presets,
-   start/stop, deleting and restarts all work. For the release: `versionCode` 6,
-   `versionName` 0.4.0 (v0.3.1 took 5), `changelogs/6.txt`; a store screenshot of peak load
-   mode is optional.
+   start/stop, deleting and restarts all work. `versionCode` 6, `versionName` 0.4.0 (v0.3.1 took
+   5), `changelogs/6.txt`. README and store text were updated for the 2026-09-30 load data
+   rework (above, uncommitted); they go out with the next release, not one of their own.
 
 Testing on the phone:
 - The user's exports are in the phone's Download folder (the days in `Download/september_2026`
@@ -142,15 +157,40 @@ Testing on the phone:
   force-stop the app, `run-as io.github.buerlino.gridload cat files/peak.json`, drop
   `appliances`/`runs`/`goalOffsetKw`, write it back with `run-as ... sh -c 'cat > files/peak.json'`.
 
-### Phase 5: Peak load (whatwatt) mode [planned 2026-09-29; waiting for the device]
+### Phase 5: whatwatt [remodeled 2026-09-30; phase 1 built, waiting for the device]
 
-The plan, the comparison of the three modes and the open questions are in `CLAUDE.md` under
-"Peak load (whatwatt) mode"; the user's research in `private/smart_meter_research.md` (not in the repo). In
-short: rename the current mode to "Peak load (manual)", add "Peak load (whatwatt)" that reads
-the real draw from a whatwatt Go on the home Wi-Fi over plain HTTP (no MQTT, Pi or library).
-Phase 1 (rename, third mode in setup guide and Settings) needs no hardware; phase 2 can be
-tested against a fake whatwatt on the PC; phase 0 (check the API, the CKW key, Android's local
-network permission) comes first.
+There is no third mode and no `dataSource` setting (user, 2026-09-30). The plan, the
+combinations table, the confirmed hardware/API/permission facts and the open questions are in
+`CLAUDE.md` under "Data: CKW import and whatwatt"; the user's research in
+`private/smart_meter_research.md` (not in the repo). In short: whatwatt is an optional add-on on
+top of the CKW import, in either mode, offered in the setup guide after the load data step
+("Not now" possible) and as a card in Settings. It reads the real draw from a whatwatt Go on the
+home Wi-Fi over plain HTTP (no MQTT, Pi or library): in spot mode it replaces the estimated
+"Usually … at this hour" with a measured kW / CHF/h; in peak load mode it replaces the baseline
+estimate with a measurement and drops manual appliance start/stop. `Whatwatt.kt` (report
+parser and client) is written and unit-tested.
+
+**Phase 1 [built 2026-09-30, not yet tried on the phone]:** the setup guide step and Settings
+card, both without hardware. Device address field + "Test connection", which calls
+`fetchMeterReading` off the main thread and shows the result or the error
+(`MainViewModel.setWhatwattAddress`/`testWhatwattConnection`; the shared UI is `WhatwattFields`
+in `SettingsScreen.kt`, with the one explanation of the device, which says live readings come
+later). The address is saved in SharedPreferences (`whatwatt_address`,
+alongside `region` and `mode`). No `ACCESS_LOCAL_NETWORK` permission has been added yet, so
+"Test connection" may just time out on a real Android 17 device until phase 0 is resolved.
+
+Next: **phase 0** — check the meter model before buying the adapter, get the CKW key, check
+the real JSON, test whether the `NsdManager` system picker finds the whatwatt (it's exempt from
+`ACCESS_LOCAL_NETWORK`, so INTERNET could stay the only permission), and choose the cleartext
+config. **Phase 2** (live reading) can then be tested against a fake whatwatt on the PC. The
+details, and what's still unverified, are in `CLAUDE.md`.
+
+### Phase 6: UI text cleanup [catalogued 2026-09-30, not started]
+
+The plan is in `CLAUDE.md` under "UI text": extract the ~90–100 inline strings in the four app
+files into `res/values/strings.xml` (content-preserving), then rewrite that file only for
+concision, cutting the duplicated explanations of region, mode, the goal and load data. Held
+back until the other concurrent sessions are clear of the app's Kotlin files and phone testing.
 
 ## Conventions
 

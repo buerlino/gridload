@@ -5,13 +5,12 @@ package io.github.buerlino.gridload.core
  *
  * [Appliance.watts] is the average draw during the part of a use that draws it, and
  * [Appliance.runMinutes] how long that part lasts, so that watts × time is about one use's real
- * energy. That keeps both the quarter-hour average (the peak) and the summer calibration
- * (which subtracts the runs' energy) right. A washing machine heats at ~2 kW for ~30 minutes and
+ * energy. That keeps the quarter-hour average (the peak) right. A washing machine heats at ~2 kW for ~30 minutes and
  * then barely draws anything, so 2000 W over its whole 2-hour programme would count 4 kWh for a
  * ~1 kWh wash. Appliances that cycle (oven) use their average over the heavy part.
  *
  * Heating and hot water (heat pump, boiler) are not here: they are in the baseline from the
- * monthly import, and adding them would count them twice.
+ * imported hourly days, and adding them would count them twice.
  */
 val APPLIANCE_PRESETS: List<Appliance> = listOf(
     // Heating phase at 40 to 60 °C; ~1 kWh per wash.

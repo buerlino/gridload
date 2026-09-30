@@ -6,20 +6,8 @@ import java.io.InputStream
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.util.zip.ZipInputStream
 import javax.xml.parsers.DocumentBuilderFactory
-
-/**
- * Energy used in one month. [hours] is the part of the month the data covers: the whole month,
- * or less for the month an export was made in.
- */
-@Serializable
-data class MonthUsage(val year: Int, val month: Int, val kwh: Double, val hours: Double) {
-    val yearMonth: YearMonth get() = YearMonth.of(year, month)
-    val averageKw: Double get() = kwh / hours
-}
 
 /** Hourly energy of one complete local day, in order from midnight (23 or 25 hours on DST days). */
 @Serializable
@@ -33,42 +21,21 @@ data class DayUsage(val date: String, val kwh: List<Double>) {
     }
 }
 
-/** What one CKW export contained: monthly totals or hourly values per day. */
-data class CkwImport(val months: List<MonthUsage> = emptyList(), val days: List<DayUsage> = emptyList())
-
 /**
- * Parses a CKW portal export ("Aktueller Zeitraum (Excel) - ....xlsx", format in CLAUDE.md). The
- * header's unit says what it holds: one row per month (`Monat`) or per hour (`Stunde`).
+ * Parses a CKW portal export ("Aktueller Zeitraum (Excel) - ....xlsx", format in CLAUDE.md). Only
+ * the day view's export is used: one row per hour (`Einheit` = `Stunde`). The year and month
+ * views (one row per month or day) have no hours, so they are refused with a message that says
+ * which export to take instead.
  */
-fun parseCkwExport(xlsx: InputStream): CkwImport {
+fun parseCkwExport(xlsx: InputStream): List<DayUsage> {
     val rows = readFirstSheet(xlsx)
-    fun header(name: String) = rows.firstOrNull { it.getOrNull(0) == name }?.getOrNull(1)
     val header = rows.indexOfFirst { it.getOrNull(0) == "Zeitraum" }
-    require(header >= 0) { "No Zeitraum table in the file" }
-    val table = rows.drop(header + 1)
-    return when (val unit = header("Einheit")) {
-        "Monat" -> CkwImport(months = monthRows(table, header("Auswertungszeitraum:") ?: error("No Auswertungszeitraum in the file")))
-        "Stunde" -> CkwImport(days = hourRows(table))
-        else -> error("Unknown unit: $unit")
-    }
-}
-
-/** Only the monthly totals of a CKW export; for tests. */
-fun parseCkwMonthlyExport(xlsx: InputStream): List<MonthUsage> = parseCkwExport(xlsx).months
-
-/**
- * One row per month. The period ("01.01.2025 - 31.12.2025") gives the hours covered; months
- * without data (`-`) are skipped.
- */
-private fun monthRows(table: List<List<String>>, period: String): List<MonthUsage> {
-    val dates = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-    val (from, to) = period.split(" - ").map { LocalDate.parse(it.trim(), dates) }
-    return table.mapNotNull { row ->
-        val kwh = row.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null
-        val month = parseMonthLabel(row[0]) ?: return@mapNotNull null
-        val start = maxOf(month.atDay(1), from).atStartOfDay(TARIFF_ZONE)
-        val end = minOf(month.atEndOfMonth(), to).plusDays(1).atStartOfDay(TARIFF_ZONE)
-        MonthUsage(month.year, month.monthValue, kwh, Duration.between(start, end).toMinutes() / 60.0)
+    require(header >= 0) { "This isn't an export from the CKW customer portal." }
+    return when (val unit = rows.firstOrNull { it.getOrNull(0) == "Einheit" }?.getOrNull(1)) {
+        "Stunde" -> hourRows(rows.drop(header + 1))
+        "Monat" -> error("This is a year export (one value per month). GridLoad needs the day view's exports, with one value per hour.")
+        "Tag" -> error("This is a month export (one value per day). GridLoad needs the day view's exports, with one value per hour.")
+        else -> error("Unknown unit: $unit. GridLoad needs the day view's exports, with one value per hour.")
     }
 }
 
@@ -92,22 +59,11 @@ private fun hourRows(table: List<List<String>>): List<DayUsage> {
     }
 }
 
-private val MONTHS = listOf("jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez")
-
-/** "Jan.-24", "März-24", "Sept.-24" to a month; null for anything else ("Total"). */
-private fun parseMonthLabel(label: String): YearMonth? {
-    val name = label.substringBefore('-').trimEnd('.').lowercase()
-    val month = MONTHS.indexOfFirst { name.startsWith(it) }
-    val year = label.substringAfterLast('-', "").toIntOrNull()
-    if (month < 0 || year == null) return null
-    return YearMonth.of(if (year < 100) 2000 + year else year, month + 1)
-}
-
 /**
  * The first worksheet of an `.xlsx` (a zip of XML files) as rows of cell texts, with "" for
  * empty cells. Just enough for the portal exports: shared strings, inline strings and numbers.
  */
-internal fun readFirstSheet(xlsx: InputStream): List<List<String>> {
+private fun readFirstSheet(xlsx: InputStream): List<List<String>> {
     val parts = mutableMapOf<String, ByteArray>()
     ZipInputStream(xlsx).use { zip ->
         generateSequence { zip.nextEntry }.forEach { entry ->

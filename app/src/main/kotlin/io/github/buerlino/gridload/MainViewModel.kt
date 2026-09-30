@@ -7,19 +7,22 @@ import android.util.AtomicFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.Appliance
+import io.github.buerlino.gridload.core.Baseline
 import io.github.buerlino.gridload.core.CKW
+import io.github.buerlino.gridload.core.DayUsage
 import io.github.buerlino.gridload.core.PeakData
 import io.github.buerlino.gridload.core.PeakStatus
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
+import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.classify
+import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.isRunning
 import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.mergeDays
-import io.github.buerlino.gridload.core.mergeUsage
 import io.github.buerlino.gridload.core.parseCkwExport
 import io.github.buerlino.gridload.core.parsePeakData
 import io.github.buerlino.gridload.core.startRun
@@ -46,6 +49,12 @@ data class UiState(
     val status: Status? = null,
     /** Peak load mode only; recomputed with the colour. */
     val peak: PeakStatus? = null,
+    /** What the home usually draws at this hour, from imported hourly data; null without data for this month. */
+    val usualKw: Double? = null,
+    /** Whether any load data is imported, so spot mode can ask for this month's when it's missing. */
+    val hasLoadData: Boolean = false,
+    /** The saved whatwatt device address, or null when none is set. */
+    val whatwattAddress: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
     val fetchedAt: Instant? = null,
@@ -58,8 +67,8 @@ data class UiState(
  * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region, mode and "first start done" are saved in SharedPreferences, peak load mode's data
- * in `peak.json`. Nothing is fetched until the first start has picked a region; installs from
+ * The region, mode, whatwatt address and "first start done" are saved in SharedPreferences, the
+ * imported days and peak load mode's data in `peak.json`. Nothing is fetched until the first start has picked a region; installs from
  * before that fall back to CKW.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -71,11 +80,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
             mode = if (prefs.getString(KEY_MODE, null) == "peak") Mode.PEAK else Mode.SPOT,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
+            whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
         ),
     )
     val state: StateFlow<UiState> = _state
 
-    /** Peak load mode's saved data: imported months, appliances, runs and the goal offset. */
+    /** The result of the last "Test connection" tap, shown under the whatwatt address field. */
+    private val _whatwattTestResult = MutableStateFlow<String?>(null)
+    val whatwattTestResult: StateFlow<String?> = _whatwattTestResult
+
+    /** Imported hourly days (both modes), and peak load mode's appliances, runs and goal offset. */
     private val peakFile = AtomicFile(File(app.filesDir, "peak.json"))
     private val _peak = MutableStateFlow(
         try {
@@ -104,8 +118,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun recompute() {
         val now = Instant.now()
         val status = classify(slots, now)
-        val peak = if (_state.value.mode == Mode.PEAK) _peak.value.status(now) else null
-        _state.update { it.copy(status = status, peak = peak, notice = null) }
+        val data = _peak.value
+        val peak = if (_state.value.mode == Mode.PEAK) data.status(now) else null
+        val baseline = Baseline(data)
+        val usualKw = if (baseline.hasHourly(now.atZone(TARIFF_ZONE).month)) baseline.at(now) else null
+        _state.update { it.copy(status = status, peak = peak, usualKw = usualKw, hasLoadData = data.days.isNotEmpty(), notice = null) }
     }
 
     /** Switching region drops the cached slots, since they belong to the old region's tariff. */
@@ -114,7 +131,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_REGION, region.id).apply()
         slots = emptyList()
         lastAttempt = null
-        _state.update { UiState(region = region, mode = it.mode, firstStartDone = it.firstStartDone) }
+        _state.update { UiState(region = region, mode = it.mode, firstStartDone = it.firstStartDone, whatwattAddress = it.whatwattAddress) }
+        // The load data doesn't depend on the region: restore it now, not only once the fetch is
+        // back, or peak load mode shows its "needs 7 days" card while loading.
+        recompute()
         refresh()
     }
 
@@ -166,31 +186,60 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Reads the CKW exports picked by the user (monthly totals or hourly days, several at once)
-     * and adds them to the saved ones; months and days already saved are replaced.
+     * Reads the CKW day exports picked by the user (several at once) and adds their days to the
+     * saved ones; days already saved are replaced. Files that aren't day exports are counted and
+     * the first one's reason shown.
      */
     fun importLoadData(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
-            _importMessage.value = try {
-                val imports = withContext(Dispatchers.IO) {
-                    val resolver = getApplication<Application>().contentResolver
-                    uris.map { uri -> resolver.openInputStream(uri)!!.use(::parseCkwExport) }
-                }
-                val months = imports.flatMap { it.months }
-                val days = imports.flatMap { it.days }
-                editPeak { it.copy(usage = mergeUsage(it.usage, months), days = mergeDays(it.days, days)) }
-                listOfNotNull(
-                    months.size.takeIf { it > 0 }?.let { if (it == 1) "1 month" else "$it months" },
-                    days.size.takeIf { it > 0 }?.let { (if (it == 1) "1 day" else "$it days") + " with hourly values" },
-                ).joinToString(" and ").ifEmpty { "nothing" }.let { "Imported $it" }
-            } catch (e: Exception) {
-                "Couldn't read the file: ${e.message ?: e.javaClass.simpleName}"
+            val results = withContext(Dispatchers.IO) {
+                val resolver = getApplication<Application>().contentResolver
+                uris.map { uri -> runCatching { resolver.openInputStream(uri)!!.use(::parseCkwExport) } }
             }
+            val days = results.mapNotNull { it.getOrNull() }.flatten()
+            if (days.isNotEmpty()) editPeak { it.copy(days = mergeDays(it.days, days)) }
+            _importMessage.value = importSummary(days, results.count { it.getOrNull()?.isEmpty() == true }, results.mapNotNull { it.exceptionOrNull() })
         }
     }
 
+    /** Back to prices only: removes the imported days (appliances and runs stay). */
+    fun deleteLoadData() {
+        editPeak { it.copy(days = emptyList()) }
+        _importMessage.value = null
+    }
+
     fun setGoalOffset(kw: Double) = editPeak { it.copy(goalOffsetKw = kw) }
+
+    /** Saves (or, blank, clears) the whatwatt device address; "Not now" in the setup guide leaves it unset. */
+    fun setWhatwattAddress(address: String) {
+        val trimmed = address.trim()
+        prefs.edit().apply {
+            if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
+        }.apply()
+        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }) }
+        _whatwattTestResult.value = null
+    }
+
+    /** A one-off fetch from the saved address, to check it before relying on it. */
+    fun testWhatwattConnection() {
+        val address = _state.value.whatwattAddress ?: return
+        _whatwattTestResult.value = "Testing…"
+        viewModelScope.launch {
+            _whatwattTestResult.value = withContext(Dispatchers.IO) {
+                try {
+                    val reading = fetchMeterReading(address)
+                    when {
+                        reading.ok -> "Connected. %.2f kW now.".format(reading.powerKw ?: 0.0)
+                        reading.meterStatus != null -> "Connected to the device, but the meter says: ${reading.meterStatus}"
+                        else -> "Connected to the device, but got no reading."
+                    }
+                } catch (e: Exception) {
+                    "Couldn't connect: ${e.message ?: e.javaClass.simpleName}"
+                }
+            }
+        }
+    }
 
     /** Adds [appliance], or replaces the one with the same id. */
     fun saveAppliance(appliance: Appliance) = editPeak { data ->
@@ -241,6 +290,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
+/** "Imported 7 days.", then what was left out and why. */
+private fun importSummary(days: List<DayUsage>, incomplete: Int, errors: List<Throwable>): String = listOfNotNull(
+    "Imported ${dayCount(days.size)}.".takeIf { days.isNotEmpty() || (incomplete == 0 && errors.isEmpty()) },
+    incomplete.takeIf { it > 0 }?.let { "${fileCount(it)} had no complete day (today's isn't over yet)." },
+    errors.firstOrNull()?.let { e ->
+        val reason = e.message ?: e.javaClass.simpleName
+        if (errors.size == 1) "1 file left out: $reason" else "${errors.size} files left out, e.g.: $reason"
+    },
+).joinToString(" ")
+
+private fun dayCount(n: Int) = if (n == 1) "1 day" else "$n days"
+
+private fun fileCount(n: Int) = if (n == 1) "1 file" else "$n files"
+
 private const val KEY_REGION = "region"
 private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
+private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"

@@ -58,10 +58,6 @@ fun energyKwh(runs: List<Run>, from: Instant, to: Instant): Double = runs.sumOf 
 fun quarterHourKw(quarter: Instant, baselineKw: Double, runs: List<Run>): Double =
     baselineKw + energyKwh(runs, quarter, quarter + QUARTER) * (Duration.ofHours(1).seconds.toDouble() / QUARTER.seconds)
 
-/** Average draw of [runs] from [from] to [to], e.g. to subtract the tracked appliances from the floor. */
-fun averageKw(runs: List<Run>, from: Instant, to: Instant): Double =
-    energyKwh(runs, from, to) * 3600.0 / Duration.between(from, to).seconds
-
 /** The highest estimated quarter hour: when it starts and its average draw. */
 data class Peak(val quarter: Instant, val kw: Double)
 
@@ -82,13 +78,13 @@ fun monthPeak(month: YearMonth, baseline: (Instant) -> Double, runs: List<Run>, 
 }
 
 /**
- * Everything peak load mode saves on the phone, as one JSON file (no database).
- * [usage] are imported monthly totals, [days] imported hourly days.
- * [goalOffsetKw] is what the user allows above the month's baseline (see [PeakStatus.goalKw]).
+ * Everything the app saves beyond its settings, as one JSON file (no database): the imported
+ * hourly [days], which both modes use, and peak load mode's appliances, runs and goal. Files
+ * from before 2026-09-30 also hold `usage` (monthly totals, no longer used), which is ignored.
+ * [goalOffsetKw] is what the user allows above the month's level (see [PeakStatus.goalKw]).
  */
 @Serializable
 data class PeakData(
-    val usage: List<MonthUsage> = emptyList(),
     val appliances: List<Appliance> = emptyList(),
     val runs: List<Run> = emptyList(),
     val goalOffsetKw: Double = DEFAULT_GOAL_OFFSET_KW,

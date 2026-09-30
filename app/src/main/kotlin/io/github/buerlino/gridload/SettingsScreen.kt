@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -42,25 +43,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.Baseline
-import io.github.buerlino.gridload.core.LoadProfile
-import io.github.buerlino.gridload.core.MonthUsage
 import io.github.buerlino.gridload.core.PeakData
-import io.github.buerlino.gridload.core.PeakStatus
 import io.github.buerlino.gridload.core.REGIONS
+import io.github.buerlino.gridload.core.REQUIRED_DAYS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.TARIFF_ZONE
+import io.github.buerlino.gridload.core.daysIn
 import io.github.buerlino.gridload.core.highestHour
 import io.github.buerlino.gridload.core.hourlyMonths
-import java.time.Month
+import io.github.buerlino.gridload.core.suggestedWeek
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZonedDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * The setup guide: on first start the help, then Next; then the mode, the region, and for peak
- * load mode the load data and the goal. Spot price mode is done after the region. From Settings
- * ([onClose] set) it starts at the mode and can be left with back.
+ * The setup guide: on first start the help, then Next; then the mode, the region, the load data,
+ * the whatwatt device (both modes, optional), and for peak load mode the goal. Spot price mode
+ * can skip the load data (prices only); peak load mode needs it, or switches to spot price mode.
+ * From Settings ([onClose] set) it starts at the mode and can be left with back.
  */
 @Composable
 fun SetupGuide(
@@ -68,8 +70,12 @@ fun SetupGuide(
     region: Region,
     peak: PeakData,
     importMessage: String?,
+    whatwattAddress: String?,
+    whatwattTestResult: String?,
     onImport: (List<Uri>) -> Unit,
     onGoalOffset: (Double) -> Unit,
+    onWhatwattAddress: (String) -> Unit,
+    onTestWhatwatt: () -> Unit,
     onDone: (Mode, Region) -> Unit,
     onClose: (() -> Unit)?,
 ) {
@@ -96,7 +102,7 @@ fun SetupGuide(
                 REGIONS.forEach { r ->
                     OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = {
                         chosenRegion = r.id
-                        if (chosenMode == Mode.SPOT) onDone(chosenMode, r) else step = 3
+                        step = 3
                     }) {
                         Text(r.name, fontWeight = FontWeight.Bold)
                         Text(r.utility)
@@ -104,16 +110,42 @@ fun SetupGuide(
                 }
             }
             3 -> {
+                val region = REGIONS.first { it.id == chosenRegion }
+                val ready = daysIn(peak.days, LocalDate.now(TARIFF_ZONE).month) >= REQUIRED_DAYS
                 Title("Your load data", onClose)
+                Text(
+                    if (chosenMode == Mode.SPOT) {
+                        "With a week of your hourly consumption, GridLoad also shows what your home usually draws at this hour and what that costs. Or skip this and just use the prices."
+                    } else {
+                        "Peak load mode needs a week of your hourly consumption, to know what your home draws at each hour, like a water heater at night."
+                    },
+                )
                 LoadData(peak, importMessage, onImport)
-                Button(onClick = { step = 4 }, modifier = Modifier.align(Alignment.End)) {
-                    Text(if (peak.usage.isEmpty()) "Skip for now" else "Next")
+                Column(Modifier.align(Alignment.End), horizontalAlignment = Alignment.End) {
+                    if (chosenMode == Mode.SPOT) {
+                        Button(onClick = { step = 4 }, enabled = ready) { Text("Done") }
+                        TextButton(onClick = { step = 4 }) {
+                            Text(if (peak.days.isEmpty()) "Skip – prices only" else "Skip for now")
+                        }
+                    } else {
+                        Button(onClick = { step = 4 }, enabled = ready) { Text("Next") }
+                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Use spot price mode instead") }
+                    }
                 }
+            }
+            4 -> {
+                Title("Connect a whatwatt", onClose)
+                WhatwattFields(whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt)
+                Button(
+                    onClick = {
+                        if (chosenMode == Mode.SPOT) onDone(chosenMode, REGIONS.first { it.id == chosenRegion }) else step = 5
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                ) { Text(if (whatwattAddress.isNullOrBlank()) "Not now" else if (chosenMode == Mode.SPOT) "Done" else "Next") }
             }
             else -> {
                 Title("Your goal", onClose)
                 GoalSetting(peak, onGoalOffset)
-                if (!Baseline(peak).hasHourly(ZonedDateTime.now(TARIFF_ZONE).month)) Calibration(null)
                 Button(
                     onClick = { onDone(chosenMode, REGIONS.first { it.id == chosenRegion }) },
                     modifier = Modifier.align(Alignment.End),
@@ -128,10 +160,14 @@ fun SettingsScreen(
     state: UiState,
     peak: PeakData,
     importMessage: String?,
+    whatwattTestResult: String?,
     onSelectMode: (Mode) -> Unit,
     onSelectRegion: (Region) -> Unit,
     onImport: (List<Uri>) -> Unit,
+    onDeleteLoadData: () -> Unit,
     onGoalOffset: (Double) -> Unit,
+    onWhatwattAddress: (String) -> Unit,
+    onTestWhatwatt: () -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -143,16 +179,35 @@ fun SettingsScreen(
         Text("Region", fontWeight = FontWeight.Bold)
         Text("Prices come from your local electricity utility.")
         RegionPicker(state.region, onSelectRegion)
+        Text("Load data", fontWeight = FontWeight.Bold)
+        LoadData(peak, importMessage, onImport, onDeleteLoadData)
+        Text("whatwatt", fontWeight = FontWeight.Bold)
+        WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt)
         if (state.mode == Mode.PEAK) {
-            Text("Load data", fontWeight = FontWeight.Bold)
-            LoadData(peak, importMessage, onImport)
             Text("Goal", fontWeight = FontWeight.Bold)
             GoalSetting(peak, onGoalOffset)
             state.peak?.let(::raisedGoalText)?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-            if (state.peak?.hourly != true) Calibration(state.peak)
         }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
+}
+
+/**
+ * What a whatwatt is for, the device address, "Test connection", and the last test's result.
+ * Shared by the setup guide and Settings, so the explanation lives only here.
+ */
+@Composable
+private fun WhatwattFields(address: String?, testResult: String?, onAddress: (String) -> Unit, onTest: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf(address.orEmpty()) }
+    Text("Have a whatwatt Go on your smart meter? Enter its address and test the connection. Showing its live readings comes in a later version.")
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it; onAddress(it) },
+        label = { Text("Device address, e.g. 192.168.1.50 or whatwatt-ABCDEF.local") },
+        singleLine = true,
+    )
+    OutlinedButton(onClick = onTest, enabled = text.isNotBlank()) { Text("Test connection") }
+    testResult?.let { Text(it) }
 }
 
 /** A page title, with a back arrow when the page can be left. */
@@ -177,7 +232,7 @@ private fun Page(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** The two modes. The emoji are placeholders until the mode logos are decided. */
+/** The two modes, with emoji as logos (⚡ spot, 📊 peak). */
 @Composable
 private fun ModeChoice(selected: Mode?, onSelect: (Mode) -> Unit) {
     OptionCard(selected == Mode.SPOT, { onSelect(Mode.SPOT) }, "⚡") {
@@ -185,7 +240,7 @@ private fun ModeChoice(selected: Mode?, onSelect: (Mode) -> Unit) {
         Text("Shows when electricity is cheap, so you know when to run your appliances.")
     }
     OptionCard(selected == Mode.PEAK, { onSelect(Mode.PEAK) }, "📊") {
-        Text("Peak load (manual)", fontWeight = FontWeight.Bold)
+        Text("Peak load", fontWeight = FontWeight.Bold)
         Text("Helps keep your monthly peak low, which lowers your grid bill. You tap start and stop for your appliances; GridLoad estimates the rest from your consumption data.")
     }
 }
@@ -227,44 +282,58 @@ private fun RegionPicker(region: Region, onSelect: (Region) -> Unit) {
 }
 
 /**
- * The import of CKW exports and what GridLoad derived from them: the level per month from yearly
- * exports, and from daily exports (hourly values) what runs at which hour.
+ * The import of CKW day exports and what GridLoad derived per month. [onDelete] (Settings only)
+ * removes the data again.
  */
 @Composable
-private fun LoadData(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { onImport(it) }
-    Text("Import your consumption from the CKW customer portal as Excel. Yearly exports (one row per month) give each month's level, heating included. Daily exports (one row per hour; pick a whole month's files at once) show what runs at which hour, like a water heater at night. The files stay on this phone.")
-    OutlinedButton(onClick = { picker.launch(arrayOf(XLSX, "application/octet-stream")) }) { Text("Import Excel files") }
-    message?.let { Text(it) }
-    val usage = peak.usage
-    if (usage.isNotEmpty()) {
-        val profile = LoadProfile(usage)
-        Text("${usage.size} months, ${usage.first().yearMonth} to ${usage.last().yearMonth}. Average draw per month; heating is what a month uses above the lowest one:")
-        Column {
-            Month.entries.forEach { month ->
-                val average = profile.averageKw[month] ?: return@forEach
-                Row {
-                    Text(month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH), Modifier.weight(1f))
-                    Text("%.2f kW".format(average), Modifier.weight(1f))
-                    Text("heating %.2f kW".format(profile.heatingKw(month)), Modifier.weight(1.5f))
-                }
-            }
-        }
-    }
-    hourlyMonths(peak.days).forEach { (month, hourly) ->
-        val highest = peak.days.map { YearMonth.from(it.localDate) }.distinct().filter { it.month == month }
+private fun LoadData(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit, onDelete: (() -> Unit)? = null) {
+    LoadImport(peak, message, onImport)
+    hourlyMonths(peak.days).forEach { (m, hourly) ->
+        val highest = peak.days.map { YearMonth.from(it.localDate) }.distinct().filter { it.month == m }
             .mapNotNull { highestHour(peak.days, it) }.maxByOrNull { it.kw }
         Text(
             buildString {
-                append("${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} (${hourly.days} days of hourly values): always on %.2f kW.".format(hourly.staticKw))
+                append("${m.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} (${hourly.days} days): always on %.2f kW.".format(hourly.staticKw))
                 append(" Usually highest at %02d:00 (%.1f kW).".format(hourly.peakHour, hourly.baseKw[hourly.peakHour]))
                 highest?.let { append(" Highest hour: %.2f kW (%s).".format(it.kw, peakTimeFormat.format(it.quarter))) }
             },
         )
     }
+    if (onDelete != null && peak.days.isNotEmpty()) {
+        var confirm by remember { mutableStateOf(false) }
+        OutlinedButton(onClick = { confirm = true }) { Text("Delete load data") }
+        if (confirm) {
+            AlertDialog(
+                onDismissRequest = { confirm = false },
+                confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text("Delete") } },
+                dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+                title = { Text("Delete load data?") },
+                text = { Text("GridLoad forgets the imported days. Spot price mode goes back to prices only. Your Excel files aren't touched.") },
+            )
+        }
+    }
 }
 
-/** The goal offset: the goal is the month's baseline plus this. */
+/**
+ * What to export for this month, the import button and how many of its days are there. Also peak
+ * load mode's main screen while this month's days are missing.
+ */
+@Composable
+fun LoadImport(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { onImport(it) }
+    val today = LocalDate.now(TARIFF_ZONE)
+    val month = today.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+    val have = daysIn(peak.days, today.month)
+    if (have < REQUIRED_DAYS) {
+        val week = suggestedWeek(today)
+        Text("GridLoad needs $REQUIRED_DAYS days of hourly values for $month. In the CKW customer portal, open the day view and export each day as Excel, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files here. They stay on this phone.")
+    }
+    OutlinedButton(onClick = { picker.launch(arrayOf(XLSX, "application/octet-stream")) }) { Text("Import Excel files") }
+    Text(if (have >= REQUIRED_DAYS) "$month: $have days ✓" else "$month: $have of $REQUIRED_DAYS days", fontWeight = FontWeight.Bold)
+    message?.let { Text(it) }
+}
+
+/** The goal offset: the goal is the month's level plus this. */
 @Composable
 private fun GoalSetting(peak: PeakData, onGoalOffset: (Double) -> Unit) {
     var text by rememberSaveable { mutableStateOf("%.1f".format(Locale.ROOT, peak.goalOffsetKw)) }
@@ -280,24 +349,10 @@ private fun GoalSetting(peak: PeakData, onGoalOffset: (Double) -> Unit) {
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
     )
     val month = ZonedDateTime.now(TARIFF_ZONE).month
-    val level = Baseline(peak).levelKw(month)
-    Text(
-        if (level == null) {
-            "Without load data for this month, the goal is just this number."
-        } else {
-            "In ${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: %.2f kW level + %.1f kW = %.2f kW goal.".format(level, peak.goalOffsetKw, level + peak.goalOffsetKw)
-        },
-    )
+    // Without this month's days there is no goal yet (the main screen asks for the import).
+    Baseline(peak).levelKw(month)?.let { level ->
+        Text("In ${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: %.2f kW level + %.1f kW = %.2f kW goal.".format(level, peak.goalOffsetKw, level + peak.goalOffsetKw))
+    }
 }
 
-/**
- * Explains the summer calibration of the monthly model's baseline; [status] shows where it
- * stands. Not shown when the month has hourly data, whose baseline doesn't need it.
- */
-@Composable
-private fun Calibration(status: PeakStatus?) {
-    Text("Calibration: from June to August there's no heating. Track all your appliances in the app then, and after a week GridLoad subtracts them from the summer level. What's left is what always runs (fridge, router, standby), and the baseline gets more accurate.")
-    if (status != null) Text(if (status.calibrated) "Calibrated with this summer's tracking." else "Not calibrated yet.")
-}
-
-private const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

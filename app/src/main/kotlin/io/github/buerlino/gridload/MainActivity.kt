@@ -51,6 +51,8 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -71,29 +73,36 @@ class MainActivity : ComponentActivity() {
                 }
                 val peak by viewModel.peak.collectAsStateWithLifecycle()
                 val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
+                val whatwattTestResult by viewModel.whatwattTestResult.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state.mode, state.region, peak, importMessage,
+                        state.mode, state.region, peak, importMessage, state.whatwattAddress, whatwattTestResult,
                         onImport = viewModel::importLoadData,
                         onGoalOffset = viewModel::setGoalOffset,
+                        onWhatwattAddress = viewModel::setWhatwattAddress,
+                        onTestWhatwatt = viewModel::testWhatwattConnection,
                         onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
-                        state, peak, importMessage,
+                        state, peak, importMessage, whatwattTestResult,
                         onSelectMode = viewModel::selectMode,
                         onSelectRegion = viewModel::selectRegion,
                         onImport = viewModel::importLoadData,
+                        onDeleteLoadData = viewModel::deleteLoadData,
                         onGoalOffset = viewModel::setGoalOffset,
+                        onWhatwattAddress = viewModel::setWhatwattAddress,
+                        onTestWhatwatt = viewModel::testWhatwattConnection,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false },
                     )
                     state.mode == Mode.PEAK -> PeakScreen(
-                        state, peak,
+                        state, peak, importMessage,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { showSettings = true },
+                        onImport = viewModel::importLoadData,
                         onStart = viewModel::start,
                         onStop = viewModel::stop,
                         onSave = viewModel::saveAppliance,
@@ -126,6 +135,7 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             PriceHeader(state, content, label, hint)
+            UsualDraw(state, content)
         }
         Column(
             Modifier.align(Alignment.BottomCenter),
@@ -160,6 +170,23 @@ fun PriceHeader(state: UiState, content: Color, label: String, hint: String?, co
         status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = if (compact) TextUnit.Unspecified else 18.sp) }
     }
     state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+}
+
+/**
+ * Spot mode with imported load data: what the home usually draws at this hour and what that
+ * costs at the current price. With data, but none for this month, a hint to import it.
+ */
+@Composable
+private fun UsualDraw(state: UiState, content: Color) {
+    val price = state.status?.slot?.price ?: return
+    val kw = state.usualKw
+    when {
+        kw != null -> Text("Usually %.1f kW at this hour · about %.2f CHF/h".format(kw, kw * price), color = content, fontSize = 18.sp, textAlign = TextAlign.Center)
+        state.hasLoadData -> Text(
+            "No load data for ${LocalDate.now().month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} yet. Import a week of it in Settings (⚙).",
+            color = content, textAlign = TextAlign.Center,
+        )
+    }
 }
 
 /** The refresh notice, last update time and button, shared by spot and peak load mode. */
@@ -228,8 +255,8 @@ fun HelpContent() {
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average price. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes.")
-        Text("Peak load mode (manual)", fontWeight = FontWeight.Bold)
+        Text("The price now is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm, depending on your utility; until then it's compared with today. Refresh checks for new prices, at most every 5 minutes. With a week of your hourly consumption imported (Settings), it also shows what your home usually draws at this hour and what that costs.")
+        Text("Peak load mode", fontWeight = FontWeight.Bold)
         Text("Your grid bill also counts the highest 15-minute average of each month. Tap Start and Stop when you switch an appliance on and off, and GridLoad estimates the current quarter hour from your load data and keeps you under your goal. Each appliance shows whether it fits now and, with the same colours, whether the price is good.")
     }
 }

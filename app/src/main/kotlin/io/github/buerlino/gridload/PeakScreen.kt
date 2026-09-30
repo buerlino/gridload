@@ -1,5 +1,6 @@
 package io.github.buerlino.gridload
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,8 +68,10 @@ val peakTimeFormat = DateTimeFormatter.ofPattern("d MMM, HH:mm").withZone(ZoneId
 fun PeakScreen(
     state: UiState,
     peak: PeakData,
+    importMessage: String?,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
+    onImport: (List<Uri>) -> Unit,
     onStart: (Appliance) -> Unit,
     onStop: (Appliance) -> Unit,
     onSave: (Appliance) -> Unit,
@@ -95,7 +98,7 @@ fun PeakScreen(
         state.peak?.let { status ->
             Card { GoalCard(status, peak) }
             Card { Appliances(status, peak, state.status?.level, onStart, onStop, onEdit = { editing = it }, onAdd = { adding = true }) }
-        }
+        } ?: Card { NeedsDataCard(peak, importMessage, onImport) }
         RefreshFooter(state, background, content, onRefresh)
     }
 }
@@ -129,12 +132,20 @@ private fun GoalCard(status: PeakStatus, peak: PeakData) {
         val name = stop?.let { run -> peak.appliances.find { it.id == run.applianceId }?.name }
         Text(if (name != null) "Stop the $name to stay under it." else "Nothing that can be stopped would help; it passes when a run ends.")
     }
-    Text(
-        status.levelKw?.let { "Planned goal: this month's level %.2f kW (heating included) + %.1f kW for appliances.".format(it, peak.goalOffsetKw) }
-            ?: "No load data for this month, so the goal is your %.1f kW alone. Import your data in Settings.".format(peak.goalOffsetKw),
-    )
-    if (status.hourly) Text("At this hour the house usually draws about %.2f kW without the appliances you start here, heating included (from your hourly data).".format(status.baseNowKw))
+    Text("Planned goal: this month's level %.2f kW (heating included) + %.1f kW for appliances.".format(status.levelKw, peak.goalOffsetKw))
+    Text("At this hour the house usually draws about %.2f kW without the appliances you start here, heating included (from your hourly data).".format(status.baseNowKw))
     Text("Highest estimate this month: %.1f kW (%s)".format(status.monthPeak.kw, peakTimeFormat.format(status.monthPeak.quarter)))
+}
+
+/**
+ * Shown in place of the goal and appliance cards while this month has fewer than 7 imported days
+ * (`status` in core is null): peak load mode needs them, so the import
+ * is right here, with the same instructions as in Settings.
+ */
+@Composable
+private fun NeedsDataCard(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
+    Text("Load data", fontWeight = FontWeight.Bold)
+    LoadImport(peak, message, onImport)
 }
 
 /**

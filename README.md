@@ -38,9 +38,12 @@ All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves
 
 The mode is chosen in the setup guide on first start and can be changed in Settings.
 
-- **Spot price:** the colour above. At any moment you either run everything or wait.
-- **Peak load (manual):** some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). You tap Start and Stop for your appliances (with presets for common ones); GridLoad estimates the current quarter hour from your consumption data and keeps you under a goal: the month's level plus an extra you set, raised to what the month's peak already is. Each appliance shows whether it fits now or when there will be room, and the price colour decides within the goal. Consumption data comes from the CKW customer portal's Excel exports: yearly files give the level of each month, daily files (hourly values) show what runs at which hour, like a water heater at night. The files are read on the phone and never uploaded.
-- **Planned: peak load with a meter.** Reading the real draw from the smart meter's customer interface (with a whatwatt Go on the home Wi-Fi) instead of estimating it.
+- **Spot price:** the colour above. At any moment you either run everything or wait. Optionally, with your consumption data imported, it also shows what your home usually draws at this hour and what that costs.
+- **Peak load (manual):** some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). You tap Start and Stop for your appliances (with presets for common ones); GridLoad estimates the current quarter hour from your consumption data and keeps you under a goal: the month's level plus an extra you set, raised to what the month's peak already is. Each appliance shows whether it fits now or when there will be room, and the price colour decides within the goal. This mode needs the consumption data.
+
+Consumption data comes from the CKW customer portal: 7 daily Excel exports (hourly values) of the current month, or of the same month a year earlier. They show what runs at which hour, like a water heater at night. The files are read on the phone and never uploaded.
+
+**Planned: live meter readings.** Reading the real draw from the smart meter's customer interface (with a whatwatt Go on the home Wi-Fi) instead of estimating it, in either mode.
 
 ## Later ideas
 
