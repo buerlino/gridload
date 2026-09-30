@@ -65,7 +65,7 @@ Publication times are single observations (`publication_timestamp`), rounded up;
 Not usable:
 - **BKW:** `https://api.bkw.ch/api/dyntariffs/v1/tariffs` works, but has only `feed_in` (what BKW pays for solar), no consumption price.
 - **Swisspower ESIT** (`esit.code-fabrik.ch`, AEW, IWB, EWL, SiL and others): per-utility prices need the customer's metering point number and a token issued to HEMS vendors (`/api/v1/metering_code`, 1 request per 5 min). The token-free `/api/v1/tariff_name` only knows generic names `D0` to `D3` and answered 504 after 60 s on every try on 2026-09-29.
-- **Energy-Charts** (EPEX spot CH, hourly, EUR/MWh, no key) and **ENTSO-E** (needs a token): market prices, not a household tariff. A possible "no local tariff" fallback later, not a region.
+- **Energy-Charts** (EPEX spot CH, hourly, EUR/MWh, no key) and **ENTSO-E** (needs a token): market prices, not a household tariff in Switzerland. Outside Switzerland (Germany, Austria, Liechtenstein), though, the spot price gives the same colour as a real dynamic tariff: see [research/neighbouring_countries.md](research/neighbouring_countries.md) (2026-09-30, not implemented yet).
 - **ElCom** (LINDAS SPARQL, strompreis.elcom.admin.ch): static annual tariffs only. **strompreise-schweiz.ch:** needs an API key.
 
 

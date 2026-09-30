@@ -193,6 +193,13 @@ Every text rewritten in place for length, with each concept explained once and "
 instead of "load data"; the rules are in `CLAUDE.md` under "UI text". `strings.xml` extraction
 was dropped for now (English-only app). Checked on the phone: main screen, Settings, help.
 
+### Phase 7: regions outside Switzerland [researched 2026-09-30, not started]
+
+Spot price mode for Germany, Austria and Liechtenstein from the Energy-Charts day-ahead API
+(a second price source and parser, spot mode only, no absolute CHF price, CC BY attribution).
+The findings, the code changes and the user's open questions are in
+`research/neighbouring_countries.md`. Settle the open questions with the user first.
+
 ## Conventions
 
 - Commit only when the user asks; the user pushes themselves — don't `git push`.
