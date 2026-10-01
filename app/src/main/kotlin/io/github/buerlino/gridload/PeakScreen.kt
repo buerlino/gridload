@@ -48,6 +48,7 @@ import io.github.buerlino.gridload.core.Level
 import io.github.buerlino.gridload.core.PeakData
 import io.github.buerlino.gridload.core.PeakStatus
 import io.github.buerlino.gridload.core.QUARTER
+import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.isRunning
 import io.github.buerlino.gridload.core.quarterStart
@@ -98,7 +99,7 @@ fun PeakScreen(
         state.peak?.let { status ->
             Card { GoalCard(status, peak) }
             Card { Appliances(status, peak, state.status?.level, onStart, onStop, onEdit = { editing = it }, onAdd = { adding = true }) }
-        } ?: Card { NeedsDataCard(peak, importMessage, onImport) }
+        } ?: Card { NeedsDataCard(state.region, peak, importMessage, onImport) }
         RefreshFooter(state, background, content, onRefresh)
     }
 }
@@ -145,9 +146,9 @@ private fun GoalCard(status: PeakStatus, peak: PeakData) {
  * is right here, with the same instructions as in Settings.
  */
 @Composable
-private fun NeedsDataCard(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
+private fun NeedsDataCard(region: Region, peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
     Text("Your usage", fontWeight = FontWeight.Bold)
-    LoadImport(peak, message, onImport)
+    LoadImport(region, peak, message, onImport)
 }
 
 /**

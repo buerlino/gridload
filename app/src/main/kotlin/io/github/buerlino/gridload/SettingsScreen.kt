@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.Baseline
+import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.PeakData
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.REQUIRED_DAYS
@@ -116,7 +117,7 @@ fun SetupGuide(
                         "Peak load mode needs a week of your usage to know what runs at each hour."
                     },
                 )
-                LoadData(peak, importMessage, onImport)
+                LoadData(region, peak, importMessage, onImport)
                 Column(Modifier.align(Alignment.End), horizontalAlignment = Alignment.End) {
                     if (chosenMode == Mode.SPOT) {
                         Button(onClick = { onDone(Mode.SPOT, region) }, enabled = ready) { Text("Done") }
@@ -160,7 +161,7 @@ fun SettingsScreen(
         Text("Region", fontWeight = FontWeight.Bold)
         RegionPicker(state.region, onSelectRegion)
         Text("Your usage", fontWeight = FontWeight.Bold)
-        LoadData(peak, importMessage, onImport, onDeleteLoadData)
+        LoadData(state.region, peak, importMessage, onImport, onDeleteLoadData)
         if (state.mode == Mode.PEAK) {
             Text("Goal", fontWeight = FontWeight.Bold)
             GoalSetting(peak, onGoalOffset)
@@ -242,12 +243,12 @@ private fun RegionPicker(region: Region, onSelect: (Region) -> Unit) {
 }
 
 /**
- * The import of CKW day exports and what GridLoad derived per month. [onDelete] (Settings only)
+ * The import of day exports and what GridLoad derived per month. [onDelete] (Settings only)
  * removes the data again.
  */
 @Composable
-private fun LoadData(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit, onDelete: (() -> Unit)? = null) {
-    LoadImport(peak, message, onImport)
+private fun LoadData(region: Region, peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit, onDelete: (() -> Unit)? = null) {
+    LoadImport(region, peak, message, onImport)
     hourlyMonths(peak.days).forEach { (m, hourly) ->
         val highest = peak.days.map { YearMonth.from(it.localDate) }.distinct().filter { it.month == m }
             .mapNotNull { highestHour(peak.days, it) }.maxByOrNull { it.kw }
@@ -276,17 +277,19 @@ private fun LoadData(peak: PeakData, message: String?, onImport: (List<Uri>) -> 
 
 /**
  * What to export for this month, the import button and how many of its days are there. Also peak
- * load mode's main screen while this month's days are missing.
+ * load mode's main screen while this month's days are missing. Names the [region]'s utility; only
+ * CKW's export layout is known, so other utilities get a caveat.
  */
 @Composable
-fun LoadImport(peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
+fun LoadImport(region: Region, peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { onImport(it) }
     val today = LocalDate.now(TARIFF_ZONE)
     val month = today.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     val have = daysIn(peak.days, today.month)
     if (have < REQUIRED_DAYS) {
         val week = suggestedWeek(today)
-        Text("Export $REQUIRED_DAYS days of $month from the CKW customer portal: day view, one Excel file per day, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files. They stay on your phone.")
+        Text("Export $REQUIRED_DAYS days of $month from the ${region.utility} customer portal: day view, one Excel file per day, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files. They stay on your phone.")
+        if (region.id != CKW.id) Text("GridLoad can read CKW's exports so far; others may not work yet.")
     }
     OutlinedButton(onClick = { picker.launch(arrayOf(XLSX, "application/octet-stream")) }) { Text("Import Excel files") }
     Text(if (have >= REQUIRED_DAYS) "$month: $have days ✓" else "$month: $have of $REQUIRED_DAYS days", fontWeight = FontWeight.Bold)
