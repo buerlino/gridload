@@ -77,6 +77,10 @@ and "first start done" saved, app icon.
 
 Review so far: linsui asked for R8 (2026-09-29). Answer: v0.3.1 enables it, and the recipe's
 build moves to v0.3.1 (versionCode 5, commit `02168b8`).
+2026-10-01: the recipe moves to v0.5.0 (versionCode 7, commit `309df86`), committed in a shallow
+clone of the fork at `../fdroiddata` for the user to push. Checked first: the GitHub APK's
+signer matches `AllowedAPKSigningKeys`, and an unsigned local build of the tag has identical
+contents (all entries outside `META-INF/`).
 
 Merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, from the user's fork
 `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`, file
