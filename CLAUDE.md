@@ -210,7 +210,7 @@ Checked against whatwatt's docs and pricing page, the smart-me wiki and Android'
    - A maximum demand field (OBIS 1.6.0) anywhere in the API.
    - The SD card: can the log be listed and downloaded over the API, what is logged and how often, does it need a card.
    - Other endpoints: the SSE stream's URL and rate, any history endpoint.
-   - Network: the DNS-SD service type (`avahi-browse -art`), a DHCP reservation, the phone's API level (`adb shell getprop ro.build.version.sdk`; 37 means `ACCESS_LOCAL_NETWORK` applies now).
+   - Network: the DNS-SD service type (`avahi-browse -art`), a DHCP reservation, the phone's API level (`adb shell getprop ro.build.version.sdk`; 37 means `ACCESS_LOCAL_NETWORK` applies now; the user's phone was 36 on 2026-10-02, so not yet there, but Android 17 users need it).
    - Auth: the web UI password off; if set, Digest or Basic.
 1. **whatwatt step and Settings card:** address, Test connection, meter status, Skip. Cleartext and the permission settled by phase 0. Then spot mode's cost line.
 2. **Live reading and recording:** poll while visible (no background work), quarter hours from the register, the monthly files.

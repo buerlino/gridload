@@ -93,7 +93,10 @@ signer matches `AllowedAPKSigningKeys`, and an unsigned local build of the tag h
 contents (all entries outside `META-INF/`).
 2026-10-02: the user skips v0.5.0 (its import and manual peak mode are gone in v0.6.0), so the
 recipe moves straight to v0.6.0 (versionCode 8). Same checks once the release workflow has
-built the tag's APK, then a new commit in `../fdroiddata` (v0.5.0 is already pushed) for the user to push.
+built the tag's APK, then a new commit in `../fdroiddata`. Done: the GitHub APK's signer
+matches and its contents equal an unsigned build of the tag; the user pushed `6aeacf167` and
+added a comment to the merge request (2026-10-02). Pushing to the fork needs a GitLab token
+(`write_repository`) as the password; the fork has no credential helper.
 
 Merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, from the user's fork
 `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`, file
