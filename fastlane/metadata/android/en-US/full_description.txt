@@ -10,8 +10,6 @@ The price now is compared with the next 24 hours, so red means a cheaper time is
 
 <b>Regions:</b> the price comes from your local utility, so GridLoad only works where a utility publishes a dynamic tariff. Supported: Central Switzerland (CKW), Canton of Zurich (EKZ), Einsiedeln (EKZ Einsiedeln), Fribourg and Neuchâtel (Groupe E), Northwestern Switzerland (Primeo Energie), Olten area (AVAG) and Gretzenbach (ELAG).
 
-<b>Peak load mode (manual):</b> some tariffs also charge for the month's highest 15-minute average (for example CKW's Home dynamic). In this mode you tap Start and Stop when you switch an appliance on and off. GridLoad estimates the current quarter hour from your consumption data, keeps you under a goal you set, and tells you for each appliance whether it fits now or when there will be room, with the price colour deciding within the goal.
+<b>Peak load mode:</b> some tariffs also charge for the month's highest 15-minute average (for example CKW's Home dynamic). This mode is being rebuilt on live readings from a whatwatt smart meter reader; until then it shows the spot price.
 
-<b>Consumption data:</b> import a week of your hourly consumption from the CKW customer portal (7 daily Excel exports). Peak load mode needs it. Otherwise it's optional: the colour screen then also shows what your home usually draws at this hour and what that costs.
-
-<b>Privacy:</b> no account, no ads, no tracking. The only permission is internet access, used to load today's and tomorrow's prices from the utility. Imported consumption data and your appliances stay on the phone.
+<b>Privacy:</b> no account, no ads, no tracking. The only permission is internet access, used to load today's and tomorrow's prices from the utility.

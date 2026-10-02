@@ -1,9 +1,6 @@
 package io.github.buerlino.gridload
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,9 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -26,7 +21,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,47 +33,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.buerlino.gridload.core.Baseline
-import io.github.buerlino.gridload.core.CKW
-import io.github.buerlino.gridload.core.PeakData
 import io.github.buerlino.gridload.core.REGIONS
-import io.github.buerlino.gridload.core.REQUIRED_DAYS
 import io.github.buerlino.gridload.core.Region
-import io.github.buerlino.gridload.core.TARIFF_ZONE
-import io.github.buerlino.gridload.core.daysIn
-import io.github.buerlino.gridload.core.highestHour
-import io.github.buerlino.gridload.core.hourlyMonths
-import io.github.buerlino.gridload.core.suggestedWeek
-import java.time.LocalDate
-import java.time.YearMonth
-import java.time.ZonedDateTime
-import java.time.format.TextStyle
-import java.util.Locale
 
 /**
- * The setup guide: on first start the help, then Next; then the mode, the region, the load data,
- * and for peak load mode the goal. Spot price mode can skip the load data (prices only); peak
- * load mode needs it, or switches to spot price mode. From Settings ([onClose] set) it starts at
- * the mode and can be left with back.
+ * The setup guide: on first start the help, then Next; then the mode and the region. From
+ * Settings ([onClose] set) it starts at the mode and can be left with back.
  */
 @Composable
-fun SetupGuide(
-    mode: Mode,
-    region: Region,
-    peak: PeakData,
-    importMessage: String?,
-    onImport: (List<Uri>) -> Unit,
-    onGoalOffset: (Double) -> Unit,
-    onDone: (Mode, Region) -> Unit,
-    onClose: (() -> Unit)?,
-) {
-    var step by rememberSaveable { mutableStateOf(if (onClose == null) 0 else 1) }
-    var chosenMode by rememberSaveable { mutableStateOf(mode) }
-    var chosenRegion by rememberSaveable { mutableStateOf(region.id) }
+fun SetupGuide(mode: Mode, region: Region, onDone: (Mode, Region) -> Unit, onClose: (() -> Unit)?) {
     val firstStep = if (onClose == null) 0 else 1
+    var step by rememberSaveable { mutableStateOf(firstStep) }
+    var chosenMode by rememberSaveable { mutableStateOf(mode) }
     BackHandler(enabled = step > firstStep || onClose != null) { if (step > firstStep) step-- else onClose?.invoke() }
     Page {
         when (step) {
@@ -93,48 +60,15 @@ fun SetupGuide(
                 Text("You can change it later in Settings.")
                 ModeChoice(if (onClose == null) null else chosenMode) { chosenMode = it; step = 2 }
             }
-            2 -> {
+            else -> {
                 Title("Choose your region", onClose)
                 Text("Pick the utility that supplies your electricity.")
                 REGIONS.forEach { r ->
-                    OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = {
-                        chosenRegion = r.id
-                        step = 3
-                    }) {
+                    OptionCard(selected = onClose != null && r == region, onClick = { onDone(chosenMode, r) }) {
                         Text(r.name, fontWeight = FontWeight.Bold)
                         Text(r.utility)
                     }
                 }
-            }
-            3 -> {
-                val region = REGIONS.first { it.id == chosenRegion }
-                val ready = daysIn(peak.days, LocalDate.now(TARIFF_ZONE).month) >= REQUIRED_DAYS
-                Title("Your usage", onClose)
-                Text(
-                    if (chosenMode == Mode.SPOT) {
-                        "Optional. With a week of your usage, GridLoad also shows what your home usually uses at this hour and what it costs."
-                    } else {
-                        "Peak load mode needs a week of your usage to know what runs at each hour."
-                    },
-                )
-                LoadData(region, peak, importMessage, onImport)
-                Column(Modifier.align(Alignment.End), horizontalAlignment = Alignment.End) {
-                    if (chosenMode == Mode.SPOT) {
-                        Button(onClick = { onDone(Mode.SPOT, region) }, enabled = ready) { Text("Done") }
-                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Skip") }
-                    } else {
-                        Button(onClick = { step = 4 }, enabled = ready) { Text("Next") }
-                        TextButton(onClick = { onDone(Mode.SPOT, region) }) { Text("Use spot price instead") }
-                    }
-                }
-            }
-            else -> {
-                Title("Your goal", onClose)
-                GoalSetting(peak, onGoalOffset)
-                Button(
-                    onClick = { onDone(chosenMode, REGIONS.first { it.id == chosenRegion }) },
-                    modifier = Modifier.align(Alignment.End),
-                ) { Text("Done") }
             }
         }
     }
@@ -143,13 +77,8 @@ fun SetupGuide(
 @Composable
 fun SettingsScreen(
     state: UiState,
-    peak: PeakData,
-    importMessage: String?,
     onSelectMode: (Mode) -> Unit,
     onSelectRegion: (Region) -> Unit,
-    onImport: (List<Uri>) -> Unit,
-    onDeleteLoadData: () -> Unit,
-    onGoalOffset: (Double) -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -160,13 +89,6 @@ fun SettingsScreen(
         ModeChoice(state.mode, onSelectMode)
         Text("Region", fontWeight = FontWeight.Bold)
         RegionPicker(state.region, onSelectRegion)
-        Text("Your usage", fontWeight = FontWeight.Bold)
-        LoadData(state.region, peak, importMessage, onImport, onDeleteLoadData)
-        if (state.mode == Mode.PEAK) {
-            Text("Goal", fontWeight = FontWeight.Bold)
-            GoalSetting(peak, onGoalOffset)
-            state.peak?.let(::raisedGoalText)?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-        }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
 }
@@ -241,81 +163,3 @@ private fun RegionPicker(region: Region, onSelect: (Region) -> Unit) {
         }
     }
 }
-
-/**
- * The import of day exports and what GridLoad derived per month. [onDelete] (Settings only)
- * removes the data again.
- */
-@Composable
-private fun LoadData(region: Region, peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit, onDelete: (() -> Unit)? = null) {
-    LoadImport(region, peak, message, onImport)
-    hourlyMonths(peak.days).forEach { (m, hourly) ->
-        val highest = peak.days.map { YearMonth.from(it.localDate) }.distinct().filter { it.month == m }
-            .mapNotNull { highestHour(peak.days, it) }.maxByOrNull { it.kw }
-        Text(
-            buildString {
-                append("${m.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: always on %.2f kW".format(hourly.staticKw))
-                append(" · usually highest %.1f kW at %02d:00".format(hourly.baseKw[hourly.peakHour], hourly.peakHour))
-                highest?.let { append(" · highest hour %.2f kW (%s)".format(it.kw, peakTimeFormat.format(it.quarter))) }
-            },
-        )
-    }
-    if (onDelete != null && peak.days.isNotEmpty()) {
-        var confirm by remember { mutableStateOf(false) }
-        OutlinedButton(onClick = { confirm = true }) { Text("Delete usage data") }
-        if (confirm) {
-            AlertDialog(
-                onDismissRequest = { confirm = false },
-                confirmButton = { TextButton(onClick = { confirm = false; onDelete() }) { Text("Delete") } },
-                dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
-                title = { Text("Delete usage data?") },
-                text = { Text("The imported days are removed from GridLoad. Your Excel files stay.") },
-            )
-        }
-    }
-}
-
-/**
- * What to export for this month, the import button and how many of its days are there. Also peak
- * load mode's main screen while this month's days are missing. Names the [region]'s utility; only
- * CKW's export layout is known, so other utilities get a caveat.
- */
-@Composable
-fun LoadImport(region: Region, peak: PeakData, message: String?, onImport: (List<Uri>) -> Unit) {
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { onImport(it) }
-    val today = LocalDate.now(TARIFF_ZONE)
-    val month = today.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-    val have = daysIn(peak.days, today.month)
-    if (have < REQUIRED_DAYS) {
-        val week = suggestedWeek(today)
-        Text("Export $REQUIRED_DAYS days of $month from the ${region.utility} customer portal: day view, one Excel file per day, e.g. ${week.start.dayOfMonth} to ${week.endInclusive.dayOfMonth} $month ${week.start.year}. Then pick all $REQUIRED_DAYS files. They stay on your phone.")
-        if (region.id != CKW.id) Text("GridLoad can read CKW's exports so far; others may not work yet.")
-    }
-    OutlinedButton(onClick = { picker.launch(arrayOf(XLSX, "application/octet-stream")) }) { Text("Import Excel files") }
-    Text(if (have >= REQUIRED_DAYS) "$month: $have days ✓" else "$month: $have of $REQUIRED_DAYS days", fontWeight = FontWeight.Bold)
-    message?.let { Text(it) }
-}
-
-/** The goal offset: the goal is the month's average use (its level) plus this. */
-@Composable
-private fun GoalSetting(peak: PeakData, onGoalOffset: (Double) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("%.1f".format(Locale.ROOT, peak.goalOffsetKw)) }
-    Text("Your grid bill charges for the month's highest 15-minute average. Your goal is your average use plus room for appliances.")
-    OutlinedTextField(
-        value = text,
-        onValueChange = { value ->
-            text = value
-            value.replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }?.let(onGoalOffset)
-        },
-        label = { Text("Room for appliances (kW)") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-    )
-    val month = ZonedDateTime.now(TARIFF_ZONE).month
-    // Without this month's days there is no goal yet (the main screen asks for the import).
-    Baseline(peak).levelKw(month)?.let { level ->
-        Text("${month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)}: %.2f kW average use + %.1f kW = %.2f kW goal".format(level, peak.goalOffsetKw, level + peak.goalOffsetKw))
-    }
-}
-
-const val XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

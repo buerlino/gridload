@@ -38,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -51,8 +50,6 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -71,37 +68,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                val peak by viewModel.peak.collectAsStateWithLifecycle()
-                val importMessage by viewModel.importMessage.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state.mode, state.region, peak, importMessage,
-                        onImport = viewModel::importLoadData,
-                        onGoalOffset = viewModel::setGoalOffset,
+                        state.mode, state.region,
                         onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
-                        state, peak, importMessage,
+                        state,
                         onSelectMode = viewModel::selectMode,
                         onSelectRegion = viewModel::selectRegion,
-                        onImport = viewModel::importLoadData,
-                        onDeleteLoadData = viewModel::deleteLoadData,
-                        onGoalOffset = viewModel::setGoalOffset,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false },
-                    )
-                    state.mode == Mode.PEAK -> PeakScreen(
-                        state, peak, importMessage,
-                        onRefresh = viewModel::refresh,
-                        onOpenSettings = { showSettings = true },
-                        onImport = viewModel::importLoadData,
-                        onStart = viewModel::start,
-                        onStop = viewModel::stop,
-                        onSave = viewModel::saveAppliance,
-                        onDelete = viewModel::deleteAppliance,
                     )
                     else -> Screen(state, onRefresh = viewModel::refresh, onOpenSettings = { showSettings = true })
                 }
@@ -110,93 +90,54 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-val GREEN = Color(0xFF2E7D32)
-val ORANGE = Color(0xFFFFA000)
-val RED = Color(0xFFC62828)
-val GREY = Color(0xFF616161)
+private val GREEN = Color(0xFF2E7D32)
+private val ORANGE = Color(0xFFFFA000)
+private val RED = Color(0xFFC62828)
+private val GREY = Color(0xFF616161)
 
-data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
+private data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
 
-val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
+/** The colour, the headline and hint, the price, the next good time and refresh. */
 @Composable
 private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> Unit) {
     val (background, content, label, hint) = look(state)
+    StatusBarIcons(dark = content == Color.Black)
+    var showHelp by remember { mutableStateOf(false) }
+    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
-        ScreenChrome(state, content, onOpenSettings)
+        TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
         Column(
             Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PriceHeader(state, content, label, hint)
-            UsualDraw(state, content)
+            Text(label, color = content, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
+            state.status?.let { status ->
+                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
+                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = 18.sp) }
+            }
+            state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
         }
         Column(
             Modifier.align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            RefreshFooter(state, background, content, onRefresh)
+            state.notice?.let { Text(it, color = content) }
+            state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
+            Button(
+                onClick = onRefresh,
+                enabled = !state.loading,
+                colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
+            ) { Text("Refresh") }
         }
     }
 }
 
-/** The status bar style, help dialog and [TopBar], the same on every price screen. */
-@Composable
-fun ScreenChrome(state: UiState, content: Color, onOpenSettings: () -> Unit) {
-    StatusBarIcons(dark = content == Color.Black)
-    var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
-    TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
-}
-
-/** The headline, hint, price and error, shared by spot and peak load mode. [compact] is smaller, for peak load mode's scrolling layout. */
-@Composable
-fun PriceHeader(state: UiState, content: Color, label: String, hint: String?, compact: Boolean = false) {
-    Text(
-        label, color = content, fontSize = if (compact) 36.sp else 44.sp,
-        lineHeight = if (compact) TextUnit.Unspecified else 52.sp,
-        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-    )
-    hint?.let { Text(it, color = content, fontSize = if (compact) 18.sp else 22.sp, textAlign = TextAlign.Center) }
-    state.status?.let { status ->
-        Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = if (compact) 18.sp else 20.sp)
-        status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = if (compact) TextUnit.Unspecified else 18.sp) }
-    }
-    state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
-}
-
-/**
- * Spot mode with imported usage data: what the home usually draws at this hour and what that
- * costs at the current price. With data, but none for this month, a hint to import it.
- */
-@Composable
-private fun UsualDraw(state: UiState, content: Color) {
-    val price = state.status?.slot?.price ?: return
-    val kw = state.usualKw
-    when {
-        kw != null -> Text("Usually %.1f kW at this hour · about %.2f CHF/h".format(kw, kw * price), color = content, fontSize = 18.sp, textAlign = TextAlign.Center)
-        state.hasLoadData -> Text(
-            "No usage data for ${LocalDate.now().month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} yet. Import a week in Settings.",
-            color = content, textAlign = TextAlign.Center,
-        )
-    }
-}
-
-/** The refresh notice, last update time and button, shared by spot and peak load mode. */
-@Composable
-fun RefreshFooter(state: UiState, background: Color, content: Color, onRefresh: () -> Unit) {
-    state.notice?.let { Text(it, color = content) }
-    state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
-    Button(
-        onClick = onRefresh,
-        enabled = !state.loading,
-        colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
-    ) { Text("Refresh") }
-}
-
-fun look(state: UiState): Look = when (state.status?.level) {
+private fun look(state: UiState): Look = when (state.status?.level) {
     Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
     Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
     Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
@@ -205,7 +146,7 @@ fun look(state: UiState): Look = when (state.status?.level) {
 
 /** ⚙ at the top left, the region in the middle, ? at the top right. */
 @Composable
-fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, onHelp: () -> Unit) {
+private fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, onHelp: () -> Unit) {
     Box(Modifier.fillMaxWidth()) {
         TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.TopStart)) {
             Text("⚙", color = content, fontSize = 22.sp)
@@ -225,14 +166,14 @@ fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, onHelp: (
 }
 
 /** "Next good time: 11:00", with "tomorrow" when it isn't today. */
-fun nextGoodTime(start: OffsetDateTime): String {
+private fun nextGoodTime(start: OffsetDateTime): String {
     val local = start.atZoneSameInstant(ZoneId.systemDefault())
     val day = if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow "
     return "Next good time: $day${timeFormat.format(local)}"
 }
 
 @Composable
-fun HelpDialog(onDismiss: () -> Unit) {
+private fun HelpDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
@@ -252,7 +193,7 @@ fun HelpContent() {
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
         Text("Peak load mode", fontWeight = FontWeight.Bold)
-        Text("Your grid bill also charges for the month's highest 15-minute average. Tap Start and Stop when you switch an appliance on and off. GridLoad keeps each quarter hour under your goal.")
+        Text("Comes back with support for the whatwatt meter reader. Until then it shows the spot price.")
     }
 }
 

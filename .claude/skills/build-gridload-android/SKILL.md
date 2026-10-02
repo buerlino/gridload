@@ -98,7 +98,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Cleanup [next]
+### Cleanup [in progress: steps 1 to 3 done 2026-10-02, phone test next]
 
 Back to spot/peak + utility with no dead code. The list of what goes, the migration (delete
 `files/peak.json`) and when it's done are in `CLAUDE.md` under "Cleanup". Work through it:
@@ -106,8 +106,11 @@ Back to spot/peak + utility with no dead code. The list of what goes, the migrat
    every removed name (`PeakData`, `DayUsage`, `Appliance`, `Baseline`, `importLoadData`,
    `peak.json`, `MeterReading`, …) until nothing is left.
 2. Simplify what remains (help text, Settings, `UiState`), drop unused dependencies and imports.
-3. Store text, README, screenshots.
-4. Test on the phone (fresh start, update over v0.5.0, both modes, region switch, R8 build).
+3. Store text, README, screenshots. Done, except the screenshots: 3 and 4 (peak load mode)
+   are deleted and the old 5 (Settings) is now 3; 1 (the "Usually … kW" line), 2 (the old
+   peak load help) and 3 (the usage card) still show removed parts and need retaking.
+4. Test on the phone, with lint (the cloud session couldn't build `:app`: `dl.google.com` is
+   blocked there, so `:app` and lint are unverified; `:core:test` passed) (fresh start, update over v0.5.0, both modes, region switch, R8 build).
 5. Release v0.6.0 (versionCode 8) when the user asks.
 
 ### whatwatt [planned 2026-10-02, after the cleanup]
