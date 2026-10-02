@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
                         state.mode, state.region, state.whatwattAddress, whatwattTestResult,
+                        onWhatwattEnabled = viewModel::setWhatwattEnabled,
                         onWhatwattAddress = viewModel::setWhatwattAddress,
                         onTestWhatwatt = viewModel::testWhatwattConnection,
                         onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
@@ -94,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         whatwattTestResult,
                         onSelectMode = viewModel::selectMode,
                         onSelectRegion = viewModel::selectRegion,
+                        onWhatwattEnabled = viewModel::setWhatwattEnabled,
                         onWhatwattAddress = viewModel::setWhatwattAddress,
                         onTestWhatwatt = viewModel::testWhatwattConnection,
                         onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,

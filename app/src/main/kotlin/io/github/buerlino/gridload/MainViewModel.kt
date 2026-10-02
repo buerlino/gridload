@@ -31,6 +31,8 @@ data class UiState(
     val region: Region = CKW,
     val mode: Mode = Mode.SPOT,
     val firstStartDone: Boolean = true,
+    /** Whether the whatwatt is switched on in Settings; when off, it isn't read or shown. */
+    val whatwattEnabled: Boolean = false,
     /** The saved whatwatt device address, or null when none is set. */
     val whatwattAddress: String? = null,
     /** The whatwatt's last reading, kW drawn now; null when there is none or it failed. */
@@ -50,7 +52,7 @@ data class UiState(
  * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region, mode, whatwatt address and "first start done" are saved in SharedPreferences.
+ * The region, mode, whatwatt switch and address, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read every few seconds, only while the app is visible.
  */
@@ -63,6 +65,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
             mode = if (prefs.getString(KEY_MODE, null) == "peak") Mode.PEAK else Mode.SPOT,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
+            whatwattEnabled = prefs.getBoolean(KEY_WHATWATT_ENABLED, false),
             whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
         ),
     )
@@ -103,7 +106,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             UiState(
                 region = region, mode = it.mode, firstStartDone = it.firstStartDone,
-                whatwattAddress = it.whatwattAddress, meterKw = it.meterKw, meterProblem = it.meterProblem,
+                whatwattEnabled = it.whatwattEnabled, whatwattAddress = it.whatwattAddress, meterKw = it.meterKw, meterProblem = it.meterProblem,
             )
         }
         refresh()
@@ -126,6 +129,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             prefs.edit().putString(KEY_REGION, region.id).apply()
             refresh()
         }
+    }
+
+    /** The switch in Settings; the setup guide turns it on with Done and off with Skip. */
+    fun setWhatwattEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_WHATWATT_ENABLED, enabled).apply()
+        _state.update { it.copy(whatwattEnabled = enabled, meterKw = null, meterProblem = null) }
     }
 
     /** Saves (or, blank, clears) the whatwatt device address. */
@@ -177,8 +186,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * failure shows a quiet line instead of the last value, which would be stale.
      */
     suspend fun readMeter() {
+        if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
         val address = _state.value.whatwattAddress ?: return
-        if (!_state.value.firstStartDone) return
         val (kw, problem) = withContext(Dispatchers.IO) {
             try {
                 val reading = fetchMeterReading(address)
@@ -187,7 +196,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 null to "whatwatt not reachable"
             }
         }
-        if (address != _state.value.whatwattAddress) return // changed while reading
+        // Changed or switched off while reading.
+        if (!_state.value.whatwattEnabled || address != _state.value.whatwattAddress) return
         _state.update { it.copy(meterKw = kw, meterProblem = problem) }
     }
 
@@ -222,4 +232,5 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 private const val KEY_REGION = "region"
 private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
+private const val KEY_WHATWATT_ENABLED = "whatwatt_enabled"
 private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"

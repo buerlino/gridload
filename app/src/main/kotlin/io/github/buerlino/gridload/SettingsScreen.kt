@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,7 +51,8 @@ import io.github.buerlino.gridload.core.Region
 
 /**
  * The setup guide: on first start the help, then Next; then the mode, the region and the
- * whatwatt. Peak load mode needs a whatwatt, so skipping it means spot price mode. From Settings
+ * whatwatt (Done switches it on, Skip off). Peak load mode needs a whatwatt, so skipping it
+ * means spot price mode. From Settings
  * ([onClose] set) it starts at the mode and can be left with back.
  */
 @Composable
@@ -59,6 +61,7 @@ fun SetupGuide(
     region: Region,
     whatwattAddress: String?,
     whatwattTestResult: String?,
+    onWhatwattEnabled: (Boolean) -> Unit,
     onWhatwattAddress: (String) -> Unit,
     onTestWhatwatt: () -> Unit,
     onWhatwattPermissionDenied: () -> Unit,
@@ -99,7 +102,7 @@ fun SetupGuide(
                 WhatwattFields(whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
                 if (skip && chosenMode == Mode.PEAK) Text("Peak load mode needs a whatwatt. Without one, GridLoad shows the spot price.")
                 Button(
-                    onClick = { onDone(if (skip) Mode.SPOT else chosenMode, chosen) },
+                    onClick = { onWhatwattEnabled(!skip); onDone(if (skip) Mode.SPOT else chosenMode, chosen) },
                     modifier = Modifier.align(Alignment.End),
                 ) { Text(if (skip) "Skip" else "Done") }
             }
@@ -113,6 +116,7 @@ fun SettingsScreen(
     whatwattTestResult: String?,
     onSelectMode: (Mode) -> Unit,
     onSelectRegion: (Region) -> Unit,
+    onWhatwattEnabled: (Boolean) -> Unit,
     onWhatwattAddress: (String) -> Unit,
     onTestWhatwatt: () -> Unit,
     onWhatwattPermissionDenied: () -> Unit,
@@ -126,8 +130,14 @@ fun SettingsScreen(
         ModeChoice(state.mode, onSelectMode)
         Text("Region", fontWeight = FontWeight.Bold)
         RegionPicker(state.region, onSelectRegion)
-        Text("whatwatt", fontWeight = FontWeight.Bold)
-        WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("whatwatt", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Switch(checked = state.whatwattEnabled, onCheckedChange = onWhatwattEnabled)
+        }
+        if (state.whatwattEnabled) {
+            WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
+        }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
 }
