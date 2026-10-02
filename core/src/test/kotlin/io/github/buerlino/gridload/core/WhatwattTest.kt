@@ -2,6 +2,7 @@ package io.github.buerlino.gridload.core
 
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -17,6 +18,9 @@ class WhatwattTest {
     fun parsesTheFieldsTheAppUses() {
         val reading = parseMeterReading(sample)
         assertEquals(0.212, reading.powerKw)
+        assertEquals(10526.027, reading.energyKwh)
+        // The meter's time from `date_time_utc`, not `date_time` (local time despite its Z).
+        assertEquals(Instant.parse("2026-10-02T15:35:46Z"), reading.time)
         assertTrue(reading.ok)
     }
 
@@ -24,6 +28,8 @@ class WhatwattTest {
     fun missingValuesAreNullAndNotOk() {
         val reading = parseMeterReading("""{"meter":{"status":"KEY REQUIRED"},"report":{"id":3}}""")
         assertNull(reading.powerKw)
+        assertNull(reading.energyKwh)
+        assertNull(reading.time)
         assertFalse(reading.ok)
         assertFalse(parseMeterReading("{}").ok)
     }

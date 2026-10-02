@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URI
+import java.time.Instant
 
 /**
  * One reading from a whatwatt Go's `/api/v1/report`. Every value is null when the meter doesn't
@@ -12,6 +13,13 @@ import java.net.URI
 data class MeterReading(
     /** Current draw from the grid, kW. */
     val powerKw: Double?,
+    /** The meter's import register, kWh (0.001 kWh steps); quarter hours come from its differences. */
+    val energyKwh: Double?,
+    /**
+     * When the meter took the reading, by the meter's own clock, which defines the billed quarter
+     * hours. (The whatwatt's own clock, `system.date_time_utc`, ran 22 s fast on 2026-10-02.)
+     */
+    val time: Instant?,
     /** `"OK"` when the device reads the meter; otherwise e.g. `"KEY REQUIRED"` or `"NOT CONNECTED"`. */
     val meterStatus: String?,
 ) {
@@ -48,6 +56,9 @@ fun parseMeterReading(body: String): MeterReading {
     val r = json.decodeFromString<Report>(body)
     return MeterReading(
         powerKw = r.report?.instantaneous_power?.active?.positive?.total,
+        energyKwh = r.report?.energy?.active?.positive?.total,
+        // `date_time` ends in Z but is local time (a firmware quirk), so only `date_time_utc`.
+        time = r.report?.date_time_utc?.let { runCatching { Instant.parse(it) }.getOrNull() },
         meterStatus = r.meter?.status,
     )
 }
@@ -57,7 +68,11 @@ private class Report(val report: Values? = null, val meter: Meter? = null)
 
 @Suppress("PropertyName")
 @Serializable
-private class Values(val instantaneous_power: Flow? = null)
+private class Values(
+    val instantaneous_power: Flow? = null,
+    val energy: Flow? = null,
+    val date_time_utc: String? = null,
+)
 
 @Serializable
 private class Flow(val active: Directions? = null)

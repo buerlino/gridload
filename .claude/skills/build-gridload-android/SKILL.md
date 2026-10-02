@@ -109,7 +109,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 and 1 done 2026-10-02, not released; next: phase 2]
+### whatwatt [phases 0 to 2 done 2026-10-02, not released; next: phase 3]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical
@@ -118,7 +118,11 @@ scale, kW free, countdown, in-app alarm), the verified API facts and phases 0 to
 the local-time-labelled-`Z` quirk, the SD log every 15 s, no maximum demand register) are there
 too. Phase 1 restored and adapted `Whatwatt.kt` and added the whatwatt step, Settings card and
 cost line. The whatwatt runs on meter power: poll it gently (every 5 s while visible).
-Phase 2 can be tested against a fake whatwatt on the PC that the phone reaches over Wi-Fi.
+Phase 2 records quarter hours (`Quarters.kt`) into `files/quarters/YYYY-MM.json`; read them on
+the phone with `adb shell run-as io.github.buerlino.gridload cat files/quarters/2026-10.json`
+(debug build) and check them against the SD card log (`/sdcard/YYYYMMDD.CSV`, `EAP_T` at the
+boundaries), which needs no extra polling of the device. For a long test with the app open,
+`adb shell svc power stayon usb` keeps the screen on; set it back with `svc power stayon false`.
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

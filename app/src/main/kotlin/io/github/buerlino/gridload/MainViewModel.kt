@@ -6,7 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.HttpException
+import io.github.buerlino.gridload.core.MeterReading
 import io.github.buerlino.gridload.core.PriceSlot
+import io.github.buerlino.gridload.core.QuarterRecorder
+import io.github.buerlino.gridload.core.QuarterStore
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
@@ -54,12 +57,15 @@ data class UiState(
  * than the cooldown in core allows.
  * The region, mode, whatwatt switch and address, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
- * back to CKW. The whatwatt is read every few seconds, only while the app is visible.
+ * back to CKW. The whatwatt is read every few seconds, only while the app is visible, and its
+ * quarter hours go to one file per month in `files/quarters`, in either mode.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private var slots: List<PriceSlot> = emptyList()
     private var lastAttempt: Instant? = null
+    private val recorder = QuarterRecorder()
+    private val quarterStore = QuarterStore(File(app.filesDir, "quarters"))
     private val _state = MutableStateFlow(
         UiState(
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
@@ -143,6 +149,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().apply {
             if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
         }.apply()
+        if (trimmed != _state.value.whatwattAddress) recorder.reset() // maybe another meter
         _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }, meterKw = null, meterProblem = null) }
         _whatwattTestResult.value = null
     }
@@ -182,23 +189,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Called every few seconds while the app is visible: reads the saved whatwatt, if any. A
-     * failure shows a quiet line instead of the last value, which would be stale.
+     * Called every few seconds while the app is visible: reads the saved whatwatt, if any, and
+     * records the quarter hours. A failure shows a quiet line instead of the last value, which
+     * would be stale.
      */
     suspend fun readMeter() {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
         val address = _state.value.whatwattAddress ?: return
-        val (kw, problem) = withContext(Dispatchers.IO) {
+        val reading = withContext(Dispatchers.IO) {
             try {
-                val reading = fetchMeterReading(address)
-                if (reading.ok && reading.powerKw != null) reading.powerKw to null else null to "whatwatt: no meter reading"
+                fetchMeterReading(address)
             } catch (_: Exception) {
-                null to "whatwatt not reachable"
+                null
             }
         }
         // Changed or switched off while reading.
         if (!_state.value.whatwattEnabled || address != _state.value.whatwattAddress) return
+        val kw = reading?.powerKw?.takeIf { reading.ok }
+        val problem = when {
+            reading == null -> "whatwatt not reachable"
+            kw == null -> "whatwatt: no meter reading"
+            else -> null
+        }
         _state.update { it.copy(meterKw = kw, meterProblem = problem) }
+        if (reading != null && reading.ok) record(reading)
+    }
+
+    /** Feeds the meter's register to the recorder and saves each finished quarter hour. */
+    private suspend fun record(reading: MeterReading) {
+        val quarter = recorder.add(reading.time ?: return, reading.energyKwh ?: return) ?: return
+        withContext(Dispatchers.IO) {
+            try {
+                quarterStore.add(quarter)
+            } catch (_: Exception) {
+                // The quarter is lost; the whatwatt's SD card log can fill it in later.
+            }
+        }
     }
 
     fun refresh() {
