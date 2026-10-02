@@ -1,4 +1,0 @@
-- Six new regions: Canton of Zurich (EKZ), Einsiedeln (EKZ Einsiedeln), Fribourg and Neuchâtel (Groupe E), Northwestern Switzerland (Primeo Energie), Olten area (AVAG) and Gretzenbach (ELAG)
-- Choose your region on first start
-- The price is now compared with the next 24 hours, including tomorrow's prices once they are out
-- Shows when the next good time starts

@@ -1,5 +1,0 @@
-- New mode: Peak load (manual), for tariffs that also bill the month's highest 15-minute draw (like CKW Home dynamic)
-- Track your appliances with Start and Stop; presets fill in typical values
-- Import your CKW consumption data (Excel) to set a realistic monthly goal
-- See whether each appliance fits your goal now, or the next time there will be room
-- Switch modes any time in Settings

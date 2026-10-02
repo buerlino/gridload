@@ -1,4 +1,0 @@
-- Settings screen with the mode and the region
-- First start with a short introduction and the mode choice
-- The region is remembered
-- New app icon

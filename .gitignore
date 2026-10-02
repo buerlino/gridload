@@ -11,7 +11,7 @@ local.properties
 *.keystore
 keystore.properties
 
-# Personal smart meter data (never commit the user's real exports)
+# Personal meter data: utility exports and raw whatwatt responses (they contain the meter's id)
 *.xlsx
 *.xls
 private/
