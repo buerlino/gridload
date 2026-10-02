@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,7 +46,7 @@ import io.github.buerlino.gridload.core.Region
 @Composable
 fun SetupGuide(mode: Mode, region: Region, onDone: (Mode, Region) -> Unit, onClose: (() -> Unit)?) {
     val firstStep = if (onClose == null) 0 else 1
-    var step by rememberSaveable { mutableStateOf(firstStep) }
+    var step by rememberSaveable { mutableIntStateOf(firstStep) }
     var chosenMode by rememberSaveable { mutableStateOf(mode) }
     BackHandler(enabled = step > firstStep || onClose != null) { if (step > firstStep) step-- else onClose?.invoke() }
     Page {

@@ -98,19 +98,21 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Cleanup [in progress: steps 1 to 3 done 2026-10-02, phone test next]
+### Cleanup [done 2026-10-02, release v0.6.0 next]
 
 Back to spot/peak + utility with no dead code. The list of what goes, the migration (delete
 `files/peak.json`) and when it's done are in `CLAUDE.md` under "Cleanup". Work through it:
 1. Remove the `:core` files and their tests, then fix `:app` until it builds; `grep` for
    every removed name (`PeakData`, `DayUsage`, `Appliance`, `Baseline`, `importLoadData`,
-   `peak.json`, `MeterReading`, …) until nothing is left.
+   `peak.json`, `MeterReading`, …) until nothing is left. Done.
 2. Simplify what remains (help text, Settings, `UiState`), drop unused dependencies and imports.
-3. Store text, README, screenshots. Done, except the screenshots: 3 and 4 (peak load mode)
-   are deleted and the old 5 (Settings) is now 3; 1 (the "Usually … kW" line), 2 (the old
-   peak load help) and 3 (the usage card) still show removed parts and need retaking.
-4. Test on the phone, with lint (the cloud session couldn't build `:app`: `dl.google.com` is
-   blocked there, so `:app` and lint are unverified; `:core:test` passed) (fresh start, update over v0.5.0, both modes, region switch, R8 build).
+   Done.
+3. Store text, README, screenshots. Done; screenshots 1 to 3 retaken (CKW, spot mode).
+4. Test on the phone, with lint. Done: build, `:core:test` and lint pass; lint's remaining
+   warnings (`DataExtractionRules`, `MonochromeLauncherIcon`, `UseKtx` on prefs edits, where
+   core-ktx is only transitive) predate the cleanup. On the phone: update from a debug v0.5.0
+   (peak mode, EKZ, a valid `peak.json` + `.bak`) deletes both and keeps the prefs; a fresh
+   start, both modes, a region switch and the R8 build (0.99 MB) work without crashes.
 5. Release v0.6.0 (versionCode 8) when the user asks.
 
 ### whatwatt [planned 2026-10-02, after the cleanup]
