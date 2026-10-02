@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.buerlino.gridload.core.Level
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -59,12 +60,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val state by viewModel.state.collectAsStateWithLifecycle()
+                val whatwattTestResult by viewModel.whatwattTestResult.collectAsStateWithLifecycle()
                 val lifecycleOwner = LocalLifecycleOwner.current
                 LaunchedEffect(lifecycleOwner) {
                     lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        launch {
+                            while (true) {
+                                viewModel.update()
+                                delay(60_000)
+                            }
+                        }
+                        // The whatwatt has a new reading about every 4 s. It runs on the meter's
+                        // weak power, so don't poll it faster.
                         while (true) {
-                            viewModel.update()
-                            delay(60_000)
+                            viewModel.readMeter()
+                            delay(5_000)
                         }
                     }
                 }
@@ -72,14 +82,21 @@ class MainActivity : ComponentActivity() {
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state.mode, state.region,
+                        state.mode, state.region, state.whatwattAddress, whatwattTestResult,
+                        onWhatwattAddress = viewModel::setWhatwattAddress,
+                        onTestWhatwatt = viewModel::testWhatwattConnection,
+                        onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
                         onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
                         state,
+                        whatwattTestResult,
                         onSelectMode = viewModel::selectMode,
                         onSelectRegion = viewModel::selectRegion,
+                        onWhatwattAddress = viewModel::setWhatwattAddress,
+                        onTestWhatwatt = viewModel::testWhatwattConnection,
+                        onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false },
                     )
@@ -117,9 +134,13 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
             hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
             state.status?.let { status ->
                 Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
+                state.meterKw?.let { kw ->
+                    Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = 20.sp)
+                }
                 status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = 18.sp) }
             }
             state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+            state.meterProblem?.let { Text(it, color = content) }
         }
         Column(
             Modifier.align(Alignment.BottomCenter),
@@ -192,6 +213,7 @@ fun HelpContent() {
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
+        Text("With a whatwatt on your meter, it also shows what you use right now and what that costs per hour.")
         Text("Peak load mode", fontWeight = FontWeight.Bold)
         Text("Comes back with support for the whatwatt meter reader. Until then it shows the spot price.")
     }

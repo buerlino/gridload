@@ -38,7 +38,7 @@ All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves
 
 The mode is chosen in the setup guide on first start and can be changed in Settings.
 
-- **Spot price:** the colour above. At any moment you either run everything or wait.
+- **Spot price:** the colour above. At any moment you either run everything or wait. With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), it also shows what the home draws right now and what that costs per hour.
 - **Peak load:** some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). This mode is being rebuilt on live meter readings from a whatwatt Go on the home Wi-Fi: the month's peak, this quarter hour's projected draw, and an alarm before a new monthly peak. Until then it shows the spot price.
 
 ## Later ideas

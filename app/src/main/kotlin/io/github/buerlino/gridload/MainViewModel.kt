@@ -5,11 +5,13 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.CKW
+import io.github.buerlino.gridload.core.HttpException
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
 import io.github.buerlino.gridload.core.classify
+import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.wantsFetch
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.Instant
 
 enum class Mode { SPOT, PEAK }
@@ -28,6 +31,12 @@ data class UiState(
     val region: Region = CKW,
     val mode: Mode = Mode.SPOT,
     val firstStartDone: Boolean = true,
+    /** The saved whatwatt device address, or null when none is set. */
+    val whatwattAddress: String? = null,
+    /** The whatwatt's last reading, kW drawn now; null when there is none or it failed. */
+    val meterKw: Double? = null,
+    /** Why there is no reading from the saved whatwatt, as one quiet line. */
+    val meterProblem: String? = null,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
@@ -41,8 +50,9 @@ data class UiState(
  * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region, mode and "first start done" are saved in SharedPreferences. Nothing is fetched
- * until the first start has picked a region; installs from before that fall back to CKW.
+ * The region, mode, whatwatt address and "first start done" are saved in SharedPreferences.
+ * Nothing is fetched until the first start has picked a region; installs from before that fall
+ * back to CKW. The whatwatt is read every few seconds, only while the app is visible.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -53,9 +63,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
             mode = if (prefs.getString(KEY_MODE, null) == "peak") Mode.PEAK else Mode.SPOT,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
+            whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
         ),
     )
     val state: StateFlow<UiState> = _state
+
+    /** The result of the last "Test connection" tap, shown under the whatwatt address field. */
+    private val _whatwattTestResult = MutableStateFlow<String?>(null)
+    val whatwattTestResult: StateFlow<String?> = _whatwattTestResult
 
     init {
         // v0.4 and v0.5 kept the imported usage data (personal), appliances and runs here, and
@@ -85,7 +100,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_REGION, region.id).apply()
         slots = emptyList()
         lastAttempt = null
-        _state.update { UiState(region = region, mode = it.mode, firstStartDone = it.firstStartDone) }
+        _state.update {
+            UiState(
+                region = region, mode = it.mode, firstStartDone = it.firstStartDone,
+                whatwattAddress = it.whatwattAddress, meterKw = it.meterKw, meterProblem = it.meterProblem,
+            )
+        }
         refresh()
     }
 
@@ -106,6 +126,69 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             prefs.edit().putString(KEY_REGION, region.id).apply()
             refresh()
         }
+    }
+
+    /** Saves (or, blank, clears) the whatwatt device address. */
+    fun setWhatwattAddress(address: String) {
+        val trimmed = address.trim()
+        prefs.edit().apply {
+            if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
+        }.apply()
+        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }, meterKw = null, meterProblem = null) }
+        _whatwattTestResult.value = null
+    }
+
+    /** A one-off reading from the saved address, to check it before relying on it. */
+    fun testWhatwattConnection() {
+        val address = _state.value.whatwattAddress ?: return
+        _whatwattTestResult.value = "Testing…"
+        viewModelScope.launch {
+            _whatwattTestResult.value = withContext(Dispatchers.IO) {
+                try {
+                    val reading = fetchMeterReading(address)
+                    when {
+                        reading.ok -> "Connected. %.2f kW now.".format(reading.powerKw ?: 0.0)
+                        reading.meterStatus == "KEY REQUIRED" -> "Connected, but the meter needs its key. Ask your utility for it and enter it in the whatwatt web UI."
+                        reading.meterStatus != null -> "Connected, but the meter says: ${reading.meterStatus}"
+                        else -> "Connected, but got no reading."
+                    }
+                } catch (e: HttpException) {
+                    when (e.code) {
+                        401 -> "The whatwatt asks for a password. Turn off Device Protection in its web UI."
+                        404 -> "The whatwatt needs the Plus licence for this."
+                        else -> "The device answered with error ${e.code}. Is this a whatwatt?"
+                    }
+                } catch (_: IOException) {
+                    "Not reachable. Check the address and that the phone is on your home Wi-Fi."
+                } catch (_: IllegalArgumentException) {
+                    "That doesn't look like an address."
+                }
+            }
+        }
+    }
+
+    /** Shown instead of a test result when Android 17's local network permission is denied. */
+    fun whatwattPermissionDenied() {
+        _whatwattTestResult.value = "GridLoad needs the permission for devices on your network to reach the whatwatt."
+    }
+
+    /**
+     * Called every few seconds while the app is visible: reads the saved whatwatt, if any. A
+     * failure shows a quiet line instead of the last value, which would be stale.
+     */
+    suspend fun readMeter() {
+        val address = _state.value.whatwattAddress ?: return
+        if (!_state.value.firstStartDone) return
+        val (kw, problem) = withContext(Dispatchers.IO) {
+            try {
+                val reading = fetchMeterReading(address)
+                if (reading.ok && reading.powerKw != null) reading.powerKw to null else null to "whatwatt: no meter reading"
+            } catch (_: Exception) {
+                null to "whatwatt not reachable"
+            }
+        }
+        if (address != _state.value.whatwattAddress) return // changed while reading
+        _state.update { it.copy(meterKw = kw, meterProblem = problem) }
     }
 
     fun refresh() {
@@ -139,3 +222,4 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 private const val KEY_REGION = "region"
 private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
+private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"

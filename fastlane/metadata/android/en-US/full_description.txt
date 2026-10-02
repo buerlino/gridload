@@ -10,6 +10,8 @@ The price now is compared with the next 24 hours, so red means a cheaper time is
 
 <b>Regions:</b> the price comes from your local utility, so GridLoad only works where a utility publishes a dynamic tariff. Supported: Central Switzerland (CKW), Canton of Zurich (EKZ), Einsiedeln (EKZ Einsiedeln), Fribourg and Neuchâtel (Groupe E), Northwestern Switzerland (Primeo Energie), Olten area (AVAG) and Gretzenbach (ELAG).
 
+<b>whatwatt:</b> with a whatwatt Go smart meter reader on your home Wi-Fi (with its Plus licence), GridLoad also shows what your home draws right now and what that costs per hour.
+
 <b>Peak load mode:</b> some tariffs also charge for the month's highest 15-minute average (for example CKW's Home dynamic). This mode is being rebuilt on live readings from a whatwatt smart meter reader; until then it shows the spot price.
 
-<b>Privacy:</b> no account, no ads, no tracking. The only permission is internet access, used to load today's and tomorrow's prices from the utility.
+<b>Privacy:</b> no account, no ads, no tracking. Internet access loads today's and tomorrow's prices from the utility. On Android 17 and later, the local network permission lets the app read your whatwatt; it's asked for only if you connect one.

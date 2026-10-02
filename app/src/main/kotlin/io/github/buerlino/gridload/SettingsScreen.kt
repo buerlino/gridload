@@ -1,6 +1,11 @@
 package io.github.buerlino.gridload
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -21,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,21 +40,35 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 
 /**
- * The setup guide: on first start the help, then Next; then the mode and the region. From
- * Settings ([onClose] set) it starts at the mode and can be left with back.
+ * The setup guide: on first start the help, then Next; then the mode, the region and the
+ * whatwatt. Peak load mode needs a whatwatt, so skipping it means spot price mode. From Settings
+ * ([onClose] set) it starts at the mode and can be left with back.
  */
 @Composable
-fun SetupGuide(mode: Mode, region: Region, onDone: (Mode, Region) -> Unit, onClose: (() -> Unit)?) {
+fun SetupGuide(
+    mode: Mode,
+    region: Region,
+    whatwattAddress: String?,
+    whatwattTestResult: String?,
+    onWhatwattAddress: (String) -> Unit,
+    onTestWhatwatt: () -> Unit,
+    onWhatwattPermissionDenied: () -> Unit,
+    onDone: (Mode, Region) -> Unit,
+    onClose: (() -> Unit)?,
+) {
     val firstStep = if (onClose == null) 0 else 1
     var step by rememberSaveable { mutableIntStateOf(firstStep) }
     var chosenMode by rememberSaveable { mutableStateOf(mode) }
+    var chosenRegion by rememberSaveable { mutableStateOf(region.id) }
     BackHandler(enabled = step > firstStep || onClose != null) { if (step > firstStep) step-- else onClose?.invoke() }
     Page {
         when (step) {
@@ -61,15 +82,26 @@ fun SetupGuide(mode: Mode, region: Region, onDone: (Mode, Region) -> Unit, onClo
                 Text("You can change it later in Settings.")
                 ModeChoice(if (onClose == null) null else chosenMode) { chosenMode = it; step = 2 }
             }
-            else -> {
+            2 -> {
                 Title("Choose your region", onClose)
                 Text("Pick the utility that supplies your electricity.")
                 REGIONS.forEach { r ->
-                    OptionCard(selected = onClose != null && r == region, onClick = { onDone(chosenMode, r) }) {
+                    OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 3 }) {
                         Text(r.name, fontWeight = FontWeight.Bold)
                         Text(r.utility)
                     }
                 }
+            }
+            else -> {
+                val chosen = REGIONS.first { it.id == chosenRegion }
+                val skip = whatwattAddress.isNullOrBlank()
+                Title("Connect a whatwatt", onClose)
+                WhatwattFields(whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
+                if (skip && chosenMode == Mode.PEAK) Text("Peak load mode needs a whatwatt. Without one, GridLoad shows the spot price.")
+                Button(
+                    onClick = { onDone(if (skip) Mode.SPOT else chosenMode, chosen) },
+                    modifier = Modifier.align(Alignment.End),
+                ) { Text(if (skip) "Skip" else "Done") }
             }
         }
     }
@@ -78,8 +110,12 @@ fun SetupGuide(mode: Mode, region: Region, onDone: (Mode, Region) -> Unit, onClo
 @Composable
 fun SettingsScreen(
     state: UiState,
+    whatwattTestResult: String?,
     onSelectMode: (Mode) -> Unit,
     onSelectRegion: (Region) -> Unit,
+    onWhatwattAddress: (String) -> Unit,
+    onTestWhatwatt: () -> Unit,
+    onWhatwattPermissionDenied: () -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -90,8 +126,56 @@ fun SettingsScreen(
         ModeChoice(state.mode, onSelectMode)
         Text("Region", fontWeight = FontWeight.Bold)
         RegionPicker(state.region, onSelectRegion)
+        Text("whatwatt", fontWeight = FontWeight.Bold)
+        WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
+}
+
+/**
+ * What a whatwatt is for, the device address, "Test connection", and the last test's result.
+ * Shared by the setup guide and Settings, so the explanation lives only here. Android 17
+ * (API 37) needs the local network permission for the device; it's asked for on the first test.
+ */
+@Composable
+private fun WhatwattFields(
+    address: String?,
+    testResult: String?,
+    onAddress: (String) -> Unit,
+    onTest: () -> Unit,
+    onPermissionDenied: () -> Unit,
+) {
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) onTest() else onPermissionDenied()
+    }
+    var text by rememberSaveable { mutableStateOf(address.orEmpty()) }
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("📟", fontSize = 32.sp)
+        Text("With a whatwatt Go on your smart meter, GridLoad shows what you use right now and what it costs.")
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it; onAddress(it) },
+        label = { Text("Address, e.g. 192.168.1.50") },
+        supportingText = { Text("Reserve this address in your router so it stays the same.") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedButton(
+        onClick = {
+            if (Build.VERSION.SDK_INT >= 37 &&
+                context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+            } else {
+                onTest()
+            }
+        },
+        enabled = text.isNotBlank(),
+    ) { Text("Test connection") }
+    testResult?.let { Text(it) }
 }
 
 /** A page title, with a back arrow when the page can be left. */

@@ -9,7 +9,7 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 ## Stack
 
 - Native Android: Kotlin + Jetpack Compose, single Activity. One main screen, plus Settings and the setup guide. Distributed via F-Droid and Obtainium (GitHub Releases).
-- No Flutter / React Native / KMP. No proprietary dependencies (Firebase, Play Services, analytics, ads). Only the `INTERNET` permission (the whatwatt may add `ACCESS_LOCAL_NETWORK`; see [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02)).
+- No Flutter / React Native / KMP. No proprietary dependencies (Firebase, Play Services, analytics, ads). Permissions: `INTERNET` and, for the whatwatt, `ACCESS_LOCAL_NETWORK` (user, 2026-10-02; see [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02)).
 - A small `core` package with no Android dependencies holds the regions, the API client, the JSON model and the classification (later the whatwatt client and the peak logic). Unit-test it directly.
 - Detailed build plan and progress: [.claude/skills/build-gridload-android/SKILL.md](.claude/skills/build-gridload-android/SKILL.md). Where it and this file disagree, this file wins.
 
@@ -37,14 +37,14 @@ Released: **v0.6.0** (tag `v0.6.0`, versionCode 8) on GitHub Releases/Obtainium.
 
 The order:
 1. **Cleanup [done, v0.6.0]:** back to spot/peak + utility. The setup guide is help, mode, region; the main screen is the colour, the price, the next good time and refresh. Peak load mode can still be chosen and shows the spot screen until the whatwatt is built. The removed code is in commit `71f954f`; the old whatwatt client in `0f9b17b`, to reuse. Migration for v0.5.0 installs: on start, `files/peak.json` (personal imported hourly data, appliances, runs) and its backup are deleted; the saved mode stays.
-2. **whatwatt [next task]:** see [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02), starting with phase 0, the checks on the device.
+2. **whatwatt [phases 0 and 1 done 2026-10-02, not released; next: phase 2]:** see [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02).
 
 The app has two modes, chosen on first start and switchable in Settings (⚙ top left):
 - **Spot price mode:** the screen is one colour, because at any moment you either run everything or wait.
   - Red = not good to run appliances (shown as "Bad time", "Wait if you can")
   - Orange = run only if you must (shown as "Fair time", "Only run what you need")
   - Green = run now! (shown as "Good time", "Run your appliances now")
-  - With a whatwatt (planned): also the cost right now, "1.3 kW now · 0.34 CHF/h".
+  - With a whatwatt: also the cost right now, "1.3 kW now · 0.34 CHF/h" (since phase 1).
 - **Peak load mode (planned, needs a whatwatt):** the same colour, plus the month's peak on a vertical scale and an in-app alarm before a new monthly peak.
 
 Small saved settings (mode, region, first start done) in SharedPreferences; no database. iOS is out of scope for now. The user will give further instructions step by step.
@@ -147,13 +147,14 @@ Step by step, as the user decides.
 ### Design (user, 2026-10-02)
 
 - **Peak load mode needs a whatwatt.** No manual values, no appliance list, no estimate: the meter measures everything.
-- **Setup guide:** help, mode, utility, then the whatwatt step (address, **Test connection**, the meter status; **Skip**). Skip means spot price mode, prices only.
-- **Spot + whatwatt:** the colour plus the cost right now, "1.3 kW now · 0.34 CHF/h" (the measured draw × the current slot's price).
+- **Setup guide:** help, mode, utility, then the whatwatt step (📟, address, **Test connection**, the meter status; **Skip**). Skip means spot price mode, prices only. [built]
+- **Spot + whatwatt:** the colour plus the cost right now, "1.3 kW now · 0.34 CHF/h" (the measured draw × the current slot's price). [built] The draw stays in kW with one decimal, also for small draws (user, 2026-10-02). When the whatwatt can't be read (away from home, rebooting), one quiet line, "whatwatt not reachable", instead of a stale value (user, 2026-10-02).
+- **Both prices count (Claude's suggestion, accepted by the user 2026-10-02):** on CKW Home dynamic every kWh has its time-dependent price *and* the month's peak is billed per kW. Spot says *when* to run something, peak *how much at once*. So peak load mode is the spot screen plus the peak scale, not a replacement. The user's original idea was the price right now ("the sun is out, running the washing machine feels better").
 - **Peak load:** records quarter hours and works from the first reading: the alarm only needs the current quarter hour and the month's highest so far.
 - **Quarter hours from the energy register:** the billed peak is the average over fixed quarter hours, so take it from the meter's cumulative energy register at the quarter-hour boundaries, not from instantaneous power. This quarter hour, projected = energy so far in it + the current draw for the time left, as an average kW.
 - **Storage:** quarter-hour kWh, one small file per month (e.g. `files/quarters/2026-10.json`, about 3000 values), no database.
 - **Goal:** one number in Settings (kW), pre-filled with last month's recorded peak once there is one. It's needed from the 1st of a month, when nothing is recorded yet. The line not to pass is the higher of the goal and the month's highest quarter hour: anything up to the month's highest is billed anyway.
-- **Alarm, in the app only (user, 2026-10-02):** when this quarter hour's projection is about to pass that line, the screen changes colour and the phone vibrates while the app is open. No background service and no notification permission for now; a background alarm is a possible later step (it needs a service polling the whatwatt, the notification permission and local network access in the background).
+- **Alarm, in the app only (user, 2026-10-02):** when this quarter hour's projection reaches 90% of that line (a 10% margin, user, 2026-10-02), the screen changes colour and the phone vibrates while the app is open. No background service and no notification permission for now; a background alarm is a possible later step (it needs a service polling the whatwatt, the notification permission and local network access in the background).
 - **The screen:** a vertical scale with the goal, the month's highest quarter hour (with when) and this quarter hour's projection as a bar:
 
   ```
@@ -169,39 +170,41 @@ Step by step, as the user decides.
   - The alarm warns of a **new monthly peak**, not a price bracket, so it works with any linear tariff and needs no tariff data.
   - **"0.7 kW free"** as the main number: how much more can be switched on now without passing the line in this quarter hour.
   - **The quarter-hour countdown** ("new quarter hour in 6 min"): waiting a few minutes before the kettle or oven often avoids a peak.
-  - **Check the meter's maximum demand register** (OBIS 1.6.0, the month's highest 15-minute average kept by many smart meters). If the whatwatt passes it on, the month's highest is exact and complete without any recording.
+  - **Check the meter's maximum demand register** (OBIS 1.6.0, the month's highest 15-minute average kept by many smart meters). If the whatwatt passes it on, the month's highest is exact and complete without any recording. Checked 2026-10-02: **not available** on the Kamstrup (see below).
 
 ### Recording while away
 
 The phone reaches the whatwatt only on home Wi-Fi, and the app reads it only while open (no background work). To fill the gaps, in this order:
-1. The meter's maximum demand register, if the whatwatt reports it (see above).
-2. The whatwatt's SD-card log, if its API serves it.
-3. A small logger on the Pi, only if there's no other way. The app must still work without it.
+1. ~~The meter's maximum demand register~~: the Kamstrup over KMP doesn't report one (checked 2026-10-02).
+2. **The whatwatt's SD-card log: works.** It logs the energy register every 15 s and the API serves it (see below). On reopening, the app can download the missing days and compute every quarter hour exactly. This is phase 4.
+3. A small logger on the Pi, only if there's no other way. Not needed now. The app must still work without it.
 
 Without any of them, "highest this month" is the highest the app has seen, and the screen says so.
 
-### Hardware, CKW key and the REST API (verified 2026-09-30)
+### Hardware, CKW key and the REST API (verified on the device 2026-10-02)
 
-Checked against whatwatt's docs and pricing page, the smart-me wiki and Android's docs. Anything marked *unverified* comes only from the user's research notes (`private/smart_meter_research.md`, gitignored); confirm it on the device.
-- **Bought:** whatwatt Go (CHF 90) + the Kamstrup Omnipower adapter (CHF 20, for Kamstrup meters) + the Plus licence (CHF 19, one-time) that unlocks the REST API. Without Plus, `/api/v1/report` answers `404 License required`.
-- **CKW key:** email `messtechnik@ckw.ch` with the meter number (on the meter face, after the barcode) and CKW sends the key (smart-me wiki). For the household meter, not the heat pump's. CKW's maintenance on 2025-05-14 renewed all Kamstrup keys, so any key from before that date is invalid. Probably entered in the whatwatt's own web UI, in which case the app has no part in it beyond a hint. *Unverified:* the address `smartmeter@ckw.ch`, no fee, 1–2 business days.
-- **The REST API:** `GET http://<device>/api/v1/report`. There's no auth unless the device's Web UI password is set; then it's HTTP Digest (MD5-sess, firmware 1.10+) or Basic (older firmware). Skip auth until someone hits a 401. Confirmed fields:
+Raw responses are in `private/` (gitignored; they contain the meter's id): `whatwatt_system_*.json`, `whatwatt_report_2026-10-02.txt`, `whatwatt_settings_2026-10-02.json`, `whatwatt_live_2026-10-02.txt`, `whatwatt_poll_2026-10-02.txt`, `whatwatt_sd_20261002.CSV`. Docs: https://documentation.whatwatt.ch.
+- **The device:** whatwatt Go `WW_Go_1.3`, firmware 2.8.2, on the household meter, a Kamstrup OMNIPOWER rev. AF1 (`protocol` `"KMP"`, `interface` `"TTL"`), through the Kamstrup adapter. 2.4 GHz Wi-Fi, RSSI −64 to −72 at the meter. Powered by the meter alone (no socket there). Kamstrup meters supply little power, so polling stays gentle. It stayed up through 2 s polls for a minute and an hour of 15 s SD logging (check `device.last_reboot` in `/api/v1/system`). At home: `http://192.168.0.36` (DHCP reservation set, 2026-10-02), hostname `whatwatt-7C02F0`. `avahi-browse` didn't find it, so no DNS-SD discovery.
+- **Bought:** whatwatt Go (CHF 90) + the Kamstrup Omnipower adapter (CHF 20) + the Plus licence (CHF 19, one-time), activated 2026-10-02. The licence sits **on the device** (`device.license.type` `"PLUS"` in `/api/v1/system`), so every phone on the home network can use it. No whatwatt account was made; GridLoad must not need one.
+- **CKW key:** email `messtechnik@ckw.ch` with the meter number (on the meter face, after the barcode). CKW's maintenance on 2025-05-14 renewed all Kamstrup keys, so any older key is invalid. Entered in the whatwatt web UI (Meter page: Encryption on, Key 1); the app only shows a hint.
+- **`meter.status`:** `"NOT CONNECTED"` with no meter (interface `"NONE"`), `"KEY REQUIRED"` before the key, `"OK"` after it (`enc_en: true`). Trust the values only when it's `"OK"`.
+- **Auth:** Device Protection is off, and the API answers without credentials. With it on, every endpoint answers 401 with `WWW-Authenticate: Digest realm="whatwatt-<id>", algorithm=MD5-sess, qop=auth`, empty username. `HttpURLConnection` doesn't do Digest, so the app doesn't either: on 401, Test connection says to turn Device Protection off (user, 2026-10-02). A lockout is fixed by a factory reset (hold the button 10 s or more, then redo the Wi-Fi setup over AP mode).
+- **`GET /api/v1/report`** (needs Plus, else `404` with body `License required`). The app reads it (user, 2026-10-02): unlike the stream, several readers can poll at once, e.g. two phones in the household. Real fields (all modelled nullable):
   - `report.instantaneous_power.active.positive.total`: kW, the current draw.
-  - `report.energy.active.positive.total`: kWh imported since install, the register for the quarter hours.
-  - `report.id`: counts up with each reading, so an unchanged `id` means stale data.
-  - `meter.status`: e.g. `"OK"`, `"NO DATA"`, `"NOT CONNECTED"`. Trust the values only when it's `"OK"`. *Unverified:* the exact string when the key is missing ("Key required" in the manual, `"ENCRYPTION KEY"` in the notes).
-  - The docs list `protocol` `"KMP"` and `interface` `"TTL"`, so Kamstrup is supported, but model every field as nullable and check the real response.
-  - Also there: a REST streaming (SSE) endpoint, and SD-card CSV logging. Whether that log can be read over the API is unclear.
-- **Android's local network permission:** Android 17 (API 37) adds `ACCESS_LOCAL_NETWORK`, a runtime (dangerous) permission in the `NEARBY_DEVICES` group. This app targets 37, so every LAN connection needs it, and so does resolving `.local` names.
-  - It has to be declared in the manifest of every install, so **INTERNET would no longer be the only permission**. That's the user's call.
-  - When the permission is missing, TCP connections just time out. So "Test connection" should check the permission first; otherwise "denied" looks the same as "wrong address".
-  - **Exemption:** if the app finds devices with `NsdManager` and `DiscoveryRequest.FLAG_SHOW_PICKER`, the user picks the device in a system picker, and the app can connect to its addresses without the permission. The whatwatt announces itself as `whatwatt-XXXXXX.local` (last 6 hex digits of its id); its DNS-SD service type isn't documented.
-- **Cleartext:** the manifest sets `usesCleartextTraffic="false"`. `<domain>` in the network security config takes exact hostnames or IPs, **not CIDR ranges**, so "allow cleartext on 192.168.x.x" can't be written. Either `<domain includeSubdomains="true">local</domain>` for the mDNS name (test it), or `base-config cleartextTrafficPermitted="true"` for an IP the user types in, acceptable because the compiled-in price URLs are all HTTPS.
-- The whatwatt address will be saved as `whatwatt_address` in SharedPreferences.
+  - `report.energy.active.positive.total`: kWh imported, the register for the quarter hours; also `t1`/`t2` (tariff registers, which add up to the total). Resolution **0.001 kWh**, so a 0.2 kW quarter hour (50 Wh) is about ±2% off.
+  - `report.id`: +1 with each meter reading, every ~4.2 s (`report.interval`), so an unchanged `id` means stale data. It restarts at boot.
+  - Timestamps: `report.date_time_utc` / `system.date_time_utc` are real UTC. **`date_time` ends in `Z` but is local time** (firmware quirk), so never use it. `date_time_local` has the offset.
+  - `meter.status`, `meter.id` (the meter number), `system.boot_id`, `system.time_since_boot`.
+- **`GET /api/v1/report/objects`** (Plus): empty for this meter. KMP isn't DLMS, so there are no OBIS objects and **no maximum demand register**.
+- **`GET /api/v1/live`:** an SSE stream, `event: live` with flat JSON (`P_In` kW, `E_In` kWh, `E_In_T1/T2`, `Date`, `Time` local), one event per meter reading. It works **without** the Plus licence, but only one client at a time: a new one closes the previous stream. Not used, because of that limit; it's the fallback if a licence-free option is ever wanted.
+- **SD card** (SDHC, installed): logging turned on 2026-10-02 via `PUT /api/v1/settings` `{"services":{"sd":{"enable":true}}}` (PUT merges partial settings). `services.sd.frequency` is in **seconds** (15 = a row every ~15–17 s, every 4th reading). `GET /sdcard/` lists the files (503 without a card; the listed `size` lagged at 0 while the file had rows), `GET /sdcard/YYYYMMDD.CSV` downloads one day: a header line, then ~250 bytes per row (~1.2 MB/day at 15 s). Columns include `RID` (= `report.id`), `TIME` (**local, despite the `Z`**, as above), `MSTAT`, `EAP_T`/`EAP_T1`/`EAP_T2` (the register, kWh), `IPAP_T` (kW), `RP` (report period, ms). `MDAP_*` (maximum demand) exist but are empty for this meter. Whether to log less often (e.g. 60 s) is a phase 4 question.
+- **Android's local network permission:** Android 17 (API 37) adds `ACCESS_LOCAL_NETWORK`, a runtime permission in the `NEARBY_DEVICES` group. The app targets 37, so on Android 17 every LAN connection needs it. **Declared in the manifest** (user, 2026-10-02), and asked for in the whatwatt step on the first Test connection (`SDK_INT >= 37`). Without it, connections just time out, hence the check before testing. The picker exemption (`NsdManager` + `FLAG_SHOW_PICKER`) isn't used, since the whatwatt didn't show up over DNS-SD. The user's phone is on API 36, so the permission prompt is untested.
+- **Cleartext:** `usesCleartextTraffic="true"` in the manifest (user, 2026-10-02). `<domain>` in a network security config can't express "192.168.x.x", and the compiled-in price URLs are all HTTPS anyway.
+- The address is typed in (IP or hostname, URL keyboard) and saved as `whatwatt_address` in SharedPreferences. The app reads `report` every 5 s while visible (user, 2026-10-02), with 3 s timeouts.
 
 ### Phases
 
-0. **Checks on the device** (the user, with Claude's commands; save raw responses to `private/`, they contain the meter's id):
+0. **Checks on the device [done 2026-10-02; findings above]** (the user, with Claude's commands; save raw responses to `private/`, they contain the meter's id):
    - The household meter's model and the adapter; Wi-Fi signal at the meter.
    - Where the key is entered (web UI or API); the exact `meter.status` before the key is set.
    - `curl -i http://<device>/api/v1/report` gives 200 (Plus licence).
@@ -212,13 +215,13 @@ Checked against whatwatt's docs and pricing page, the smart-me wiki and Android'
    - Other endpoints: the SSE stream's URL and rate, any history endpoint.
    - Network: the DNS-SD service type (`avahi-browse -art`), a DHCP reservation, the phone's API level (`adb shell getprop ro.build.version.sdk`; 37 means `ACCESS_LOCAL_NETWORK` applies now; the user's phone was 36 on 2026-10-02, so not yet there, but Android 17 users need it).
    - Auth: the web UI password off; if set, Digest or Basic.
-1. **whatwatt step and Settings card:** address, Test connection, meter status, Skip. Cleartext and the permission settled by phase 0. Then spot mode's cost line.
+1. **whatwatt step and Settings card [done 2026-10-02, tested on the phone in an R8 release build]:** address, Test connection, meter status, Skip. Then spot mode's cost line and the quiet "whatwatt not reachable" line. `core/.../Whatwatt.kt` (`fetchMeterReading`, `parseMeterReading`; the test uses a real, anonymized response).
 2. **Live reading and recording:** poll while visible (no background work), quarter hours from the register, the monthly files.
 3. **Peak load screen:** the scale, kW free, the countdown, the goal, the in-app alarm.
-4. **Gaps:** the maximum demand register or the SD card; the Pi only if neither works.
+4. **Gaps:** from the SD card's CSV (the maximum demand register isn't available); the Pi only if that fails.
 5. Later, if wanted: a background alarm, remote access.
 
-Open questions: `ACCESS_LOCAL_NETWORK` as a second permission, or the picker exemption only? How early the alarm warns (a margin in kW, or minutes left in the quarter hour)? Icon for the whatwatt step (📟 or 🔌)?
+Settled 2026-10-02 (user): `ACCESS_LOCAL_NETWORK` declared, the alarm at 90% of the line, 📟 for the whatwatt step. Open: which CKW product the household is on ("later"); the SD log interval (15 s now).
 
 ## UI text (reworked 2026-09-30)
 

@@ -1,0 +1,87 @@
+{
+  "report": {
+    "id": 223,
+    "interval": 4.228,
+    "tariff": 1,
+    "date_time": "2026-10-02T17:35:46Z",
+    "date_time_local": "2026-10-02T17:35:46+02:00",
+    "date_time_utc": "2026-10-02T15:35:46Z",
+    "instantaneous_power": {
+      "active": {
+        "positive": {
+          "total": 0.212,
+          "l1": 0.039,
+          "l2": 0.005,
+          "l3": 0.168
+        },
+        "negative": {
+          "total": 0,
+          "l1": 0,
+          "l2": 0,
+          "l3": 0
+        }
+      },
+      "reactive": {
+        "positive": {
+          "total": 0
+        },
+        "negative": {
+          "total": 0.109
+        }
+      }
+    },
+    "voltage": {
+      "l1": 236,
+      "l2": 236,
+      "l3": 237
+    },
+    "current": {
+      "l1": 0.36,
+      "l2": 0.2,
+      "l3": 0.73
+    },
+    "energy": {
+      "active": {
+        "positive": {
+          "total": 10526.027,
+          "t1": 8039.276,
+          "t2": 2486.751
+        },
+        "negative": {
+          "total": 0,
+          "t1": 0,
+          "t2": 0
+        }
+      },
+      "reactive": {
+        "positive": {
+          "total": 283.967
+        },
+        "negative": {
+          "total": 2949.486
+        }
+      }
+    },
+    "power_factor": 0.88,
+    "conv_factor": 1
+  },
+  "meter": {
+    "status": "OK",
+    "interface": "TTL",
+    "protocol": "KMP",
+    "protocol_version": "0",
+    "logical_name": "OMNIPOWER",
+    "id": "12345678",
+    "model": "OMNIPOWER rev. AF1",
+    "vendor": "Kamstrup",
+    "prefix": "KMP"
+  },
+  "system": {
+    "id": "AABBCCDDEEFF",
+    "date_time": "2026-10-02T17:35:52Z",
+    "date_time_local": "2026-10-02T17:35:52+02:00",
+    "date_time_utc": "2026-10-02T15:35:52Z",
+    "boot_id": "00C0FFEE",
+    "time_since_boot": 2065
+  }
+}

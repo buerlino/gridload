@@ -109,13 +109,15 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [next: phase 0, the checks on the device]
+### whatwatt [phases 0 and 1 done 2026-10-02, not released; next: phase 2]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical
 scale, kW free, countdown, in-app alarm), the verified API facts and phases 0 to 5 are in
-`CLAUDE.md` under "Peak load mode with whatwatt". Phase 0 is checks on the device by the user;
-the old client (`Whatwatt.kt`, commit `0f9b17b`) can be restored from git as a start.
+`CLAUDE.md` under "Peak load mode with whatwatt". Phase 0's findings (the real report fields,
+the local-time-labelled-`Z` quirk, the SD log every 15 s, no maximum demand register) are there
+too. Phase 1 restored and adapted `Whatwatt.kt` and added the whatwatt step, Settings card and
+cost line. The whatwatt runs on meter power: poll it gently (every 5 s while visible).
 Phase 2 can be tested against a fake whatwatt on the PC that the phone reaches over Wi-Fi.
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
