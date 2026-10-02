@@ -2,21 +2,30 @@ package io.github.buerlino.gridload
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.HttpException
 import io.github.buerlino.gridload.core.MeterReading
 import io.github.buerlino.gridload.core.PriceSlot
+import io.github.buerlino.gridload.core.Projection
+import io.github.buerlino.gridload.core.Quarter
 import io.github.buerlino.gridload.core.QuarterRecorder
 import io.github.buerlino.gridload.core.QuarterStore
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
+import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchPrices
+import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
+import io.github.buerlino.gridload.core.peakLine
 import io.github.buerlino.gridload.core.wantsFetch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +36,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.time.Instant
+import java.time.YearMonth
 
 enum class Mode { SPOT, PEAK }
 
@@ -42,13 +52,27 @@ data class UiState(
     val meterKw: Double? = null,
     /** Why there is no reading from the saved whatwatt, as one quiet line. */
     val meterProblem: String? = null,
+    /** This quarter hour, projected from the last good reading; null without one. */
+    val projection: Projection? = null,
+    /** This month's highest recorded quarter hour, and last month's (the goal's default). */
+    val highest: Quarter? = null,
+    val lastMonthHighest: Quarter? = null,
+    /** This month's last few recorded quarters, for the bars before the current one. */
+    val recent: List<Quarter> = emptyList(),
+    /** The goal from Settings, kW; null means last month's highest. */
+    val goalKw: Double? = null,
+    /** Peak load mode without a reading: keep the scale (true) or hide it. */
+    val scaleWithoutReading: Boolean = true,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
     val fetchedAt: Instant? = null,
     /** Shown when a refresh was skipped because of the cooldown; cleared by the next recompute. */
     val notice: String? = null,
-)
+) {
+    val effectiveGoalKw: Double? get() = goalKw ?: lastMonthHighest?.kw
+    val peakLine: Double? get() = peakLine(effectiveGoalKw, highest)
+}
 
 /**
  * Holds the cached slots so rotation doesn't refetch. The API is rate limited and one response
@@ -58,7 +82,8 @@ data class UiState(
  * The region, mode, whatwatt switch and address, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read every few seconds, only while the app is visible, and its
- * quarter hours go to one file per month in `files/quarters`, in either mode.
+ * quarter hours go to one file per month in `files/quarters`, in either mode. In peak load mode
+ * the phone vibrates once per quarter hour when it comes close to a new peak.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -66,6 +91,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var lastAttempt: Instant? = null
     private val recorder = QuarterRecorder()
     private val quarterStore = QuarterStore(File(app.filesDir, "quarters"))
+    /** The month whose quarters are loaded into the state. */
+    private var month: YearMonth? = null
+    /** The quarter hour (its end) the phone last vibrated for. */
+    private var warnedFor: Instant? = null
     private val _state = MutableStateFlow(
         UiState(
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
@@ -73,6 +102,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
             whatwattEnabled = prefs.getBoolean(KEY_WHATWATT_ENABLED, false),
             whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
+            goalKw = prefs.getString(KEY_GOAL_KW, null)?.toDoubleOrNull(),
+            scaleWithoutReading = prefs.getBoolean(KEY_SCALE_WITHOUT_READING, true),
         ),
     )
     val state: StateFlow<UiState> = _state
@@ -109,12 +140,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString(KEY_REGION, region.id).apply()
         slots = emptyList()
         lastAttempt = null
-        _state.update {
-            UiState(
-                region = region, mode = it.mode, firstStartDone = it.firstStartDone,
-                whatwattEnabled = it.whatwattEnabled, whatwattAddress = it.whatwattAddress, meterKw = it.meterKw, meterProblem = it.meterProblem,
-            )
-        }
+        _state.update { it.copy(region = region, status = null, loading = false, error = null, fetchedAt = null, notice = null) }
         refresh()
     }
 
@@ -140,7 +166,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The switch in Settings; the setup guide turns it on with Done and off with Skip. */
     fun setWhatwattEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_WHATWATT_ENABLED, enabled).apply()
-        _state.update { it.copy(whatwattEnabled = enabled, meterKw = null, meterProblem = null) }
+        _state.update { it.copy(whatwattEnabled = enabled, meterKw = null, meterProblem = null, projection = null) }
+    }
+
+    /** The goal in Settings, kW; null (a blank field) falls back to last month's highest. */
+    fun setGoal(kw: Double?) {
+        prefs.edit().apply { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }.apply()
+        _state.update { it.copy(goalKw = kw) }
+    }
+
+    fun setScaleWithoutReading(show: Boolean) {
+        prefs.edit().putBoolean(KEY_SCALE_WITHOUT_READING, show).apply()
+        _state.update { it.copy(scaleWithoutReading = show) }
     }
 
     /** Saves (or, blank, clears) the whatwatt device address. */
@@ -150,7 +187,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
         }.apply()
         if (trimmed != _state.value.whatwattAddress) recorder.reset() // maybe another meter
-        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }, meterKw = null, meterProblem = null) }
+        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }, meterKw = null, meterProblem = null, projection = null) }
         _whatwattTestResult.value = null
     }
 
@@ -189,12 +226,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Called every few seconds while the app is visible: reads the saved whatwatt, if any, and
-     * records the quarter hours. A failure shows a quiet line instead of the last value, which
-     * would be stale.
+     * Called every few seconds while the app is visible: reads the saved whatwatt, if any,
+     * records the quarter hours and projects this one. A failure shows a quiet line instead of
+     * the last value, which would be stale.
      */
     suspend fun readMeter() {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
+        loadMonth()
         val address = _state.value.whatwattAddress ?: return
         val reading = withContext(Dispatchers.IO) {
             try {
@@ -211,13 +249,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             kw == null -> "whatwatt: no meter reading"
             else -> null
         }
-        _state.update { it.copy(meterKw = kw, meterProblem = problem) }
-        if (reading != null && reading.ok) record(reading)
+        val projection = if (reading != null && kw != null && record(reading)) recorder.projection(kw) else null
+        _state.update { it.copy(meterKw = kw, meterProblem = problem, projection = projection) }
+        warnIfClose()
     }
 
-    /** Feeds the meter's register to the recorder and saves each finished quarter hour. */
-    private suspend fun record(reading: MeterReading) {
-        val quarter = recorder.add(reading.time ?: return, reading.energyKwh ?: return) ?: return
+    /**
+     * Feeds the meter's register to the recorder and saves each finished quarter hour. False
+     * when the reading has no time or register, so it can't be projected either.
+     */
+    private suspend fun record(reading: MeterReading): Boolean {
+        val time = reading.time ?: return false
+        val kwh = reading.energyKwh ?: return false
+        val quarter = recorder.add(time, kwh) ?: return true
+        val quarterMonth = YearMonth.from(quarter.start.atZone(TARIFF_ZONE))
+        _state.update {
+            when (quarterMonth) {
+                month -> it.copy(highest = higher(it.highest, quarter), recent = (it.recent + quarter).takeLast(PAST_BARS))
+                month?.minusMonths(1) -> it.copy(lastMonthHighest = higher(it.lastMonthHighest, quarter))
+                else -> it
+            }
+        }
         withContext(Dispatchers.IO) {
             try {
                 quarterStore.add(quarter)
@@ -225,6 +277,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // The quarter is lost; the whatwatt's SD card log can fill it in later.
             }
         }
+        return true
+    }
+
+    /** Loads this month's and last month's highest quarter hour, on start and when a month begins. */
+    private suspend fun loadMonth() {
+        val now = YearMonth.now(TARIFF_ZONE)
+        if (now == month) return
+        month = now
+        val (quarters, lastMonth) = withContext(Dispatchers.IO) {
+            try {
+                quarterStore.month(now) to quarterStore.month(now.minusMonths(1))
+            } catch (_: Exception) {
+                emptyList<Quarter>() to emptyList()
+            }
+        }
+        _state.update {
+            it.copy(
+                highest = quarters.maxByOrNull { q -> q.kwh },
+                lastMonthHighest = lastMonth.maxByOrNull { q -> q.kwh },
+                recent = quarters.sortedBy { q -> q.start }.takeLast(PAST_BARS),
+            )
+        }
+    }
+
+    /** In peak load mode, vibrates once per quarter hour when it comes close to the line. */
+    private fun warnIfClose() {
+        val state = _state.value
+        val projection = state.projection ?: return
+        val line = state.peakLine ?: return
+        if (state.mode != Mode.PEAK || !isPeakWarning(projection.kw, line) || warnedFor == projection.end) return
+        warnedFor = projection.end
+        val app = getApplication<Application>()
+        val vibrator = if (Build.VERSION.SDK_INT >= 31) {
+            app.getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            app.getSystemService(Vibrator::class.java)
+        }
+        vibrator?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE))
     }
 
     fun refresh() {
@@ -260,3 +350,7 @@ private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
 private const val KEY_WHATWATT_ENABLED = "whatwatt_enabled"
 private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"
+private const val KEY_GOAL_KW = "peak_goal_kw"
+private const val KEY_SCALE_WITHOUT_READING = "peak_scale_without_reading"
+
+private fun higher(a: Quarter?, b: Quarter) = if (a == null || b.kwh > a.kwh) b else a

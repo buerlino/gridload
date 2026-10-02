@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
@@ -99,6 +101,8 @@ class MainActivity : ComponentActivity() {
                         onWhatwattAddress = viewModel::setWhatwattAddress,
                         onTestWhatwatt = viewModel::testWhatwattConnection,
                         onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
+                        onGoal = viewModel::setGoal,
+                        onScaleWithoutReading = viewModel::setScaleWithoutReading,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false },
                     )
@@ -118,31 +122,46 @@ private data class Look(val background: Color, val content: Color, val headline:
 
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
-/** The colour, the headline and hint, the price, the next good time and refresh. */
+/**
+ * The colour, the headline and hint, the price, the next good time and refresh. In peak load
+ * mode with the whatwatt on, the peak window goes below the price and the text gets smaller.
+ */
 @Composable
 private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> Unit) {
     val (background, content, label, hint) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
     if (showHelp) HelpDialog(onDismiss = { showHelp = false })
+    val peak = state.mode == Mode.PEAK && state.whatwattEnabled && (state.projection != null || state.scaleWithoutReading)
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
         TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
         Column(
-            Modifier.align(Alignment.Center),
+            // In peak load mode, clear of the top bar and the refresh button, and scrollable on small screens.
+            Modifier.align(Alignment.Center)
+                .then(if (peak) Modifier.padding(top = 48.dp, bottom = 88.dp).verticalScroll(rememberScrollState()) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (peak) 6.dp else 12.dp),
         ) {
-            Text(label, color = content, fontSize = 44.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            hint?.let { Text(it, color = content, fontSize = 22.sp, textAlign = TextAlign.Center) }
+            Text(
+                label, color = content, fontSize = if (peak) 32.sp else 44.sp, lineHeight = if (peak) 38.sp else 52.sp,
+                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+            )
+            hint?.let { Text(it, color = content, fontSize = if (peak) 18.sp else 22.sp, textAlign = TextAlign.Center) }
+            val textSize = if (peak) 16.sp else 20.sp
             state.status?.let { status ->
-                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = 20.sp)
+                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
                 state.meterKw?.let { kw ->
-                    Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = 20.sp)
+                    Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = textSize)
                 }
-                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = 18.sp) }
+                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = if (peak) 16.sp else 18.sp) }
             }
             state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
-            state.meterProblem?.let { Text(it, color = content) }
+            if (peak) {
+                Spacer(Modifier.height(6.dp))
+                PeakWindow(state)
+            } else {
+                state.meterProblem?.let { Text(it, color = content) }
+            }
         }
         Column(
             Modifier.align(Alignment.BottomCenter),
@@ -217,7 +236,10 @@ fun HelpContent() {
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
         Text("With a whatwatt on your meter, it also shows what you use right now and what that costs per hour.")
         Text("Peak load mode", fontWeight = FontWeight.Bold)
-        Text("Comes back with support for the whatwatt meter reader. Until then it shows the spot price.")
+        Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
+        Text("Below the price, a scale shows that peak, your goal and this quarter hour. \"kW free\" is how much more you can switch on now.")
+        Text("Close to a new peak, the bar turns red and the phone vibrates.")
+        Text("Needs a whatwatt. GridLoad only sees quarter hours while it's open.")
     }
 }
 

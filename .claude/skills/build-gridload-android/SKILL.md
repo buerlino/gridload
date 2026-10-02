@@ -65,8 +65,9 @@ SVGs change, regenerate all three. No monochrome (themed) layer yet.
 ## Roadmap
 
 Two **modes**, chosen on first start and changeable in Settings: **spot price** (the colour
-says run everything or wait) and **peak load** (rebuilt on the whatwatt). Work phase by phase
-and update the status in brackets.
+says run everything or wait) and **peak load** (rebuilt on the whatwatt). The UI rework
+(user, 2026-10-02) drops the modes: the spot price always shows, and peak load becomes a switch
+under Measurement. Work phase by phase and update the status in brackets.
 
 ### Done
 
@@ -109,7 +110,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 2 done 2026-10-02, not released; next: phase 3]
+### whatwatt [phases 0 to 3 done 2026-10-02, not released; next: the UI rework, then v0.7.0, then phase 4]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical
@@ -123,6 +124,22 @@ the phone with `adb shell run-as io.github.buerlino.gridload cat files/quarters/
 (debug build) and check them against the SD card log (`/sdcard/YYYYMMDD.CSV`, `EAP_T` at the
 boundaries), which needs no extra polling of the device. For a long test with the app open,
 `adb shell svc power stayon usb` keeps the screen on; set it back with `svc power stayon false`.
+Phase 3 added the peak window (`PeakWindow.kt`, a `Canvas` with `rememberTextMeasurer`; labels
+on the right are pushed apart when goal and highest are close), the goal and the no-reading
+switch in Settings, and the vibration in `MainViewModel.warnIfClose`. To test states without
+touching the device, edit the debug build's prefs with the app stopped:
+`adb shell "run-as io.github.buerlino.gridload sed -i -e 's/A/B/' shared_prefs/settings.xml"`
+(the whole command in one quoted string, or adb's shell splits it); a wrong address gives
+"not reachable". Put the user's values back afterwards.
+
+### UI rework [next, specified 2026-10-02]
+
+The user's 16 points after trying phase 3, with the decisions (no modes, the goal as a
+switch, Settings as Region then Measurement, tap-a-label help dialogs, collapse once connected,
+the whatwatt manual link), are in `CLAUDE.md` under "UI rework". Build them in one pass and
+test on the phone in debug and R8 builds; one detail (exactly what collapses) is to confirm
+with the user. Point 16, the history tile, is later and needs designing with the user first.
+Then release v0.7.0 (versionCode 9; the changelog covers the whatwatt, peak load and the rework).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

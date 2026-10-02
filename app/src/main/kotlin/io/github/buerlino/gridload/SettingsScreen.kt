@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
+import java.util.Locale
 
 /**
  * The setup guide: on first start the help, then Next; then the mode, the region and the
@@ -120,6 +121,8 @@ fun SettingsScreen(
     onWhatwattAddress: (String) -> Unit,
     onTestWhatwatt: () -> Unit,
     onWhatwattPermissionDenied: () -> Unit,
+    onGoal: (Double?) -> Unit,
+    onScaleWithoutReading: (Boolean) -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -137,6 +140,7 @@ fun SettingsScreen(
         }
         if (state.whatwattEnabled) {
             WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
+            if (state.mode == Mode.PEAK) PeakSettings(state, onGoal, onScaleWithoutReading)
         }
         OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
@@ -186,6 +190,43 @@ private fun WhatwattFields(
         enabled = text.isNotBlank(),
     ) { Text("Test connection") }
     testResult?.let { Text(it) }
+}
+
+/**
+ * Peak load mode's goal, pre-filled with last month's highest seen quarter hour, and whether
+ * the scale stays without a reading. A blank goal falls back to last month's highest.
+ */
+@Composable
+private fun PeakSettings(state: UiState, onGoal: (Double?) -> Unit, onScaleWithoutReading: (Boolean) -> Unit) {
+    var text by rememberSaveable { mutableStateOf(state.effectiveGoalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
+    val goal = text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
+    val invalid = text.isNotBlank() && goal == null
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            val kw = it.replace(',', '.').toDoubleOrNull()?.takeIf { v -> v > 0 }
+            if (it.isBlank() || kw != null) onGoal(kw)
+        },
+        label = { Text("Goal, kW") },
+        supportingText = {
+            Text(
+                when {
+                    invalid -> "Enter a number of kW, e.g. 3.5"
+                    state.lastMonthHighest != null -> "Last month's highest seen: %.1f kW".format(state.lastMonthHighest.kw)
+                    else -> "The peak you'd like to stay under this month."
+                },
+            )
+        },
+        isError = invalid,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Show the scale without a reading", Modifier.weight(1f))
+        Switch(checked = state.scaleWithoutReading, onCheckedChange = onScaleWithoutReading)
+    }
 }
 
 /** A page title, with a back arrow when the page can be left. */
