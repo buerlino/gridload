@@ -8,6 +8,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -82,31 +86,25 @@ class MainActivity : ComponentActivity() {
                 }
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
+                // Settings opened from the region in the top bar, with the region list open.
+                var pickRegion by remember { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state.mode, state.region, state.whatwattAddress, whatwattTestResult,
-                        onWhatwattEnabled = viewModel::setWhatwattEnabled,
-                        onWhatwattAddress = viewModel::setWhatwattAddress,
-                        onTestWhatwatt = viewModel::testWhatwattConnection,
-                        onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
-                        onDone = { mode, region -> viewModel.finishSetup(mode, region); showGuide = false; showSettings = false },
+                        state, whatwattTestResult, viewModel,
+                        onDone = { region -> viewModel.finishSetup(region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
-                        state,
-                        whatwattTestResult,
-                        onSelectMode = viewModel::selectMode,
-                        onSelectRegion = viewModel::selectRegion,
-                        onWhatwattEnabled = viewModel::setWhatwattEnabled,
-                        onWhatwattAddress = viewModel::setWhatwattAddress,
-                        onTestWhatwatt = viewModel::testWhatwattConnection,
-                        onWhatwattPermissionDenied = viewModel::whatwattPermissionDenied,
-                        onGoal = viewModel::setGoal,
-                        onScaleWithoutReading = viewModel::setScaleWithoutReading,
+                        state, whatwattTestResult, viewModel,
+                        pickRegion = pickRegion,
                         onOpenGuide = { showGuide = true },
-                        onBack = { showSettings = false },
+                        onBack = { showSettings = false; pickRegion = false },
                     )
-                    else -> Screen(state, onRefresh = viewModel::refresh, onOpenSettings = { showSettings = true })
+                    else -> Screen(
+                        state,
+                        onRefresh = viewModel::refresh,
+                        onOpenSettings = { region -> pickRegion = region; showSettings = true },
+                    )
                 }
             }
         }
@@ -118,21 +116,21 @@ private val ORANGE = Color(0xFFFFA000)
 private val RED = Color(0xFFC62828)
 private val GREY = Color(0xFF616161)
 
-private data class Look(val background: Color, val content: Color, val headline: String, val hint: String?)
+private data class Look(val background: Color, val content: Color, val headline: String)
 
 private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 /**
- * The colour, the headline and hint, the price, the next good time and refresh. In peak load
- * mode with the whatwatt on, the peak window goes below the price and the text gets smaller.
+ * The colour, the headline, the price, the next good time and refresh. With peak load on, the
+ * peak window goes below the price and the text gets smaller.
  */
 @Composable
-private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> Unit) {
-    val (background, content, label, hint) = look(state)
+private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: (pickRegion: Boolean) -> Unit) {
+    val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
     if (showHelp) HelpDialog(onDismiss = { showHelp = false })
-    val peak = state.mode == Mode.PEAK && state.whatwattEnabled && (state.projection != null || state.scaleWithoutReading)
+    val peak = state.showPeak
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
         TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
         Column(
@@ -146,14 +144,13 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
                 label, color = content, fontSize = if (peak) 32.sp else 44.sp, lineHeight = if (peak) 38.sp else 52.sp,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
             )
-            hint?.let { Text(it, color = content, fontSize = if (peak) 18.sp else 22.sp, textAlign = TextAlign.Center) }
             val textSize = if (peak) 16.sp else 20.sp
             state.status?.let { status ->
                 Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
                 state.meterKw?.let { kw ->
                     Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = textSize)
                 }
-                status.nextGreen?.let { Text(nextGoodTime(it.start), color = content, fontSize = if (peak) 16.sp else 18.sp) }
+                status.nextGreen?.let { NextGoodTime(it.start, content, if (peak) 16.sp else 18.sp) }
             }
             state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
             if (peak) {
@@ -180,17 +177,17 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: () -> 
 }
 
 private fun look(state: UiState): Look = when (state.status?.level) {
-    Level.GREEN -> Look(GREEN, Color.White, "Good time", "Run your appliances now")
-    Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time", "Only run what you need")
-    Level.RED -> Look(RED, Color.White, "Bad time", "Wait if you can")
-    null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No prices", null)
+    Level.GREEN -> Look(GREEN, Color.White, "Good time")
+    Level.ORANGE -> Look(ORANGE, Color.Black, "Fair time")
+    Level.RED -> Look(RED, Color.White, "Bad time")
+    null -> Look(GREY, Color.White, if (state.loading) "Loading…" else "No prices")
 }
 
-/** ⚙ at the top left, the region in the middle, ? at the top right. */
+/** ⚙ at the top left, the region in the middle (tap to change it), ? at the top right. */
 @Composable
-private fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, onHelp: () -> Unit) {
+private fun TopBar(state: UiState, content: Color, onOpenSettings: (pickRegion: Boolean) -> Unit, onHelp: () -> Unit) {
     Box(Modifier.fillMaxWidth()) {
-        TextButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.TopStart)) {
+        TextButton(onClick = { onOpenSettings(false) }, modifier = Modifier.align(Alignment.TopStart)) {
             Text("⚙", color = content, fontSize = 22.sp)
         }
         Text(
@@ -199,7 +196,8 @@ private fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, o
             fontSize = 16.sp,
             textAlign = TextAlign.Center,
             // Clear of the ⚙ and ? buttons; long names wrap.
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 14.dp, start = 48.dp, end = 48.dp),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp, start = 48.dp, end = 48.dp)
+                .clickable { onOpenSettings(true) }.padding(vertical = 8.dp),
         )
         TextButton(onClick = onHelp, modifier = Modifier.align(Alignment.TopEnd)) {
             Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -207,11 +205,21 @@ private fun TopBar(state: UiState, content: Color, onOpenSettings: () -> Unit, o
     }
 }
 
-/** "Next good time: 11:00", with "tomorrow" when it isn't today. */
-private fun nextGoodTime(start: OffsetDateTime): String {
+/** The next good time as a green dot and "11:00", with "tomorrow" when it isn't today. */
+@Composable
+private fun NextGoodTime(start: OffsetDateTime, content: Color, fontSize: TextUnit) {
     val local = start.atZoneSameInstant(ZoneId.systemDefault())
     val day = if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow "
-    return "Next good time: $day${timeFormat.format(local)}"
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        GreenDot(content)
+        Text("$day${timeFormat.format(local)}", color = content, fontSize = fontSize)
+    }
+}
+
+/** The app's green with a thin outline in [outline], so it shows on any background, the green one too. */
+@Composable
+private fun GreenDot(outline: Color) {
+    Box(Modifier.size(14.dp).background(GREEN, CircleShape).border(1.5.dp, outline, CircleShape))
 }
 
 @Composable
@@ -224,22 +232,26 @@ private fun HelpDialog(onDismiss: () -> Unit) {
     )
 }
 
-/** Shared by the help dialog and the first start. A short general part, then one part per mode. */
+/** Shared by the help dialog and the first start. A short general part, then prices and peak load. */
 @Composable
 fun HelpContent() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("GridLoad shows whether now is a good time to use electricity, based on your utility's price. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
-        Text("Spot price mode", fontWeight = FontWeight.Bold)
+        Text("⚡ Prices", fontWeight = FontWeight.Bold)
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            GreenDot(LocalContentColor.current)
+            Text("The next good time.")
+        }
         Text("With a whatwatt on your meter, it also shows what you use right now and what that costs per hour.")
-        Text("Peak load mode", fontWeight = FontWeight.Bold)
+        Text("📊 Peak load", fontWeight = FontWeight.Bold)
         Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
-        Text("Below the price, a scale shows that peak, your goal and this quarter hour. \"kW free\" is how much more you can switch on now.")
+        Text("Below the price, a scale shows this quarter hour, the two before and the month's highest. \"kW free\" is how much more you can switch on now.")
         Text("Close to a new peak, the bar turns red and the phone vibrates.")
-        Text("Needs a whatwatt. GridLoad only sees quarter hours while it's open.")
+        Text("Needs a whatwatt. Switch it on in Settings. GridLoad only sees quarter hours while it's open.")
     }
 }
 

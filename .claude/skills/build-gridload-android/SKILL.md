@@ -64,10 +64,9 @@ SVGs change, regenerate all three. No monochrome (themed) layer yet.
 
 ## Roadmap
 
-Two **modes**, chosen on first start and changeable in Settings: **spot price** (the colour
-says run everything or wait) and **peak load** (rebuilt on the whatwatt). The UI rework
-(user, 2026-10-02) drops the modes: the spot price always shows, and peak load becomes a switch
-under Measurement. Work phase by phase and update the status in brackets.
+No modes since the UI rework (user, 2026-10-02): the spot price always shows (the colour says
+run everything or wait), and **peak load** (rebuilt on the whatwatt) is a switch under
+Measurement in Settings. Work phase by phase and update the status in brackets.
 
 ### Done
 
@@ -110,7 +109,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 3 done 2026-10-02, not released; next: the UI rework, then v0.7.0, then phase 4]
+### whatwatt [phases 0 to 3 done 2026-10-02, not released; next: v0.7.0, then phase 4]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical
@@ -126,20 +125,24 @@ boundaries), which needs no extra polling of the device. For a long test with th
 `adb shell svc power stayon usb` keeps the screen on; set it back with `svc power stayon false`.
 Phase 3 added the peak window (`PeakWindow.kt`, a `Canvas` with `rememberTextMeasurer`; labels
 on the right are pushed apart when goal and highest are close), the goal and the no-reading
-switch in Settings, and the vibration in `MainViewModel.warnIfClose`. To test states without
+switch in Settings, and the vibration in `MainViewModel.warnIfClose`. To show the first start
+without losing the recorded quarters, set `first_start_done` to false in the prefs (below)
+rather than `pm clear`. To test states without
 touching the device, edit the debug build's prefs with the app stopped:
 `adb shell "run-as io.github.buerlino.gridload sed -i -e 's/A/B/' shared_prefs/settings.xml"`
 (the whole command in one quoted string, or adb's shell splits it); a wrong address gives
 "not reachable". Put the user's values back afterwards.
 
-### UI rework [next, specified 2026-10-02]
+### UI rework [built 2026-10-02, tested in debug and R8, not released]
 
 The user's 16 points after trying phase 3, with the decisions (no modes, the goal as a
-switch, Settings as Region then Measurement, tap-a-label help dialogs, collapse once connected,
-the whatwatt manual link), are in `CLAUDE.md` under "UI rework". Build them in one pass and
-test on the phone in debug and R8 builds; one detail (exactly what collapses) is to confirm
-with the user. Point 16, the history tile, is later and needs designing with the user first.
-Then release v0.7.0 (versionCode 9; the changelog covers the whatwatt, peak load and the rework).
+switch, Settings as Region then Measurement, tap-a-label ⓘ dialogs, collapse once connected,
+the whatwatt manual link), are in `CLAUDE.md` under "UI rework". `SettingsScreen` and
+`SetupGuide` take the `MainViewModel` directly instead of a dozen callbacks. Open: the user is
+rethinking the Measurement/whatwatt categorization (ask before touching it). Point 16, the
+history tile, is later and needs designing with the user first.
+Next: release v0.7.0 (versionCode 9; the changelog covers the whatwatt, peak load and the
+rework; README and the store description already describe peak load as a switch).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

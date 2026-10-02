@@ -28,7 +28,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.buerlino.gridload.core.Quarter
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.quarterStart
 import java.time.Duration
@@ -48,12 +47,12 @@ private val PAST_BAR = Color(0xFFB0BEC5)
 private val WARNING = Color(0xFFC62828)
 
 private val quarterFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
-private val highestFormat = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.ENGLISH).withZone(ZoneId.systemDefault())
 
 /**
- * Peak load mode's white window under the spot price: the scale (the past quarter hours, this
- * one projected, the goal and the month's highest), how much more fits under the line, and
- * when the next quarter hour starts. The bar turns red within 10% of the line.
+ * Peak load's white window under the spot price: the scale (the past quarter hours, this one
+ * projected, the goal and the month's highest), how much more fits under the line, and, if
+ * switched on, when the next quarter hour starts. The bar turns red within 10% of the line.
+ * Without a line (no goal, nothing recorded yet) it shows the bars only.
  */
 @Composable
 fun PeakWindow(state: UiState) {
@@ -70,12 +69,12 @@ fun PeakWindow(state: UiState) {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Scale(bars, state.effectiveGoalKw, state.highest, warning)
+        Scale(bars, state.activeGoalKw, state.highest?.kw, warning)
         when {
             projection == null -> state.meterProblem?.let { Text(it, color = MUTED, fontSize = 14.sp) }
-            line == null -> Text("Set a goal in Settings.", color = INK, fontSize = 16.sp)
-            else -> {
-                val free = line - projection.kw
+            line != null -> {
+                // From the values as drawn, so "0.9 highest seen" and a "0.8" bar give "0.1 kW free".
+                val free = shown(line) - shown(projection.kw)
                 Text(
                     if (free >= 0) "%.1f kW free".format(free) else "%.1f kW over".format(-free),
                     color = INK, fontSize = 26.sp, fontWeight = FontWeight.Bold,
@@ -86,7 +85,7 @@ fun PeakWindow(state: UiState) {
                 }
             }
         }
-        projection?.let { Text("New quarter hour in ${minutesLeft(it.end)} min", color = INK, fontSize = 14.sp) }
+        projection?.takeIf { state.countdown }?.let { Text("New quarter hour in ${minutesLeft(it.end)} min", color = INK, fontSize = 14.sp) }
         if (projection?.estimated == true) Note("Estimated: GridLoad opened during this quarter hour.")
         Note("Highest seen only while GridLoad is open.")
     }
@@ -98,6 +97,9 @@ private fun Warning(text: String) = Text(text, color = WARNING, fontSize = 14.sp
 @Composable
 private fun Note(text: String) = Text(text, color = MUTED, fontSize = 12.sp, lineHeight = 15.sp)
 
+/** [kw] rounded as the scale labels it (one decimal). */
+private fun shown(kw: Double) = "%.1f".format(Locale.ROOT, kw).toDouble()
+
 private fun minutesLeft(end: Instant) = ceil(Duration.between(Instant.now(), end).seconds / 60.0).toInt().coerceAtLeast(1)
 
 /** One column of the scale: a recorded quarter hour, or the current one projected; [kw] null when unknown. */
@@ -108,10 +110,10 @@ private class Bar(val kw: Double?, val label: String, val current: Boolean)
  * highest (solid) and the goal (dashed) across them and labelled to the right.
  */
 @Composable
-private fun Scale(bars: List<Bar>, goal: Double?, highest: Quarter?, warning: Boolean) {
+private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, warning: Boolean) {
     val measurer = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(180.dp)) {
-        val line = listOfNotNull(goal, highest?.kw).maxOrNull() ?: 0.0
+        val line = listOfNotNull(goal, highest).maxOrNull() ?: 0.0
         val maxKw = ceil(maxOf(maxOf(line, bars.maxOf { it.kw ?: 0.0 }) * 1.15, 1.0)).toInt()
         val step = if (maxKw > 8) 2 else 1
         val top = 22.dp.toPx()
@@ -157,7 +159,7 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Quarter?, warning: Bo
             }
         }
 
-        highest?.let { drawLine(INK, Offset(axisX, y(it.kw)), Offset(linesEnd, y(it.kw)), 2.5.dp.toPx()) }
+        highest?.let { drawLine(INK, Offset(axisX, y(it)), Offset(linesEnd, y(it)), 2.5.dp.toPx()) }
         goal?.let {
             val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))
             drawLine(INK, Offset(axisX, y(it)), Offset(linesEnd, y(it)), 1.5.dp.toPx(), pathEffect = dash)
@@ -166,14 +168,11 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Quarter?, warning: Bo
         val width = Constraints(maxWidth = (size.width - labelX).toInt().coerceAtLeast(1))
         val labelStyle = TextStyle(color = INK, fontSize = 12.sp, lineHeight = 14.sp)
         val labels = buildList {
-            if (highest != null) {
-                add(y(highest.kw) to measurer.measure(buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("%.1f".format(highest.kw)) }
-                    append(" highest seen\n")
-                    withStyle(SpanStyle(color = MUTED, fontSize = 11.sp)) { append(highestFormat.format(highest.start)) }
+            highest?.let {
+                add(y(it) to measurer.measure(buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("%.1f".format(it)) }
+                    append(" highest seen")
                 }, labelStyle, constraints = width))
-            } else {
-                add(top to measurer.measure("highest seen: none yet", labelStyle.copy(color = MUTED), constraints = width))
             }
             goal?.let {
                 add(y(it) to measurer.measure(buildAnnotatedString {

@@ -34,12 +34,11 @@ The colour depends on the dynamic tariff of the electricity utility that supplie
 
 All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves only its own grid area, and the colour follows its dynamic tariff, so outside those areas it says nothing about your price.
 
-## Modes
+## Measurement
 
-The mode is chosen in the setup guide on first start and can be changed in Settings.
+With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in Settings under Measurement, the screen also shows what the home draws right now and what that costs per hour.
 
-- **Spot price:** the colour above. At any moment you either run everything or wait. With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), it also shows what the home draws right now and what that costs per hour.
-- **Peak load:** some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). This mode is being rebuilt on live meter readings from a whatwatt Go on the home Wi-Fi: the month's peak, this quarter hour's projected draw, and an alarm before a new monthly peak. Until then it shows the spot price.
+**Peak load** (a switch under Measurement, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a scale shows this quarter hour's projected draw, the two before, the month's highest and an optional goal, and how many kW are still free. Close to a new monthly peak the bar turns red and the phone vibrates. The app reads the whatwatt only while it's open, so the month's highest is the highest it has seen.
 
 ## Later ideas
 

@@ -38,31 +38,35 @@ import java.io.IOException
 import java.time.Instant
 import java.time.YearMonth
 
-enum class Mode { SPOT, PEAK }
-
 data class UiState(
     val region: Region = CKW,
-    val mode: Mode = Mode.SPOT,
     val firstStartDone: Boolean = true,
     /** Whether the whatwatt is switched on in Settings; when off, it isn't read or shown. */
     val whatwattEnabled: Boolean = false,
     /** The saved whatwatt device address, or null when none is set. */
     val whatwattAddress: String? = null,
+    /** Whether the last test or reading got a meter reading; Settings then collapses the address. */
+    val whatwattConnected: Boolean = false,
     /** The whatwatt's last reading, kW drawn now; null when there is none or it failed. */
     val meterKw: Double? = null,
     /** Why there is no reading from the saved whatwatt, as one quiet line. */
     val meterProblem: String? = null,
     /** This quarter hour, projected from the last good reading; null without one. */
     val projection: Projection? = null,
-    /** This month's highest recorded quarter hour, and last month's (the goal's default). */
+    /** The peak load switch; it counts only while the whatwatt is on. */
+    val peakEnabled: Boolean = false,
+    /** This month's highest recorded quarter hour, and last month's (the goal's first value). */
     val highest: Quarter? = null,
     val lastMonthHighest: Quarter? = null,
     /** This month's last few recorded quarters, for the bars before the current one. */
     val recent: List<Quarter> = emptyList(),
-    /** The goal from Settings, kW; null means last month's highest. */
+    /** The goal switch and its value in kW; with it off, or blank, the line is the month's highest. */
+    val goalEnabled: Boolean = false,
     val goalKw: Double? = null,
-    /** Peak load mode without a reading: keep the scale (true) or hide it. */
+    /** Peak load without a reading: keep the scale (true) or hide it. */
     val scaleWithoutReading: Boolean = true,
+    /** Show "New quarter hour in N min" under the scale. */
+    val countdown: Boolean = false,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
@@ -70,8 +74,10 @@ data class UiState(
     /** Shown when a refresh was skipped because of the cooldown; cleared by the next recompute. */
     val notice: String? = null,
 ) {
-    val effectiveGoalKw: Double? get() = goalKw ?: lastMonthHighest?.kw
-    val peakLine: Double? get() = peakLine(effectiveGoalKw, highest)
+    val activeGoalKw: Double? get() = goalKw?.takeIf { goalEnabled }
+    val peakLine: Double? get() = peakLine(activeGoalKw, highest)
+    /** Whether the main screen shows the peak window. */
+    val showPeak: Boolean get() = peakEnabled && whatwattEnabled && (projection != null || scaleWithoutReading)
 }
 
 /**
@@ -79,14 +85,29 @@ data class UiState(
  * covers today and, once published (noon to 18:00 by region), tomorrow, so we fetch only when nothing covers now, when
  * tomorrow's prices are due but not cached, or when the user refreshes, and never more often
  * than the cooldown in core allows.
- * The region, mode, whatwatt switch and address, and "first start done" are saved in SharedPreferences.
+ * The region, the whatwatt and peak load settings, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read every few seconds, only while the app is visible, and its
- * quarter hours go to one file per month in `files/quarters`, in either mode. In peak load mode
- * the phone vibrates once per quarter hour when it comes close to a new peak.
+ * quarter hours go to one file per month in `files/quarters`, with or without peak load. With
+ * peak load on, the phone vibrates once per quarter hour when it comes close to a new peak.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    init {
+        // v0.4 and v0.5 kept the imported usage data (personal), appliances and runs here, and
+        // AtomicFile its backups. Peak load mode comes back with the whatwatt and doesn't use them.
+        listOf("peak.json", "peak.json.new", "peak.json.bak").forEach { File(app.filesDir, it).delete() }
+        // Up to v0.6 there were two modes; peak load is now a switch, and a saved goal turns the goal switch on.
+        prefs.getString(KEY_MODE, null)?.let { mode ->
+            prefs.edit()
+                .putBoolean(KEY_PEAK_ENABLED, mode == "peak" && prefs.getBoolean(KEY_WHATWATT_ENABLED, false))
+                .putBoolean(KEY_GOAL_ENABLED, prefs.contains(KEY_GOAL_KW))
+                .remove(KEY_MODE)
+                .apply()
+        }
+    }
+
     private var slots: List<PriceSlot> = emptyList()
     private var lastAttempt: Instant? = null
     private val recorder = QuarterRecorder()
@@ -98,12 +119,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(
         UiState(
             region = REGIONS.find { it.id == prefs.getString(KEY_REGION, null) } ?: CKW,
-            mode = if (prefs.getString(KEY_MODE, null) == "peak") Mode.PEAK else Mode.SPOT,
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
             whatwattEnabled = prefs.getBoolean(KEY_WHATWATT_ENABLED, false),
             whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
+            peakEnabled = prefs.getBoolean(KEY_PEAK_ENABLED, false),
+            goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.toDoubleOrNull(),
             scaleWithoutReading = prefs.getBoolean(KEY_SCALE_WITHOUT_READING, true),
+            countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
         ),
     )
     val state: StateFlow<UiState> = _state
@@ -111,12 +134,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The result of the last "Test connection" tap, shown under the whatwatt address field. */
     private val _whatwattTestResult = MutableStateFlow<String?>(null)
     val whatwattTestResult: StateFlow<String?> = _whatwattTestResult
-
-    init {
-        // v0.4 and v0.5 kept the imported usage data (personal), appliances and runs here, and
-        // AtomicFile its backups. Peak load mode comes back with the whatwatt and doesn't use them.
-        listOf("peak.json", "peak.json.new", "peak.json.bak").forEach { File(app.filesDir, it).delete() }
-    }
 
     /**
      * On app start/resume and every minute: recompute from the cache, and fetch when [wantsFetch]
@@ -144,17 +161,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
-    fun selectMode(mode: Mode) {
-        prefs.edit().putString(KEY_MODE, if (mode == Mode.PEAK) "peak" else "spot").apply()
-        _state.update { it.copy(mode = mode) }
-    }
-
     /** The end of the setup guide, on first start or when opened from Settings. */
-    fun finishSetup(mode: Mode, region: Region) {
+    fun finishSetup(region: Region) {
         prefs.edit().putBoolean(KEY_FIRST_START_DONE, true).apply()
         val firstStart = !_state.value.firstStartDone
         _state.update { it.copy(firstStartDone = true) }
-        selectMode(mode)
         if (region != _state.value.region) {
             selectRegion(region)
         } else if (firstStart) {
@@ -166,10 +177,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The switch in Settings; the setup guide turns it on with Done and off with Skip. */
     fun setWhatwattEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_WHATWATT_ENABLED, enabled).apply()
-        _state.update { it.copy(whatwattEnabled = enabled, meterKw = null, meterProblem = null, projection = null) }
+        _state.update { it.copy(whatwattEnabled = enabled, whatwattConnected = false, meterKw = null, meterProblem = null, projection = null) }
     }
 
-    /** The goal in Settings, kW; null (a blank field) falls back to last month's highest. */
+    fun setPeakEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PEAK_ENABLED, enabled).apply()
+        _state.update { it.copy(peakEnabled = enabled) }
+    }
+
+    /** The goal switch; switched on for the first time, the goal starts at last month's highest seen. */
+    fun setGoalEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_GOAL_ENABLED, enabled).apply()
+        val state = _state.value
+        val first = state.lastMonthHighest?.takeIf { enabled && !prefs.contains(KEY_GOAL_KW) }
+        first?.let { prefs.edit().putString(KEY_GOAL_KW, roundKw(it.kw).toString()).apply() }
+        _state.update { it.copy(goalEnabled = enabled, goalKw = first?.let { q -> roundKw(q.kw) } ?: it.goalKw) }
+    }
+
+    /** The goal in kW; null (a blank field) leaves only the month's highest. */
     fun setGoal(kw: Double?) {
         prefs.edit().apply { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }.apply()
         _state.update { it.copy(goalKw = kw) }
@@ -180,6 +205,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(scaleWithoutReading = show) }
     }
 
+    fun setCountdown(show: Boolean) {
+        prefs.edit().putBoolean(KEY_COUNTDOWN, show).apply()
+        _state.update { it.copy(countdown = show) }
+    }
+
     /** Saves (or, blank, clears) the whatwatt device address. */
     fun setWhatwattAddress(address: String) {
         val trimmed = address.trim()
@@ -187,7 +217,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (trimmed.isEmpty()) remove(KEY_WHATWATT_ADDRESS) else putString(KEY_WHATWATT_ADDRESS, trimmed)
         }.apply()
         if (trimmed != _state.value.whatwattAddress) recorder.reset() // maybe another meter
-        _state.update { it.copy(whatwattAddress = trimmed.ifEmpty { null }, meterKw = null, meterProblem = null, projection = null) }
+        _state.update {
+            it.copy(whatwattAddress = trimmed.ifEmpty { null }, whatwattConnected = false, meterKw = null, meterProblem = null, projection = null)
+        }
         _whatwattTestResult.value = null
     }
 
@@ -195,10 +227,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun testWhatwattConnection() {
         val address = _state.value.whatwattAddress ?: return
         _whatwattTestResult.value = "Testing…"
+        _state.update { it.copy(whatwattConnected = false) }
         viewModelScope.launch {
             _whatwattTestResult.value = withContext(Dispatchers.IO) {
                 try {
                     val reading = fetchMeterReading(address)
+                    if (reading.ok && address == _state.value.whatwattAddress) _state.update { it.copy(whatwattConnected = true) }
                     when {
                         reading.ok -> "Connected. %.2f kW now.".format(reading.powerKw ?: 0.0)
                         reading.meterStatus == "KEY REQUIRED" -> "Connected, but the meter needs its key. Ask your utility for it and enter it in the whatwatt web UI."
@@ -250,7 +284,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             else -> null
         }
         val projection = if (reading != null && kw != null && record(reading)) recorder.projection(kw) else null
-        _state.update { it.copy(meterKw = kw, meterProblem = problem, projection = projection) }
+        _state.update { it.copy(whatwattConnected = kw != null, meterKw = kw, meterProblem = problem, projection = projection) }
         warnIfClose()
     }
 
@@ -301,12 +335,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** In peak load mode, vibrates once per quarter hour when it comes close to the line. */
+    /** With peak load on, vibrates once per quarter hour when it comes close to the line. */
     private fun warnIfClose() {
         val state = _state.value
         val projection = state.projection ?: return
         val line = state.peakLine ?: return
-        if (state.mode != Mode.PEAK || !isPeakWarning(projection.kw, line) || warnedFor == projection.end) return
+        if (!state.peakEnabled || !isPeakWarning(projection.kw, line) || warnedFor == projection.end) return
         warnedFor = projection.end
         val app = getApplication<Application>()
         val vibrator = if (Build.VERSION.SDK_INT >= 31) {
@@ -346,11 +380,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private const val KEY_REGION = "region"
+/** Up to v0.6 only, see the migration in [MainViewModel]. */
 private const val KEY_MODE = "mode"
 private const val KEY_FIRST_START_DONE = "first_start_done"
 private const val KEY_WHATWATT_ENABLED = "whatwatt_enabled"
 private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"
+private const val KEY_PEAK_ENABLED = "peak_enabled"
+private const val KEY_GOAL_ENABLED = "peak_goal_enabled"
 private const val KEY_GOAL_KW = "peak_goal_kw"
 private const val KEY_SCALE_WITHOUT_READING = "peak_scale_without_reading"
+private const val KEY_COUNTDOWN = "peak_countdown"
+
+/** kW to one decimal, as the goal field shows it. */
+private fun roundKw(kw: Double) = Math.round(kw * 10) / 10.0
 
 private fun higher(a: Quarter?, b: Quarter) = if (a == null || b.kwh > a.kwh) b else a

@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -42,37 +45,70 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import java.util.Locale
 
+/** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
+private class Info(val title: String, val text: String, val link: Pair<String, String>? = null)
+
+private val REGION_INFO = Info(
+    "Region",
+    "GridLoad uses your utility's dynamic tariff. Only utilities that publish one are listed. Pick the one on your electricity bill.",
+)
+private val WHATWATT_INFO = Info(
+    "whatwatt",
+    "A whatwatt Go reads your smart meter over your home Wi-Fi. GridLoad then shows what you use right now and what it costs, " +
+        "and can watch your monthly peak. It needs the whatwatt Plus licence and works only while your phone is on your home Wi-Fi. " +
+        "Reserve the device's address in your router so it stays the same.",
+    "whatwatt Go Reference Manual" to "https://whatwatt.ch/doc/whatwatt_Go_Reference_Manual_v1.0.pdf",
+)
+private val PEAK_INFO = Info(
+    "Peak load",
+    "Some grid tariffs also charge for the month's highest quarter hour: your average kW over 15 minutes. The scale shows " +
+        "this quarter hour, the two before and the month's highest. Close to a new peak, the bar turns red and the phone " +
+        "vibrates. GridLoad only sees quarter hours while it's open.",
+)
+private val GOAL_INFO = Info(
+    "Goal",
+    "Off: the line not to pass is this month's highest quarter hour. On: your own value in kW. The line is then the higher " +
+        "of the two, since everything up to the month's highest is billed anyway.",
+)
+private val SCALE_INFO = Info(
+    "Show the scale without a reading",
+    "When the whatwatt can't be read, e.g. away from home: on keeps the scale with the recorded quarter hours, off hides it.",
+)
+private val COUNTDOWN_INFO = Info(
+    "Quarter-hour countdown",
+    "Shows the minutes until the next quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
+        "out of the current one.",
+)
+
 /**
- * The setup guide: on first start the help, then Next; then the mode, the region and the
- * whatwatt (Done switches it on, Skip off). Peak load mode needs a whatwatt, so skipping it
- * means spot price mode. From Settings
- * ([onClose] set) it starts at the mode and can be left with back.
+ * The setup guide: on first start the help, then Next; then the region and the measurement
+ * (the whatwatt, and peak load once connected). Done switches the whatwatt on, Skip switches it
+ * and peak load off. From Settings ([onClose] set) it starts at the region and can be left with back.
  */
 @Composable
 fun SetupGuide(
-    mode: Mode,
-    region: Region,
-    whatwattAddress: String?,
+    state: UiState,
     whatwattTestResult: String?,
-    onWhatwattEnabled: (Boolean) -> Unit,
-    onWhatwattAddress: (String) -> Unit,
-    onTestWhatwatt: () -> Unit,
-    onWhatwattPermissionDenied: () -> Unit,
-    onDone: (Mode, Region) -> Unit,
+    viewModel: MainViewModel,
+    onDone: (Region) -> Unit,
     onClose: (() -> Unit)?,
 ) {
     val firstStep = if (onClose == null) 0 else 1
     var step by rememberSaveable { mutableIntStateOf(firstStep) }
-    var chosenMode by rememberSaveable { mutableStateOf(mode) }
-    var chosenRegion by rememberSaveable { mutableStateOf(region.id) }
+    var chosenRegion by rememberSaveable { mutableStateOf(state.region.id) }
     BackHandler(enabled = step > firstStep || onClose != null) { if (step > firstStep) step-- else onClose?.invoke() }
     Page {
         when (step) {
@@ -82,28 +118,26 @@ fun SetupGuide(
                 Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
             }
             1 -> {
-                Title("Choose a mode", onClose)
-                Text("You can change it later in Settings.")
-                ModeChoice(if (onClose == null) null else chosenMode) { chosenMode = it; step = 2 }
-            }
-            2 -> {
-                Title("Choose your region", onClose)
-                Text("Pick the utility that supplies your electricity.")
+                Title("⚡ Region", onClose, REGION_INFO)
                 REGIONS.forEach { r ->
-                    OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 3 }) {
+                    OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 2 }) {
                         Text(r.name, fontWeight = FontWeight.Bold)
                         Text(r.utility)
                     }
                 }
             }
             else -> {
-                val chosen = REGIONS.first { it.id == chosenRegion }
-                val skip = whatwattAddress.isNullOrBlank()
-                Title("Connect a whatwatt", onClose)
-                WhatwattFields(whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
-                if (skip && chosenMode == Mode.PEAK) Text("Peak load mode needs a whatwatt. Without one, GridLoad shows the spot price.")
+                val skip = state.whatwattAddress.isNullOrBlank()
+                Title("Measurement", onClose)
+                InfoLabel("📟 whatwatt", WHATWATT_INFO)
+                Connection(state, whatwattTestResult, viewModel)
+                if (state.whatwattConnected) SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
                 Button(
-                    onClick = { onWhatwattEnabled(!skip); onDone(if (skip) Mode.SPOT else chosenMode, chosen) },
+                    onClick = {
+                        viewModel.setWhatwattEnabled(!skip)
+                        if (skip) viewModel.setPeakEnabled(false)
+                        onDone(REGIONS.first { it.id == chosenRegion })
+                    },
                     modifier = Modifier.align(Alignment.End),
                 ) { Text(if (skip) "Skip" else "Done") }
             }
@@ -111,96 +145,106 @@ fun SetupGuide(
     }
 }
 
+/**
+ * Region, then Measurement: the whatwatt switch, its connection, and peak load with its own
+ * switches. [pickRegion] opens the region list right away (from the region in the top bar).
+ */
 @Composable
 fun SettingsScreen(
     state: UiState,
     whatwattTestResult: String?,
-    onSelectMode: (Mode) -> Unit,
-    onSelectRegion: (Region) -> Unit,
-    onWhatwattEnabled: (Boolean) -> Unit,
-    onWhatwattAddress: (String) -> Unit,
-    onTestWhatwatt: () -> Unit,
-    onWhatwattPermissionDenied: () -> Unit,
-    onGoal: (Double?) -> Unit,
-    onScaleWithoutReading: (Boolean) -> Unit,
+    viewModel: MainViewModel,
+    pickRegion: Boolean,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
     Page {
-        Title("Settings", onBack)
-        Text("Mode", fontWeight = FontWeight.Bold)
-        ModeChoice(state.mode, onSelectMode)
-        Text("Region", fontWeight = FontWeight.Bold)
-        RegionPicker(state.region, onSelectRegion)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("whatwatt", fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Switch(checked = state.whatwattEnabled, onCheckedChange = onWhatwattEnabled)
+            TextButton(onClick = onBack) { Text("←", fontSize = 22.sp) }
+            Text("Settings", Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") }
         }
+        InfoLabel("⚡ Region", REGION_INFO, style = SECTION)
+        RegionPicker(state.region, viewModel::selectRegion, pickRegion)
+        Text("Measurement", style = SECTION)
+        SwitchRow("📟 whatwatt", WHATWATT_INFO, state.whatwattEnabled, viewModel::setWhatwattEnabled)
         if (state.whatwattEnabled) {
-            WhatwattFields(state.whatwattAddress, whatwattTestResult, onWhatwattAddress, onTestWhatwatt, onWhatwattPermissionDenied)
-            if (state.mode == Mode.PEAK) PeakSettings(state, onGoal, onScaleWithoutReading)
+            Connection(state, whatwattTestResult, viewModel)
+            SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
+            if (state.peakEnabled) {
+                Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
+                    if (state.goalEnabled) GoalField(state, viewModel::setGoal)
+                    SwitchRow("Show the scale without a reading", SCALE_INFO, state.scaleWithoutReading, viewModel::setScaleWithoutReading)
+                    SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
+                }
+            }
         }
-        OutlinedButton(onClick = onOpenGuide) { Text("Open the setup guide") }
     }
 }
 
+private val SECTION = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
 /**
- * What a whatwatt is for, the device address, "Test connection", and the last test's result.
- * Shared by the setup guide and Settings, so the explanation lives only here. Android 17
- * (API 37) needs the local network permission for the device; it's asked for on the first test.
+ * The whatwatt's address with Test beside it and the last result below. Once connected it
+ * collapses to one row with an expand button. Editing the address keeps it open until a Test
+ * succeeds. Android 17 (API 37) needs the local network permission for the device; it's asked
+ * for on the first test.
  */
 @Composable
-private fun WhatwattFields(
-    address: String?,
-    testResult: String?,
-    onAddress: (String) -> Unit,
-    onTest: () -> Unit,
-    onPermissionDenied: () -> Unit,
-) {
+private fun Connection(state: UiState, testResult: String?, viewModel: MainViewModel) {
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) onTest() else onPermissionDenied()
+        if (granted) viewModel.testWhatwattConnection() else viewModel.whatwattPermissionDenied()
     }
-    var text by rememberSaveable { mutableStateOf(address.orEmpty()) }
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("📟", fontSize = 32.sp)
-        Text("With a whatwatt Go on your smart meter, GridLoad shows what you use right now and what it costs.")
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    if (state.whatwattConnected && !expanded) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("${state.whatwattAddress} · connected", Modifier.weight(1f))
+            TextButton(onClick = { expanded = true }) { Text("▾", fontSize = 20.sp) }
+        }
+        return
     }
-    OutlinedTextField(
-        value = text,
-        onValueChange = { text = it; onAddress(it) },
-        label = { Text("Address, e.g. 192.168.1.50") },
-        supportingText = { Text("Reserve this address in your router so it stays the same.") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        modifier = Modifier.fillMaxWidth(),
-    )
-    OutlinedButton(
-        onClick = {
-            if (Build.VERSION.SDK_INT >= 37 &&
-                context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
-            ) {
-                permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-            } else {
-                onTest()
-            }
-        },
-        enabled = text.isNotBlank(),
-    ) { Text("Test connection") }
+    var text by rememberSaveable { mutableStateOf(state.whatwattAddress.orEmpty()) }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it; expanded = true; viewModel.setWhatwattAddress(it) },
+            label = { Text("Address") },
+            placeholder = { Text("192.168.1.50") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.weight(1f),
+        )
+        OutlinedButton(
+            onClick = {
+                expanded = false
+                if (Build.VERSION.SDK_INT >= 37 &&
+                    context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+                } else {
+                    viewModel.testWhatwattConnection()
+                }
+            },
+            enabled = text.isNotBlank(),
+        ) { Text("Test") }
+    }
     testResult?.let { Text(it) }
 }
 
-/**
- * Peak load mode's goal, pre-filled with last month's highest seen quarter hour, and whether
- * the scale stays without a reading. A blank goal falls back to last month's highest.
- */
+/** The goal in kW, first filled with last month's highest seen. Blank leaves only the month's highest. */
 @Composable
-private fun PeakSettings(state: UiState, onGoal: (Double?) -> Unit, onScaleWithoutReading: (Boolean) -> Unit) {
-    var text by rememberSaveable { mutableStateOf(state.effectiveGoalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
+private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
+    var text by rememberSaveable { mutableStateOf(state.goalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
     val goal = text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
     val invalid = text.isNotBlank() && goal == null
+    val hint = when {
+        invalid -> "Enter a number of kW, e.g. 3.5"
+        state.lastMonthHighest != null -> "Last month's highest seen: %.1f kW".format(state.lastMonthHighest.kw)
+        else -> null
+    }
     OutlinedTextField(
         value = text,
         onValueChange = {
@@ -209,32 +253,70 @@ private fun PeakSettings(state: UiState, onGoal: (Double?) -> Unit, onScaleWitho
             if (it.isBlank() || kw != null) onGoal(kw)
         },
         label = { Text("Goal, kW") },
-        supportingText = {
-            Text(
-                when {
-                    invalid -> "Enter a number of kW, e.g. 3.5"
-                    state.lastMonthHighest != null -> "Last month's highest seen: %.1f kW".format(state.lastMonthHighest.kw)
-                    else -> "The peak you'd like to stay under this month."
-                },
-            )
-        },
+        supportingText = hint?.let { { Text(it) } },
         isError = invalid,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** A setting's label, with ⓘ: tapping it opens a short dialog with [info]. */
+@Composable
+private fun InfoLabel(text: String, info: Info, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current) {
+    var open by remember { mutableStateOf(false) }
+    if (open) InfoDialog(info, onDismiss = { open = false })
+    Text(
+        buildAnnotatedString {
+            append(text)
+            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Normal)) { append(" ⓘ") }
+        },
+        modifier.clickable { open = true }.padding(vertical = 4.dp),
+        style = style,
+    )
+}
+
+@Composable
+private fun InfoDialog(info: Info, onDismiss: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+        title = { Text(info.title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(info.text)
+                info.link?.let { (label, url) ->
+                    TextButton(
+                        onClick = {
+                            try {
+                                uriHandler.openUri(url)
+                            } catch (_: IllegalArgumentException) {
+                                // No app on the phone opens web links.
+                            }
+                        },
+                    ) { Text(label) }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun SwitchRow(label: String, info: Info, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Show the scale without a reading", Modifier.weight(1f))
-        Switch(checked = state.scaleWithoutReading, onCheckedChange = onScaleWithoutReading)
+        Box(Modifier.weight(1f)) { InfoLabel(label, info) }
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 
-/** A page title, with a back arrow when the page can be left. */
+/** A page title, with a back arrow when the page can be left, and ⓘ when there is [info]. */
 @Composable
-private fun Title(text: String, onBack: (() -> Unit)?) {
+private fun Title(text: String, onBack: (() -> Unit)?, info: Info? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         onBack?.let { TextButton(onClick = it) { Text("←", fontSize = 22.sp) } }
-        Text(text, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        val style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        if (info == null) Text(text, style = style) else InfoLabel(text, info, style = style)
     }
 }
 
@@ -251,36 +333,21 @@ private fun Page(content: @Composable ColumnScope.() -> Unit) {
     }
 }
 
-/** The two modes, with emoji as logos (⚡ spot, 📊 peak). */
 @Composable
-private fun ModeChoice(selected: Mode?, onSelect: (Mode) -> Unit) {
-    OptionCard(selected == Mode.SPOT, { onSelect(Mode.SPOT) }, "⚡") {
-        Text("Spot price", fontWeight = FontWeight.Bold)
-        Text("See when electricity is cheap.")
-    }
-    OptionCard(selected == Mode.PEAK, { onSelect(Mode.PEAK) }, "📊") {
-        Text("Peak load", fontWeight = FontWeight.Bold)
-        Text("Keep your monthly peak low to cut your grid bill.")
-    }
-}
-
-@Composable
-private fun OptionCard(selected: Boolean, onClick: () -> Unit, logo: String? = null, content: @Composable ColumnScope.() -> Unit) {
+private fun OptionCard(selected: Boolean, onClick: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     OutlinedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else CardDefaults.outlinedCardBorder(),
     ) {
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            logo?.let { Text(it, fontSize = 32.sp) }
-            Column(content = content)
-        }
+        Column(Modifier.padding(16.dp), content = content)
     }
 }
 
+/** The selected region; tapping it, or [initiallyOpen], opens the list. */
 @Composable
-private fun RegionPicker(region: Region, onSelect: (Region) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+private fun RegionPicker(region: Region, onSelect: (Region) -> Unit, initiallyOpen: Boolean) {
+    var open by remember { mutableStateOf(initiallyOpen) }
     Box {
         OutlinedCard(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp)) {
