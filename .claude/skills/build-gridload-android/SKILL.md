@@ -77,7 +77,12 @@ and update the status in brackets.
   one call; mind CKW's rate limit of 4 per window. A new region: test the URL with the app's
   request, add it to `REGIONS`, the table in `CLAUDE.md`, `README.md` and the store description.
 - **v0.4 / v0.5:** peak load mode with manual appliances and a CKW Excel import. **Dropped
-  2026-10-02** (reasons in `CLAUDE.md` under Current task scope); the code goes in the cleanup.
+  2026-10-02** (reasons in `CLAUDE.md` under Current task scope).
+- **v0.6:** the cleanup, back to spot/peak + region with no dead code (commit `71f954f`). On
+  start, `peak.json` and its `.bak` are deleted. Tested on the phone: an update over v0.5.0 with
+  a `peak.json`, a fresh start, both modes, a region switch, the R8 build (0.99 MB). Lint's
+  remaining warnings (`DataExtractionRules`, `MonochromeLauncherIcon`, `UseKtx` on prefs edits,
+  where core-ktx is only transitive) predate the cleanup.
 
 ### F-Droid [submitted 2026-09-29, in review]
 
@@ -86,6 +91,9 @@ Review so far: linsui asked for R8 (2026-09-29). Answer: v0.3.1 enables it.
 clone of the fork at `../fdroiddata` for the user to push. Checked first: the GitHub APK's
 signer matches `AllowedAPKSigningKeys`, and an unsigned local build of the tag has identical
 contents (all entries outside `META-INF/`).
+2026-10-02: the user skips v0.5.0 (its import and manual peak mode are gone in v0.6.0), so the
+recipe moves straight to v0.6.0 (versionCode 8). Same checks once the release workflow has
+built the tag's APK, then a new commit in `../fdroiddata` (v0.5.0 is already pushed) for the user to push.
 
 Merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, from the user's fork
 `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`, file
@@ -98,24 +106,7 @@ Next: answer reviewer comments in the merge request. The user posts on GitLab (i
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### Cleanup [done 2026-10-02, release v0.6.0 next]
-
-Back to spot/peak + utility with no dead code. The list of what goes, the migration (delete
-`files/peak.json`) and when it's done are in `CLAUDE.md` under "Cleanup". Work through it:
-1. Remove the `:core` files and their tests, then fix `:app` until it builds; `grep` for
-   every removed name (`PeakData`, `DayUsage`, `Appliance`, `Baseline`, `importLoadData`,
-   `peak.json`, `MeterReading`, …) until nothing is left. Done.
-2. Simplify what remains (help text, Settings, `UiState`), drop unused dependencies and imports.
-   Done.
-3. Store text, README, screenshots. Done; screenshots 1 to 3 retaken (CKW, spot mode).
-4. Test on the phone, with lint. Done: build, `:core:test` and lint pass; lint's remaining
-   warnings (`DataExtractionRules`, `MonochromeLauncherIcon`, `UseKtx` on prefs edits, where
-   core-ktx is only transitive) predate the cleanup. On the phone: update from a debug v0.5.0
-   (peak mode, EKZ, a valid `peak.json` + `.bak`) deletes both and keeps the prefs; a fresh
-   start, both modes, a region switch and the R8 build (0.99 MB) work without crashes.
-5. Release v0.6.0 (versionCode 8) when the user asks.
-
-### whatwatt [planned 2026-10-02, after the cleanup]
+### whatwatt [next: phase 0, the checks on the device]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical

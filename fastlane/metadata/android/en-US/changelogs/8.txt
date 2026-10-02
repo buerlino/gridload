@@ -1,0 +1,3 @@
+- Back to the essentials: the colour, the price and the next good time
+- Removed the manual peak load mode (appliances, goal) and the CKW Excel import. Imported usage data is deleted from your phone.
+- Peak load mode will come back with support for the whatwatt meter reader, which measures your real usage instead of estimating it. Until then it shows the spot price.

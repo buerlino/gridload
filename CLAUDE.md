@@ -31,13 +31,13 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 
 ## Current task scope
 
-Released: **v0.5.0** (tag `v0.5.0`, versionCode 7) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review; the recipe moves from v0.3.1 (the first version with R8, which the reviewer asked for) to v0.5.0, and auto update picks up later tags once merged. The roadmap and each phase's status are in the skill.
+Released: **v0.6.0** (tag `v0.6.0`, versionCode 8) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review; the recipe moves from v0.3.1 (the first version with R8, which the reviewer asked for) straight to v0.6.0, skipping v0.5.0 (user, 2026-10-02), and auto update picks up later tags once merged. The roadmap and each phase's status are in the skill.
 
 **Reset (user, 2026-10-02).** v0.4.0 and v0.5.0 built peak load mode on manually tracked appliances (start/stop, an estimated draw per quarter hour, a goal) and an import of CKW's Excel exports. Both are dropped: the import mixes the household's two meters (see [Household and tariff](#household-and-tariff)) and only works for CKW, and a whatwatt measures what the appliance model could only estimate. The app goes back to its lean core, and peak load mode is rebuilt on the whatwatt. **No dead code:** what isn't used goes; git history keeps it.
 
 The order:
-1. **Cleanup [next task]:** back to spot/peak + utility, see [Cleanup](#cleanup-next-task). Test it on the phone; it must be as lean as possible before anything new is built.
-2. **whatwatt:** only after that. See [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02).
+1. **Cleanup [done, v0.6.0]:** back to spot/peak + utility. The setup guide is help, mode, region; the main screen is the colour, the price, the next good time and refresh. Peak load mode can still be chosen and shows the spot screen until the whatwatt is built. The removed code is in commit `71f954f`; the old whatwatt client in `0f9b17b`, to reuse. Migration for v0.5.0 installs: on start, `files/peak.json` (personal imported hourly data, appliances, runs) and its backup are deleted; the saved mode stays.
+2. **whatwatt [next task]:** see [Peak load mode with whatwatt](#peak-load-mode-with-whatwatt-planned-2026-10-02), starting with phase 0, the checks on the device.
 
 The app has two modes, chosen on first start and switchable in Settings (⚙ top left):
 - **Spot price mode:** the screen is one colour, because at any moment you either run everything or wait.
@@ -48,20 +48,6 @@ The app has two modes, chosen on first start and switchable in Settings (⚙ top
 - **Peak load mode (planned, needs a whatwatt):** the same colour, plus the month's peak on a vertical scale and an in-app alarm before a new monthly peak.
 
 Small saved settings (mode, region, first start done) in SharedPreferences; no database. iOS is out of scope for now. The user will give further instructions step by step.
-
-### Cleanup (next task)
-
-Target: the setup guide is help, mode, region. The main screen is the colour, the price, the next good time and refresh. Peak load mode can still be chosen; until the whatwatt is built its main screen is the same as spot price mode's.
-
-Remove (what each file holds, so nothing is missed; check with `grep` that nothing else uses it):
-- `:core`: `CkwExport.kt` (xlsx reader, `DayUsage`), `LoadProfile.kt` (`hourlyMonths` and the 7-day logic), `PeakLoad.kt` (appliances, runs, `PeakData`, `peak.json` model), `PeakAdvice.kt` (`Baseline`, `PeakStatus`, advice), `Presets.kt` (appliance presets), `Whatwatt.kt` (the phase 1 client, unused since its UI was hidden; it is in git, commit `0f9b17b`, to reuse when whatwatt starts). Tests: `PeakTest`, `WhatwattTest`.
-- `:app`: `PeakScreen.kt`; in `SettingsScreen.kt` the usage step and card (`LoadData`, `LoadImport`) and `GoalSetting`; in `MainViewModel.kt` the `peak.json` file, the import, appliances, runs, goal and their `UiState` fields (`peak`, `usualKw`, `hasLoadData`); in `MainActivity.kt` `UsualDraw`, the "No usage data" line and the peak cards; the help's peak part (one line until whatwatt: peak load needs a whatwatt and comes back with it).
-- Store text (`full_description.txt`, `short_description.txt` if needed), `README.md` and the screenshots: the import, appliances and goal.
-- Unused dependencies, resources and imports that only these used.
-
-Migration for v0.5.0 installs: on start, delete `files/peak.json` if it exists (it holds the user's imported hourly data, which is personal, plus appliances and runs). The saved mode stays; peak load users see the spot screen until the whatwatt is built.
-
-Done when: `./gradlew :core:test :app:assembleDebug` and lint pass with no warnings from leftovers, nothing refers to the removed parts, and on the phone: a fresh first start, an update over v0.5.0 with a `peak.json` (gone, no crash), both modes, a region switch, and an R8 release build. Then release v0.6.0 (versionCode 8); the changelog says peak load mode comes back with whatwatt support.
 
 ## Data source
 
@@ -149,7 +135,7 @@ Why the next 24 hours (checked 2026-09-29 on 1 Aug to 30 Sep 2026): you can't ru
 
 ## Peak load mode with whatwatt (planned 2026-10-02)
 
-Built only after the cleanup. Step by step, as the user decides.
+Step by step, as the user decides.
 
 ### Household and tariff
 
