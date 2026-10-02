@@ -1,0 +1,4 @@
+- whatwatt support: with a whatwatt Go on your smart meter, see what you use right now and what it costs.
+- Peak load: a scale with this quarter hour, the two before and the month's highest, how many kW are free, and a red bar and vibration before a new monthly peak.
+- No more modes: peak load is a switch in Settings under Measurement.
+- Simpler screens: tap ⓘ in Settings for help, and tap the region to change it.

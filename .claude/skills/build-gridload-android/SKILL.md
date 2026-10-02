@@ -105,11 +105,14 @@ JDK 21 by default, so no `sudo` block) and the reproducible-build check. Recipe 
 `NonFreeNet` anti-feature (the utilities' APIs), category `Market & Price`, `GPL-3.0-only`,
 `Binaries` + `AllowedAPKSigningKeys` for reproducible builds.
 
+v0.7.0 (2026-10-02) is not added to the merge request: the recipe stays at v0.6.0, and auto
+update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) builds v0.7.0 once it's merged.
+
 Next: answer reviewer comments in the merge request. The user posts on GitLab (it's public
 under their name); Claude drafts the answers and any recipe changes, and can check the merge
 request and pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 3 done 2026-10-02, not released; next: v0.7.0, then phase 4]
+### whatwatt [phases 0 to 3 done 2026-10-02, released in v0.7.0; next: phase 4]
 
 Peak load mode needs a whatwatt Go on the household meter; spot mode uses it for the cost
 right now. The design (quarter hours from the energy register, monthly files, goal, vertical
@@ -133,7 +136,7 @@ touching the device, edit the debug build's prefs with the app stopped:
 (the whole command in one quoted string, or adb's shell splits it); a wrong address gives
 "not reachable". Put the user's values back afterwards.
 
-### UI rework [built 2026-10-02, tested in debug and R8, not released]
+### UI rework [done, v0.7.0]
 
 The user's 16 points after trying phase 3, with the decisions (no modes, the goal as a
 switch, Settings as Region then Measurement, tap-a-label ⓘ dialogs, collapse once connected,
@@ -141,8 +144,8 @@ the whatwatt manual link), are in `CLAUDE.md` under "UI rework". `SettingsScreen
 `SetupGuide` take the `MainViewModel` directly instead of a dozen callbacks. Open: the user is
 rethinking the Measurement/whatwatt categorization (ask before touching it). Point 16, the
 history tile, is later and needs designing with the user first.
-Next: release v0.7.0 (versionCode 9; the changelog covers the whatwatt, peak load and the
-rework; README and the store description already describe peak load as a switch).
+Released in v0.7.0 (versionCode 9) with new store screenshots (demo mode, the clock set to
+match "Updated").
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 
