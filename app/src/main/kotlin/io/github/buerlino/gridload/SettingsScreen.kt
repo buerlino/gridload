@@ -44,6 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
+import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.parseKw
 import java.util.Locale
@@ -69,15 +71,22 @@ private val REGION_INFO = Info(
 private val WHATWATT_INFO = Info(
     "whatwatt",
     "A whatwatt Go reads your smart meter over your home Wi-Fi. GridLoad then shows what you use right now and what it costs, " +
-        "and can watch your monthly peak. It needs the whatwatt Plus licence and works only while your phone is on your home Wi-Fi. " +
-        "Reserve the device's address in your router so it stays the same.",
+        "and can watch your monthly peak. It needs the adapter for your meter, the whatwatt Plus licence and your meter's key " +
+        "from your utility, and works only while your phone is on your home Wi-Fi. Reserve the device's address in your " +
+        "router so it stays the same.",
     "whatwatt Go Reference Manual" to "https://whatwatt.ch/doc/whatwatt_Go_Reference_Manual_v1.0.pdf",
 )
 private val PEAK_INFO = Info(
     "Peak load",
     "Some grid tariffs also charge for the month's highest quarter hour: your average kW over 15 minutes. The scale shows " +
         "this quarter hour, the two before and the month's highest. Close to a new peak, the bar turns red and the phone " +
-        "vibrates. GridLoad only sees quarter hours while it's open.",
+        "vibrates. It needs GridLoad's recorder on the whatwatt, and an SD card in it.",
+)
+private val RECORDER_INFO = Info(
+    "Recorder",
+    "A small script GridLoad puts on the whatwatt. It records every quarter hour on the whatwatt's SD card, also while " +
+        "the app is closed, so the month's highest is complete when you open the app. It uses the whatwatt's one script " +
+        "slot. Peak load needs it.",
 )
 private val GOAL_INFO = Info(
     "Goal",
@@ -173,6 +182,7 @@ fun SettingsScreen(
             SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
             if (state.peakEnabled) {
                 Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Recorder(state, viewModel)
                     SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                     if (state.goalEnabled) GoalField(state, viewModel::setGoal)
                     SwitchRow("Show the scale without a reading", SCALE_INFO, state.scaleWithoutReading, viewModel::setScaleWithoutReading)
@@ -233,7 +243,53 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
     state.meter.testResult?.let { Text(it) }
 }
 
-/** The goal in kW, first filled with last month's highest seen. Blank leaves only the month's highest. */
+/**
+ * GridLoad's recorder on the whatwatt: Install, Start or Fix when needed, Remove (after a
+ * confirmation) when it's there, and its state as one line, red when nothing is being recorded.
+ */
+@Composable
+private fun Recorder(state: UiState, viewModel: MainViewModel) {
+    val meter = state.meter
+    val check = meter.recorder.takeIf { meter.problem == null }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove the recorder?") },
+            text = {
+                Text(
+                    "GridLoad then records no quarter hours. Peak load and its alarm stop working, on every phone that uses " +
+                        "this whatwatt, until you install it again. Quarter hours while it's removed are lost for good. " +
+                        "Those already recorded stay.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { confirmRemove = false; viewModel.removeRecorder() }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+        )
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) { InfoLabel("Recorder", RECORDER_INFO) }
+        val idle = meter.recorderAction == null || meter.recorderAction.startsWith("Couldn't")
+        when {
+            !idle || check == null -> {}
+            check == RecorderCheck.NotInstalled -> Button(onClick = viewModel::installRecorder) { Text("Install") }
+            check is RecorderCheck.Stopped -> Button(onClick = viewModel::startRecorder) { Text("Start") }
+            check == RecorderCheck.NoAutoRun -> Button(onClick = viewModel::startRecorder) { Text("Fix") }
+            meter.recorderInstalled -> TextButton(onClick = { confirmRemove = true }) { Text("Remove") }
+        }
+    }
+    val line = when {
+        meter.recorderAction != null -> meter.recorderAction
+        meter.problem != null -> meter.problem
+        check == null -> "Checking…"
+        check == RecorderCheck.Ok -> "Installed and recording."
+        else -> recorderLine(check)
+    }
+    val warning = meter.recorderAction?.startsWith("Couldn't") == true || (meter.recorderAction == null && check != null && isRecorderWarning(check))
+    line?.let { Text(it, color = if (warning) RED else Color.Unspecified) }
+}
+
+/** The goal in kW, first filled with last month's highest. Blank leaves only the month's highest. */
 @Composable
 private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
     var text by rememberSaveable { mutableStateOf(state.goalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
@@ -241,7 +297,7 @@ private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
     val lastMonth = state.meter.lastMonthHighest
     val hint = when {
         invalid -> "Enter a number of kW, e.g. 3.5"
-        lastMonth != null -> "Last month's highest seen: %.1f kW".format(lastMonth.kw)
+        lastMonth != null -> "Last month's highest: %.1f kW".format(lastMonth.kw)
         else -> null
     }
     OutlinedTextField(

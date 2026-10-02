@@ -36,9 +36,9 @@ class WhatwattTest {
 
     @Test
     fun acceptsTypedAddresses() {
-        assertEquals("http://192.168.1.50/api/v1/report", reportUrl(" 192.168.1.50 "))
-        assertEquals("http://whatwatt-a1b2c3.local/api/v1/report", reportUrl("whatwatt-a1b2c3.local/"))
-        assertEquals("http://192.168.1.50:8080/api/v1/report", reportUrl("http://192.168.1.50:8080/"))
+        assertEquals("http://192.168.1.50/api/v1/report", whatwattUrl(" 192.168.1.50 ", "/api/v1/report"))
+        assertEquals("http://whatwatt-a1b2c3.local/api/v1/report", whatwattUrl("whatwatt-a1b2c3.local/", "/api/v1/report"))
+        assertEquals("http://192.168.1.50:8080/api/v1/report", whatwattUrl("http://192.168.1.50:8080/", "/api/v1/report"))
     }
 
     @Test

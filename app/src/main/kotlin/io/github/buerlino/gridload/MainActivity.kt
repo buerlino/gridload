@@ -153,7 +153,7 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: (pickR
             state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
             if (peak) {
                 Spacer(Modifier.height(6.dp))
-                PeakWindow(state)
+                PeakWindow(state, onOpenSettings = { onOpenSettings(false) })
             } else {
                 state.meter.problem?.let { Text(it, color = content) }
             }
@@ -249,7 +249,8 @@ fun HelpContent() {
         Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
         Text("Below the price, a scale shows this quarter hour, the two before and the month's highest. \"kW free\" is how much more you can switch on now.")
         Text("Close to a new peak, the bar turns red and the phone vibrates.")
-        Text("Needs a whatwatt. Switch it on in Settings. GridLoad only sees quarter hours while it's open.")
+        Text("Needs a whatwatt with an SD card. Switch on the whatwatt and peak load in Settings, and install the recorder there.")
+        Text("The recorder runs on the whatwatt and saves every quarter hour, also while GridLoad is closed. If it stops, a red line says why.")
     }
 }
 

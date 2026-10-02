@@ -2,6 +2,7 @@ package io.github.buerlino.gridload
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,10 +51,11 @@ private val PAST_BAR = Color(0xFFB0BEC5)
  * Peak load's white window under the spot price: the scale (the past quarter hours, this one
  * projected, the goal and the month's highest), how much more fits under the line, and, if
  * switched on, when the next quarter hour starts. The bar turns red within 10% of the line.
- * Without a line (no goal, nothing recorded yet) it shows the bars only.
+ * Without a line (no goal, nothing recorded yet) it shows the bars only. Below, what's wrong with
+ * the recorder (tap it for Settings) and the quarter hours it missed this month.
  */
 @Composable
-fun PeakWindow(state: UiState) {
+fun PeakWindow(state: UiState, onOpenSettings: () -> Unit) {
     val projection = state.meter.projection
     val line = state.peakLine
     val current = projection?.start ?: quarterStart(Instant.now())
@@ -70,7 +72,7 @@ fun PeakWindow(state: UiState) {
         when {
             projection == null -> state.meter.problem?.let { Text(it, color = MUTED, fontSize = 14.sp) }
             line != null -> {
-                // From the values as drawn, so "0.9 highest seen" and a "0.8" bar give "0.1 kW free".
+                // From the values as drawn, so "0.9 highest" and a "0.8" bar give "0.1 kW free".
                 val free = roundKw(line) - roundKw(projection.kw)
                 Text(
                     if (free >= 0) "%.1f kW free".format(free) else "%.1f kW over".format(-free),
@@ -90,8 +92,28 @@ fun PeakWindow(state: UiState) {
             }
         }
         projection?.takeIf { state.countdown }?.let { Text("New quarter hour in ${minutesLeft(it.end)} min", color = INK, fontSize = 14.sp) }
-        if (projection?.estimated == true) Note("Estimated: GridLoad opened during this quarter hour.")
-        Note("Highest seen only while GridLoad is open.")
+        // In its first minute the recorder's line for the quarter before may still be on its way.
+        if (projection?.estimated == true && Duration.between(projection.start, Instant.now()).seconds >= 60) {
+            Note("Estimated: the recorder has no start for this quarter hour.")
+        }
+        val meter = state.meter
+        meter.recorder?.takeIf { meter.problem == null }?.let { check ->
+            val line = meter.recorderAction ?: recorderLine(check)
+            if (line != null && (isRecorderWarning(check) || meter.recorderAction != null)) {
+                Warning("$line ›", Modifier.clickable(onClick = onOpenSettings))
+            } else if (line != null) {
+                Note(line)
+            }
+        }
+        if (meter.missing.isNotEmpty()) {
+            val count = meter.missing.size
+            val restart = meter.restartAfterGap?.let { " (restart at ${shortTime(it)})" }.orEmpty()
+            Warning(
+                "$count quarter ${if (count == 1) "hour" else "hours"} missing this month, the last ${shortTime(meter.missing.last())}$restart.",
+                Modifier,
+            )
+        }
+        meter.recordedSince?.let { Note("Recorded since ${shortTime(it)}.") }
     }
 }
 
@@ -184,7 +206,7 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
             highest?.let {
                 add(y(it) to measurer.measure(buildAnnotatedString {
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("%.1f".format(it)) }
-                    append(" highest seen")
+                    append(" highest")
                 }, labelStyle, constraints = width))
             }
             goal?.let {

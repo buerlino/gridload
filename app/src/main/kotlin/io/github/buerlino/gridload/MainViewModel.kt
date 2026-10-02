@@ -79,7 +79,8 @@ data class UiState(
  * The region, the whatwatt and peak load settings, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read by [WhatwattMeter]; with peak load on, the phone vibrates
- * once per quarter hour when it comes close to a new peak.
+ * once per quarter hour when it comes close to a new peak; the quarter hours come from the
+ * recorder on the whatwatt.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -96,6 +97,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 remove(KEY_MODE)
             }
         }
+        // v0.7 recorded quarter hours only while the app was open, so its months are incomplete.
+        // The recorder on the whatwatt replaces them (v0.8).
+        File(app.filesDir, "quarters").deleteRecursively()
     }
 
     private val priceCache = PriceCache(File(app.filesDir, "prices.json"))
@@ -119,7 +123,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
     val state: StateFlow<UiState> = _state
 
-    private val meter = WhatwattMeter(File(app.filesDir, "quarters")) { meter -> _state.update { it.copy(meter = meter) } }
+    private val meter = WhatwattMeter(File(app.filesDir, "recorder")) { meter -> _state.update { it.copy(meter = meter) } }
 
     /**
      * On app start/resume and every minute: recompute from the cache, and fetch when [wantsFetch]
@@ -236,10 +240,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun whatwattPermissionDenied() = meter.permissionDenied()
 
+    fun installRecorder() = onRecorder(meter::install)
+
+    fun startRecorder() = onRecorder(meter::start)
+
+    fun removeRecorder() = onRecorder(meter::remove)
+
+    private fun onRecorder(action: suspend (String) -> Unit) {
+        val address = _state.value.whatwattAddress ?: return
+        viewModelScope.launch { action(address) }
+    }
+
     /** Called every few seconds while the app is visible: reads the whatwatt, if it's switched on. */
     suspend fun readMeter() {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
-        meter.read(_state.value.whatwattAddress)
+        meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled)
         warnIfClose()
     }
 

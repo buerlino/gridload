@@ -120,12 +120,41 @@ Next: answer reviewer comments. The user posts on GitLab (it's public under thei
 Claude drafts the answers and any recipe changes, and can check the merge request and
 pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 3 done, released in v0.7.0; next: phase 4]
+### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, built 2026-10-03, not released]
 
 The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak load with
-whatwatt". The whatwatt runs on meter power: poll it gently (every 5 s while visible). Phase 4
-fills the gaps from the SD card log; open: the history tile (design it with the user first)
+whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
+download measurements are in `research/whatwatt_berry_script.md`. The whatwatt runs on meter
+power: poll it gently (every 5 s while visible), and never download big SD files at full speed
+(it rebooted twice; ≤ 8 KB/s held). Also open: the history tile (design it with the user first)
 and the Measurement/whatwatt categorization (ask before touching it).
+
+Phase 4, the recorder on the whatwatt. Done 2026-10-03: script v2 (version marker, start lines,
+no `print`) as a `:core` resource; `Recorder.kt` (day files, merge, gaps, `checkRecorder`, the
+local copies, install/start/remove over HTTP) with tests against a fake whatwatt; the app's own
+recording removed (user: no fallback, precise warnings instead); the Recorder row in Settings,
+the red lines in the peak window, the help, ⓘ texts, README and store text.
+Open, in order:
+1. **Validate overnight:** the v1 draft ran from 2026-10-02 23:44 and the app updates it to v2
+   on first contact. Compare every `GL*.CSV` quarter with the CSV log's register interpolated
+   at the boundaries (download the CSV at ≤ 6 KB/s, `curl --limit-rate 6k`). Check
+   `last_reboot`: after a reboot, the quarter under way and the one the script starts in should
+   be missing (with a `start` line) and the rest fine. Check what `onreport` delivers when the
+   meter isn't `OK`. Then turn the CSV log off (`services.sd.enable: false`; the user agreed)
+   and ask whether to delete the old `2026100*.CSV` logs from the card.
+2. **On the phone:** the update v1 → v2 by the app, Install/Remove/Start on a real device
+   (remove and reinstall loses a quarter or two; tell the user first), each warning state (e.g.
+   prefs pointing to a wrong address, `auto_run` off via `PUT /api/v1/settings`), and the R8
+   release build (the script is a Java resource: check it loads).
+3. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
+   file just has 100 lines; check it.
+4. **Release v0.8.0** when the user asks (changelog: the recorder, no more "seen only while open",
+   the v0.7 quarters are deleted).
+
+Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
+(user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
+in Test or the recorder check is a possible next step, ask the user); whether the card must be FAT32; the other values of
+`execution_status.state` (shown verbatim).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

@@ -38,7 +38,24 @@ All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves
 
 With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in Settings under Measurement, the screen also shows what the home draws right now and what that costs per hour.
 
-**Peak load** (a switch under Measurement, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a scale shows this quarter hour's projected draw, the two before, the month's highest and an optional goal, and how many kW are still free. Close to a new monthly peak the bar turns red and the phone vibrates. The app reads the whatwatt only while it's open, so the month's highest is the highest it has seen.
+**Peak load** (a switch under Measurement, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a scale shows this quarter hour's projected draw, the two before, the month's highest and an optional goal, and how many kW are still free. Close to a new monthly peak the bar turns red and the phone vibrates.
+
+The quarter hours come from the **GridLoad recorder**, a small Berry script that the app installs on the whatwatt (Settings → Peak load → Recorder → Install). It records every quarter hour on the whatwatt's SD card around the clock, also while the app is closed or the phone is away, and the app copies the new ones when it opens. There is no fallback: if the recorder stops or misses quarter hours, the app says exactly what is wrong (no SD card, not installed, another script in the slot, stopped, nothing saved since a time, quarter hours missing this month).
+
+### What you need
+
+| | What | Price (CHF, 2026) |
+|---|---|---|
+| 1 | [whatwatt Go](https://whatwatt.ch) on your smart meter | 90 |
+| 2 | The whatwatt adapter for your meter (e.g. Kamstrup OMNIPOWER) | 20 |
+| 3 | whatwatt **Plus** licence (on the device, no account needed) | 19 |
+| 4 | Your meter's encryption key from your utility (CKW: email messtechnik@ckw.ch with the meter number) | free |
+| 5 | For peak load: a microSD card in the whatwatt. Any size: the recorder uses about 1 MB a year | a few |
+| 6 | For peak load: the whatwatt's one Berry script slot free (GridLoad never replaces another script) | |
+| 7 | The whatwatt on your home Wi-Fi (2.4 GHz), with a fixed address (DHCP reservation) and Device Protection off | |
+| 8 | Your phone on the same network (at home, or over a VPN such as Tailscale) to see live values | |
+
+Tested with a whatwatt Go `WW_Go_1.3`, firmware 2.8.2, on a Kamstrup OMNIPOWER at CKW.
 
 ## Later ideas
 

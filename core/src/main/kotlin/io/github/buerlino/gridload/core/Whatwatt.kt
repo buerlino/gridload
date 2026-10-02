@@ -23,11 +23,17 @@ data class MeterReading(
     val ok: Boolean get() = meterStatus == "OK"
 }
 
-/** Accepts what users type: `192.168.1.50`, `whatwatt-A1B2C3.local`, or a full `http://` URL. */
-fun reportUrl(address: String): String {
+/**
+ * [path] on the whatwatt at [address], which accepts what users type: `192.168.1.50`,
+ * `whatwatt-A1B2C3.local`, or a full `http://` URL.
+ */
+fun whatwattUrl(address: String, path: String): String {
     val base = address.trim().trimEnd('/')
-    return (if ("://" in base) base else "http://$base") + "/api/v1/report"
+    return (if ("://" in base) base else "http://$base") + path
 }
+
+/** The whatwatt's timeout: it answers within a second at home, and isn't there at all away from it. */
+internal const val WHATWATT_TIMEOUT = 3_000
 
 /**
  * Blocking fetch of the current reading from the whatwatt Go at [address] on the home network.
@@ -35,7 +41,7 @@ fun reportUrl(address: String): String {
  * Protection on 401 (HTTP Digest, which we don't do).
  */
 fun fetchMeterReading(address: String): MeterReading =
-    parseMeterReading(httpGet(reportUrl(address), timeoutMillis = 3_000))
+    parseMeterReading(httpGet(whatwattUrl(address, "/api/v1/report"), WHATWATT_TIMEOUT))
 
 fun parseMeterReading(body: String): MeterReading {
     val r = json.decodeFromString<Report>(body)

@@ -1,8 +1,6 @@
 package io.github.buerlino.gridload.core
 
-import java.nio.file.Files
 import java.time.Instant
-import java.time.YearMonth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,92 +11,31 @@ class QuartersTest {
     private fun at(time: String) = Instant.parse("2026-10-02T${time}Z")
 
     @Test
-    fun interpolatesTheRegisterAtTheBoundaries() {
-        val recorder = QuarterRecorder()
-        assertNull(recorder.add(at("15:59:56"), 100.000))
-        // First boundary seen at 16:00: 100.000 + 0.004 * 4/8; no quarter yet.
-        assertNull(recorder.add(at("16:00:04"), 100.004))
-        assertNull(recorder.add(at("16:07:00"), 100.300))
-        assertNull(recorder.add(at("16:14:58"), 100.600))
-        // 16:15: 100.600 + 0.010 * 2/5 = 100.604, minus 100.002.
-        assertEquals(Quarter(at("16:00:00"), 0.602), recorder.add(at("16:15:03"), 100.610))
-    }
-
-    @Test
-    fun aReadingOnTheBoundaryCounts() {
-        val recorder = QuarterRecorder()
-        recorder.add(at("15:59:56"), 100.000)
-        recorder.add(at("16:00:00"), 100.002)
-        recorder.add(at("16:14:56"), 100.500)
-        assertEquals(Quarter(at("16:00:00"), 0.5), recorder.add(at("16:15:00"), 100.502))
-    }
-
-    @Test
-    fun repeatedReadingsAreIgnored() {
-        val recorder = QuarterRecorder()
-        recorder.add(at("15:59:56"), 100.000)
-        recorder.add(at("16:00:04"), 100.004)
-        recorder.add(at("16:14:58"), 100.600)
-        assertNull(recorder.add(at("16:14:58"), 100.600))
-        assertEquals(Quarter(at("16:00:00"), 0.602), recorder.add(at("16:15:03"), 100.610))
-    }
-
-    @Test
-    fun aGapAtABoundaryLeavesBothQuartersOut() {
-        val recorder = QuarterRecorder()
-        recorder.add(at("15:59:56"), 100.000)
-        recorder.add(at("16:00:04"), 100.004)
-        recorder.add(at("16:14:00"), 100.500)
-        assertNull(recorder.add(at("16:16:00"), 100.600)) // 2 min apart: 16:15 is unknown
-        recorder.add(at("16:29:58"), 101.000)
-        assertNull(recorder.add(at("16:30:02"), 101.004)) // 16:15 to 16:30 has no start
-        recorder.add(at("16:44:58"), 101.500)
-        assertEquals(Quarter(at("16:30:00"), 0.5), recorder.add(at("16:45:02"), 101.504))
-    }
-
-    @Test
-    fun aRegisterGoingBackwardsStartsOver() {
-        val recorder = QuarterRecorder()
-        recorder.add(at("15:59:56"), 100.000)
-        recorder.add(at("16:00:04"), 100.004)
-        assertNull(recorder.add(at("16:14:58"), 5.000))
-        assertNull(recorder.add(at("16:15:02"), 5.004))
-        recorder.add(at("16:29:58"), 5.500)
-        assertEquals(Quarter(at("16:15:00"), 0.5), recorder.add(at("16:30:02"), 5.504))
-    }
-
-    @Test
-    fun projectsTheQuarterFromItsStart() {
-        val recorder = QuarterRecorder()
-        recorder.add(at("15:59:56"), 100.000)
-        recorder.add(at("16:00:04"), 100.004) // 100.002 at 16:00
-        recorder.add(at("16:05:00"), 100.252)
+    fun projectsExactlyFromTheRecordersLastLine() {
+        val projector = QuarterProjector()
+        // The recorder's 15:45 quarter ended at 16:00 with the register at 100.002.
+        val start = at("16:00:00") to 100.002
         // 0.25 kWh so far, then 3 kW for 10 min: (0.25 + 0.5) * 4.
-        val p = recorder.projection(3.0)!!
+        val p = projector.project(at("16:05:00"), 100.252, 3.0, start)
         assertEquals(3.0, p.kw, 1e-9)
         assertEquals(at("16:00:00"), p.start)
         assertEquals(at("16:15:00"), p.end)
         assertFalse(p.estimated)
+        // A line from an earlier quarter doesn't count.
+        assertTrue(projector.project(at("16:20:00"), 100.5, 1.0, start).estimated)
     }
 
     @Test
-    fun estimatesAQuarterOpenedMidway() {
-        val recorder = QuarterRecorder()
-        assertNull(recorder.projection(1.0))
-        recorder.add(at("16:05:00"), 100.000)
+    fun estimatesAQuarterWithoutTheRecordersStart() {
+        val projector = QuarterProjector()
         // Within the first minute: the draw now stands in for the 5 min before.
-        assertEquals(2.0, recorder.projection(2.0)!!.kw, 1e-9)
-        recorder.add(at("16:10:00"), 100.100) // 1.2 kW since 16:05, so also before it
-        val p = recorder.projection(2.4)!!
-        // 0.1 before + 0.1 seen + 2.4 kW for 5 min (0.2), times 4.
+        assertEquals(2.0, projector.project(at("16:05:00"), 100.000, 2.0, null).kw, 1e-9)
+        // 1.2 kW since 16:05, so also before it: 0.1 before + 0.1 seen + 2.4 kW for 5 min (0.2), times 4.
+        val p = projector.project(at("16:10:00"), 100.100, 2.4, null)
         assertEquals(1.6, p.kw, 1e-9)
         assertTrue(p.estimated)
-        // From the next boundary on, it's exact again.
-        recorder.add(at("16:14:58"), 100.200)
-        recorder.add(at("16:15:02"), 100.204)
-        recorder.add(at("16:20:00"), 100.302)
-        assertFalse(recorder.projection(1.0)!!.estimated)
-        assertEquals((0.1 + 1.0 / 6) * 4, recorder.projection(1.0)!!.kw, 1e-9)
+        // A new quarter starts over from its own first reading.
+        assertEquals(1.0, projector.project(at("16:15:30"), 100.300, 1.0, null).kw, 1e-9)
     }
 
     @Test
@@ -121,30 +58,5 @@ class QuartersTest {
         assertNull(parseKw("0"))
         assertNull(parseKw("-1"))
         assertNull(parseKw("3.5 kW"))
-    }
-
-    @Test
-    fun storesOneFilePerLocalMonth() {
-        val dir = Files.createTempDirectory("quarters").toFile()
-        try {
-            val store = QuarterStore(dir)
-            // 30 Sep 22:00 UTC is already October in Zurich.
-            store.add(Quarter(Instant.parse("2026-09-30T22:00:00Z"), 0.25))
-            store.add(Quarter(Instant.parse("2026-09-30T21:45:00Z"), 0.5))
-            store.add(Quarter(Instant.parse("2026-09-30T22:15:00Z"), 0.125))
-            store.add(Quarter(Instant.parse("2026-09-30T22:00:00Z"), 0.3)) // replaces
-            assertEquals(
-                """{"2026-10-01T00:00+02:00":0.3,"2026-10-01T00:15+02:00":0.125}""",
-                dir.resolve("2026-10.json").readText(),
-            )
-            assertEquals(
-                listOf(Quarter(Instant.parse("2026-09-30T22:00:00Z"), 0.3), Quarter(Instant.parse("2026-09-30T22:15:00Z"), 0.125)),
-                store.month(YearMonth.of(2026, 10)),
-            )
-            assertEquals(listOf(Quarter(Instant.parse("2026-09-30T21:45:00Z"), 0.5)), store.month(YearMonth.of(2026, 9)))
-            assertEquals(emptyList(), store.month(YearMonth.of(2026, 11)))
-        } finally {
-            dir.deleteRecursively()
-        }
     }
 }

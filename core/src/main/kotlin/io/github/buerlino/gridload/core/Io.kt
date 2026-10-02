@@ -14,13 +14,31 @@ class HttpException(val code: Int) : IOException("HTTP $code")
 internal val json = Json { ignoreUnknownKeys = true }
 
 /** Blocking GET of [url]'s JSON body; anything but 200 throws [HttpException]. Call off the main thread. */
-internal fun httpGet(url: String, timeoutMillis: Int): String {
+internal fun httpGet(url: String, timeoutMillis: Int): String = httpRequest("GET", url, timeoutMillis)
+
+/**
+ * Blocking request; returns the body of a 2xx answer, anything else throws [HttpException].
+ * [body] goes as [contentType]. Call off the main thread.
+ */
+internal fun httpRequest(
+    method: String,
+    url: String,
+    timeoutMillis: Int,
+    body: String? = null,
+    contentType: String = "application/json",
+): String {
     val conn = URI(url).toURL().openConnection() as HttpURLConnection
     try {
+        conn.requestMethod = method
         conn.connectTimeout = timeoutMillis
         conn.readTimeout = timeoutMillis
         conn.setRequestProperty("Accept", "application/json")
-        if (conn.responseCode != HttpURLConnection.HTTP_OK) throw HttpException(conn.responseCode)
+        if (body != null) {
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", contentType)
+            conn.outputStream.use { it.write(body.toByteArray()) }
+        }
+        if (conn.responseCode !in 200..299) throw HttpException(conn.responseCode)
         return conn.inputStream.bufferedReader().use { it.readText() }
     } finally {
         conn.disconnect()
