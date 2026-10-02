@@ -1,5 +1,8 @@
 package io.github.buerlino.gridload.core
 
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.UnknownHostException
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalTime
@@ -22,6 +25,13 @@ fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Bool
     val cooldown = if (hasCurrentData) FETCH_COOLDOWN else RETRY_COOLDOWN
     return Duration.between(lastAttempt, now) >= cooldown
 }
+
+/**
+ * Whether a failed fetch may have reached the server and so counts toward its rate limit. Without
+ * a connection (no DNS, no route, refused) it didn't, so the cooldown shouldn't start. A timeout
+ * counts, since the request may have arrived.
+ */
+fun reachedServer(e: Exception) = e !is UnknownHostException && e !is ConnectException && e !is NoRouteToHostException
 
 /**
  * Whether to fetch without the user asking: no cached slot covers [now], or tomorrow's prices

@@ -23,6 +23,7 @@ import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.parseKw
 import io.github.buerlino.gridload.core.peakLine
+import io.github.buerlino.gridload.core.reachedServer
 import io.github.buerlino.gridload.core.wantsFetch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -266,8 +267,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(notice = notice) }
             return
         }
-        lastAttempt = now
-        prefs.edit { putLong(KEY_LAST_FETCH_ATTEMPT, now.toEpochMilli()) }
+        val previousAttempt = lastAttempt
+        saveLastAttempt(now)
         _state.update { it.copy(loading = true, error = null, notice = null) }
         val region = _state.value.region
         viewModelScope.launch {
@@ -286,10 +287,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: Exception) {
                 if (region != _state.value.region) return@launch
+                if (!reachedServer(e)) saveLastAttempt(previousAttempt) // no cooldown for an attempt the server never saw
                 _state.update { it.copy(error = priceError(e)) }
             }
             recompute()
             _state.update { it.copy(loading = false) }
+        }
+    }
+
+    private fun saveLastAttempt(attempt: Instant?) {
+        lastAttempt = attempt
+        prefs.edit {
+            if (attempt == null) remove(KEY_LAST_FETCH_ATTEMPT) else putLong(KEY_LAST_FETCH_ATTEMPT, attempt.toEpochMilli())
         }
     }
 }

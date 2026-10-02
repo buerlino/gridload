@@ -170,4 +170,13 @@ class CoreTest {
         assertEquals(false, mayFetch(last, at("12:00:29"), hasCurrentData = false))
         assertEquals(true, mayFetch(last, at("12:00:30"), hasCurrentData = false))
     }
+
+    @Test
+    fun onlyFailuresThatReachedTheServerCount() {
+        assertFalse(reachedServer(java.net.UnknownHostException()))
+        assertFalse(reachedServer(java.net.ConnectException()))
+        assertFalse(reachedServer(java.net.NoRouteToHostException()))
+        assertTrue(reachedServer(java.net.SocketTimeoutException()))
+        assertTrue(reachedServer(HttpException(429)))
+    }
 }

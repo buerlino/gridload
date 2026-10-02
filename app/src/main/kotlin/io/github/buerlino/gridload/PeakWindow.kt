@@ -3,6 +3,7 @@ package io.github.buerlino.gridload
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,11 +13,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -73,9 +76,16 @@ fun PeakWindow(state: UiState) {
                     if (free >= 0) "%.1f kW free".format(free) else "%.1f kW over".format(-free),
                     color = INK, fontSize = 26.sp, fontWeight = FontWeight.Bold,
                 )
-                when {
-                    free < 0 -> Warning("This quarter hour sets a new peak.")
-                    state.peakWarning -> Warning("Close to a new peak. Wait before switching more on.")
+                val shown = when {
+                    free < 0 -> OVER
+                    state.peakWarning -> NEAR
+                    else -> null
+                }
+                // Both always laid out, so the window keeps its height when a warning comes or goes.
+                Box {
+                    for (text in listOf(OVER, NEAR)) {
+                        Warning(text, if (text == shown) Modifier else Modifier.alpha(0f).clearAndSetSemantics {})
+                    }
                 }
             }
         }
@@ -85,8 +95,11 @@ fun PeakWindow(state: UiState) {
     }
 }
 
+private const val OVER = "This quarter hour sets a new peak."
+private const val NEAR = "Close to a new peak. Wait a bit."
+
 @Composable
-private fun Warning(text: String) = Text(text, color = RED, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+private fun Warning(text: String, modifier: Modifier) = Text(text, modifier, color = RED, fontSize = 14.sp, fontWeight = FontWeight.Medium)
 
 @Composable
 private fun Note(text: String) = Text(text, color = MUTED, fontSize = 12.sp, lineHeight = 15.sp)
@@ -120,6 +133,9 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
         val labelX = linesEnd + 8.dp.toPx()
         fun y(kw: Double) = bottom - (kw / maxKw * (bottom - top)).toFloat()
         val small = TextStyle(color = MUTED, fontSize = 10.sp)
+        val lineYs = listOfNotNull(highest, goal).map { y(it) }
+        val halfLine = 1.5.dp.toPx()
+        fun clearOfLines(top: Float, height: Int) = lineYs.none { it + halfLine > top && it - halfLine < top + height }
 
         for (k in 0..maxKw step step) {
             val r = measurer.measure("$k", small)
@@ -143,14 +159,17 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
             val barTop = y(bar.kw)
             val color = if (!bar.current) PAST_BAR else if (warning) RED else BAR
             drawRect(color, Offset(x, barTop), Size(barW, bottom - barTop))
+            // The value goes at the bar's top, inside or else above it, moved off any line crossing it.
             val value = "%.1f".format(bar.kw)
             val inside = measurer.measure(value, TextStyle(color = if (bar.current) Color.White else INK, fontSize = 10.sp, fontWeight = FontWeight.Bold))
-            if (bottom - barTop >= inside.size.height + 4.dp.toPx()) {
-                drawText(inside, topLeft = Offset(x + (barW - inside.size.width) / 2, barTop + 2.dp.toPx()))
-            } else {
-                val above = measurer.measure(value, TextStyle(color = INK, fontSize = 10.sp, fontWeight = FontWeight.Bold))
-                drawText(above, topLeft = Offset(x + (barW - above.size.width) / 2, barTop - above.size.height))
-            }
+            val above = measurer.measure(value, TextStyle(color = INK, fontSize = 10.sp, fontWeight = FontWeight.Bold))
+            val h = inside.size.height
+            val insideTop = (listOf(barTop + 2.dp.toPx()) + lineYs.sorted().map { it + halfLine })
+                .firstOrNull { it >= barTop && it + h + 2.dp.toPx() <= bottom && clearOfLines(it, h) }
+            val aboveTop = (listOf(barTop - h) + lineYs.sortedDescending().map { it - halfLine - h })
+                .firstOrNull { it + h <= barTop && clearOfLines(it, h) } ?: (barTop - h)
+            val text = if (insideTop != null) inside else above
+            drawText(text, topLeft = Offset(x + (barW - text.size.width) / 2, insideTop ?: aboveTop))
         }
 
         highest?.let { drawLine(INK, Offset(axisX, y(it)), Offset(linesEnd, y(it)), 2.5.dp.toPx()) }
