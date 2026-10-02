@@ -6,13 +6,14 @@ the end).
 
 ## Summary
 
-- **Spot price mode: easy for Germany, Austria and Liechtenstein.** One free API (Energy-Charts)
+- **Spot prices: easy for Germany, Austria and Liechtenstein.** One free API (Energy-Charts)
   covers all three, and one new parser handles it. About one small release.
 - **France and Italy: technically possible, but they don't fit the app's model.** France's
   common signal is EDF Tempo (whole-day colours), which would be a feature of its own. Italian
   households mostly pay fixed time bands, not hourly prices.
-- **Peak load mode stays Swiss only.** It depends on CKW's power charge and CKW's Excel exports,
-  and neither Germany nor Austria bills households for their monthly peak in 2026.
+- **Peak load stays Swiss only.** It is for tariffs that bill the month's highest quarter hour
+  (like CKW's), and neither Germany nor Austria bills households for their monthly peak in 2026.
+  The whatwatt's cost line would still work there, with the caveat in item 3 below.
 
 ## Why the EU is different from Switzerland
 
@@ -134,7 +135,8 @@ ENTSO-E Transparency also has it, but needs a token.
 
 ## What changes in the code
 
-The code is described as of 2026-09-30; check it before implementing.
+The code is described as of 2026-09-30 (items 3 and 4 updated 2026-10-02 for v0.7.0); check it
+before implementing.
 
 1. **A price source per region.** `pricesRequestUrl` (`PriceApi.kt`) appends the VSE
    `start_timestamp`/`end_timestamp` parameters, and `parsePrices` (`Prices.kt`) reads the VSE
@@ -152,13 +154,14 @@ The code is described as of 2026-09-30; check it before implementing.
      day; include a DST day if possible).
 2. **`PriceSlot.price` doc:** it says "CHF/kWh". It becomes "per kWh, in the region's currency".
    Add a currency or "is wholesale" flag to `Region`.
-3. **Price display.** The main screen shows the price as "… Rp/kWh", and spot mode with usage
-   data shows "… CHF/h" (in `MainActivity.kt`). For spot-only regions that number is the
+3. **Price display.** The main screen shows the price as "… Rp/kWh", and with a whatwatt the cost
+   right now as "… CHF/h" (in `MainActivity.kt`). For spot-only regions that number is the
    wholesale price, about a third of what customers pay. Recommended: don't show an absolute
    price for them, or label it "Market price 11.3 ct/kWh". Hide the CHF/h cost rate.
-4. **Modes.** Offer only spot price mode for non-Swiss regions: hide the peak load mode card
-   and the usage import (CKW Excel) there, and skip those steps in the setup guide. If a user
-   switches from a Swiss region with peak mode to Germany, fall back to spot mode.
+4. **Peak load.** There are no modes any more: peak load is a switch under Measurement in
+   Settings. It needs no tariff data (the line is the month's highest quarter hour), so it can
+   stay available everywhere; whether to hide it for regions without a peak tariff is a question
+   for the user.
 5. **`TARIFF_ZONE`** (`Europe/Zurich`) can stay: DE, AT, LI, LU, FR and IT have the same offsets
    and DST dates. Rename it or make it per region only if a region outside CET is ever added.
 6. **Regions.** Add `Region("de", "Germany", …, zone "DE-LU", 13:15)`, `"at"` Austria (`AT`),

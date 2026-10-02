@@ -42,22 +42,21 @@ With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in
 
 ## Later ideas
 
-- A recommended start time per appliance.
-- Optimize the start time by minimizing the integral of emissions (or cost) over the appliance's runtime: `P(t)` (appliance power demand) x `CI(t)` (forecast carbon intensity) over the cycle duration `d`. Carbon Intensity `CI = gCO2e / kWh`.
-- Standard appliance profiles:
-
-| Appliance       | Avg. kW   | Flexibility |
-|-----------------|-----------|-------------|
-| EV Charger      | 7.0       | High        |
-| Dishwasher      | 1.2       | High        |
-| Washing Machine | 0.5 - 2.0 | High        |
-| HVAC / AC       | 3.5       | Moderate    |
-
-- Carbon-intensity data could come from Electricity Maps or the National Grid Carbon Intensity API.
+- Colour by the grid's carbon intensity (gCO2e/kWh) instead of, or next to, the price. The data could come from Electricity Maps or the National Grid Carbon Intensity API.
 
 ## Tech stack
 
 Native Android app (Kotlin + Jetpack Compose), distributed via F-Droid and Obtainium.
+
+## Building
+
+Needs JDK 21 (Gradle picks it through `gradle/gradle-daemon-jvm.properties`) and the Android SDK with platform 37.
+
+```sh
+ANDROID_HOME=~/Android/Sdk ./gradlew :core:test :app:assembleDebug
+```
+
+`./gradlew :app:assembleRelease` gives an unsigned, R8-shrunk release APK; signing is described in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
