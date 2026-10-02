@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.buerlino.gridload.core.Level
 import kotlinx.coroutines.delay
@@ -63,39 +63,37 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    while (true) {
+                        viewModel.update()
+                        delay(60_000)
+                    }
+                }
+                // The whatwatt has a new reading about every 4 s. It runs on the meter's
+                // weak power, so don't poll it faster.
+                while (true) {
+                    viewModel.readMeter()
+                    delay(5_000)
+                }
+            }
+        }
         setContent {
             MaterialTheme {
                 val state by viewModel.state.collectAsStateWithLifecycle()
-                val whatwattTestResult by viewModel.whatwattTestResult.collectAsStateWithLifecycle()
-                val lifecycleOwner = LocalLifecycleOwner.current
-                LaunchedEffect(lifecycleOwner) {
-                    lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                        launch {
-                            while (true) {
-                                viewModel.update()
-                                delay(60_000)
-                            }
-                        }
-                        // The whatwatt has a new reading about every 4 s. It runs on the meter's
-                        // weak power, so don't poll it faster.
-                        while (true) {
-                            viewModel.readMeter()
-                            delay(5_000)
-                        }
-                    }
-                }
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 // Settings opened from the region in the top bar, with the region list open.
                 var pickRegion by remember { mutableStateOf(false) }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
-                        state, whatwattTestResult, viewModel,
+                        state, viewModel,
                         onDone = { region -> viewModel.finishSetup(region); showGuide = false; showSettings = false },
                         onClose = if (state.firstStartDone) ({ showGuide = false }) else null,
                     )
                     showSettings -> SettingsScreen(
-                        state, whatwattTestResult, viewModel,
+                        state, viewModel,
                         pickRegion = pickRegion,
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false; pickRegion = false },
@@ -113,12 +111,12 @@ class MainActivity : ComponentActivity() {
 
 private val GREEN = Color(0xFF2E7D32)
 private val ORANGE = Color(0xFFFFA000)
-private val RED = Color(0xFFC62828)
+internal val RED = Color(0xFFC62828)
 private val GREY = Color(0xFF616161)
 
 private data class Look(val background: Color, val content: Color, val headline: String)
 
-private val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 /**
  * The colour, the headline, the price, the next good time and refresh. With peak load on, the
@@ -147,17 +145,17 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: (pickR
             val textSize = if (peak) 16.sp else 20.sp
             state.status?.let { status ->
                 Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
-                state.meterKw?.let { kw ->
+                state.meter.kw?.let { kw ->
                     Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = textSize)
                 }
                 status.nextGreen?.let { NextGoodTime(it.start, content, if (peak) 16.sp else 18.sp) }
             }
-            state.error?.let { Text("Error: $it", color = content, textAlign = TextAlign.Center) }
+            state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
             if (peak) {
                 Spacer(Modifier.height(6.dp))
                 PeakWindow(state)
             } else {
-                state.meterProblem?.let { Text(it, color = content) }
+                state.meter.problem?.let { Text(it, color = content) }
             }
         }
         Column(
@@ -191,7 +189,7 @@ private fun TopBar(state: UiState, content: Color, onOpenSettings: (pickRegion: 
             Text("⚙", color = content, fontSize = 22.sp)
         }
         Text(
-            "${state.region.name} (${state.region.utility})",
+            state.region.label,
             color = content,
             fontSize = 16.sp,
             textAlign = TextAlign.Center,

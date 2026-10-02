@@ -28,7 +28,7 @@ fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Bool
  * should be out (from the region's [tomorrowFrom]) but the cache ends today.
  */
 fun wantsFetch(slots: List<PriceSlot>, now: Instant, tomorrowFrom: LocalTime): Boolean {
-    if (slots.none { !now.isBefore(it.start.toInstant()) && now.isBefore(it.end.toInstant()) }) return true
+    if (slots.none { it.covers(now) }) return true
     val local = now.atZone(TARIFF_ZONE)
     val tomorrow = local.toLocalDate().plusDays(1).atStartOfDay(TARIFF_ZONE).toInstant()
     return !local.toLocalTime().isBefore(tomorrowFrom) && slots.maxOf { it.end.toInstant() } <= tomorrow

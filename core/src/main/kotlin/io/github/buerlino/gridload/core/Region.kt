@@ -14,7 +14,10 @@ data class Region(
     val utility: String,
     val pricesUrl: String,
     val tomorrowFrom: LocalTime,
-)
+) {
+    /** How the app lists it: "Central Switzerland (CKW)". */
+    val label: String get() = "$name ($utility)"
+}
 
 val CKW = Region(
     id = "ckw",

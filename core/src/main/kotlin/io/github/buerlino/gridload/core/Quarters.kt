@@ -1,9 +1,6 @@
 package io.github.buerlino.gridload.core
 
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -20,7 +17,9 @@ data class Quarter(val start: Instant, val kwh: Double) {
  * This quarter hour's average kW if the draw now holds until [end]. [estimated] when the app
  * didn't see the quarter's start: phase 4 will fill that part in from the whatwatt's SD card.
  */
-data class Projection(val kw: Double, val end: Instant, val estimated: Boolean)
+data class Projection(val kw: Double, val end: Instant, val estimated: Boolean) {
+    val start: Instant get() = end.minusSeconds(QUARTER_SECONDS)
+}
 
 /** Warn when this quarter hour's projection reaches this share of the line: a 10% margin. */
 const val WARN_SHARE = 0.9
@@ -33,7 +32,10 @@ fun peakLine(goalKw: Double?, highest: Quarter?): Double? = listOfNotNull(goalKw
 
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= WARN_SHARE * line
 
-private const val QUARTER_SECONDS = 900L
+/** A typed kW value, with a decimal point or comma; null unless it's a number above 0. */
+fun parseKw(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
+
+const val QUARTER_SECONDS = 900L
 
 /** The start of the quarter hour (:00, :15, :30, :45) that [time] falls in. */
 fun quarterStart(time: Instant): Instant =
@@ -130,7 +132,7 @@ class QuarterStore(private val dir: File) {
     fun month(month: YearMonth): List<Quarter> {
         val file = file(month)
         if (!file.exists()) return emptyList()
-        return Json.decodeFromString<Map<String, Double>>(file.readText())
+        return json.decodeFromString<Map<String, Double>>(file.readText())
             .map { (start, kwh) -> Quarter(OffsetDateTime.parse(start).toInstant(), kwh) }
     }
 
@@ -138,12 +140,7 @@ class QuarterStore(private val dir: File) {
     fun add(quarter: Quarter) {
         val month = YearMonth.from(quarter.start.atZone(TARIFF_ZONE))
         val quarters = (month(month).associate { it.start to it.kwh } + (quarter.start to quarter.kwh)).toSortedMap()
-        val text = Json.encodeToString(quarters.entries.associate { (start, kwh) -> KEY.format(start.atZone(TARIFF_ZONE)) to kwh })
-        // Write a copy and move it over the file, so a crash can't leave half a file.
-        dir.mkdirs()
-        val tmp = File(dir, "${file(month).name}.tmp")
-        tmp.writeText(text)
-        Files.move(tmp.toPath(), file(month).toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        file(month).writeAtomically(json.encodeToString(quarters.entries.associate { (start, kwh) -> KEY.format(start.atZone(TARIFF_ZONE)) to kwh }))
     }
 
     private fun file(month: YearMonth) = File(dir, "$month.json")

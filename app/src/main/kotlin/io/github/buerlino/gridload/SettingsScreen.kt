@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
+import io.github.buerlino.gridload.core.parseKw
 import java.util.Locale
 
 /** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
@@ -101,7 +102,6 @@ private val COUNTDOWN_INFO = Info(
 @Composable
 fun SetupGuide(
     state: UiState,
-    whatwattTestResult: String?,
     viewModel: MainViewModel,
     onDone: (Region) -> Unit,
     onClose: (() -> Unit)?,
@@ -130,8 +130,8 @@ fun SetupGuide(
                 val skip = state.whatwattAddress.isNullOrBlank()
                 Title("Measurement", onClose)
                 InfoLabel("📟 whatwatt", WHATWATT_INFO)
-                Connection(state, whatwattTestResult, viewModel)
-                if (state.whatwattConnected) SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
+                Connection(state, viewModel)
+                if (state.meter.connected) SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
                 Button(
                     onClick = {
                         viewModel.setWhatwattEnabled(!skip)
@@ -152,7 +152,6 @@ fun SetupGuide(
 @Composable
 fun SettingsScreen(
     state: UiState,
-    whatwattTestResult: String?,
     viewModel: MainViewModel,
     pickRegion: Boolean,
     onOpenGuide: () -> Unit,
@@ -170,7 +169,7 @@ fun SettingsScreen(
         Text("Measurement", style = SECTION)
         SwitchRow("📟 whatwatt", WHATWATT_INFO, state.whatwattEnabled, viewModel::setWhatwattEnabled)
         if (state.whatwattEnabled) {
-            Connection(state, whatwattTestResult, viewModel)
+            Connection(state, viewModel)
             SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
             if (state.peakEnabled) {
                 Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -193,13 +192,13 @@ private val SECTION = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
  * for on the first test.
  */
 @Composable
-private fun Connection(state: UiState, testResult: String?, viewModel: MainViewModel) {
+private fun Connection(state: UiState, viewModel: MainViewModel) {
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.testWhatwattConnection() else viewModel.whatwattPermissionDenied()
     }
     var expanded by rememberSaveable { mutableStateOf(false) }
-    if (state.whatwattConnected && !expanded) {
+    if (state.meter.connected && !expanded) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${state.whatwattAddress} · connected", Modifier.weight(1f))
             TextButton(onClick = { expanded = true }) { Text("▾", fontSize = 20.sp) }
@@ -231,25 +230,25 @@ private fun Connection(state: UiState, testResult: String?, viewModel: MainViewM
             enabled = text.isNotBlank(),
         ) { Text("Test") }
     }
-    testResult?.let { Text(it) }
+    state.meter.testResult?.let { Text(it) }
 }
 
 /** The goal in kW, first filled with last month's highest seen. Blank leaves only the month's highest. */
 @Composable
 private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
     var text by rememberSaveable { mutableStateOf(state.goalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
-    val goal = text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
-    val invalid = text.isNotBlank() && goal == null
+    val invalid = text.isNotBlank() && parseKw(text) == null
+    val lastMonth = state.meter.lastMonthHighest
     val hint = when {
         invalid -> "Enter a number of kW, e.g. 3.5"
-        state.lastMonthHighest != null -> "Last month's highest seen: %.1f kW".format(state.lastMonthHighest.kw)
+        lastMonth != null -> "Last month's highest seen: %.1f kW".format(lastMonth.kw)
         else -> null
     }
     OutlinedTextField(
         value = text,
         onValueChange = {
             text = it
-            val kw = it.replace(',', '.').toDoubleOrNull()?.takeIf { v -> v > 0 }
+            val kw = parseKw(it)
             if (it.isBlank() || kw != null) onGoal(kw)
         },
         label = { Text("Goal, kW") },
@@ -351,7 +350,7 @@ private fun RegionPicker(region: Region, onSelect: (Region) -> Unit, initiallyOp
     Box {
         OutlinedCard(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp)) {
-                Text("${region.name} (${region.utility})")
+                Text(region.label)
                 Spacer(Modifier.weight(1f))
                 Text("▾")
             }
@@ -359,7 +358,7 @@ private fun RegionPicker(region: Region, onSelect: (Region) -> Unit, initiallyOp
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             REGIONS.forEach { r ->
                 DropdownMenuItem(
-                    text = { Text("${r.name} (${r.utility})") },
+                    text = { Text(r.label) },
                     onClick = { open = false; onSelect(r) },
                 )
             }

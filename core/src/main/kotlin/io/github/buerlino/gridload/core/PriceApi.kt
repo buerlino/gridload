@@ -1,11 +1,6 @@
 package io.github.buerlino.gridload.core
 
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
 import java.time.Instant
-
-class HttpException(val code: Int) : IOException("HTTP $code")
 
 /** Today and tomorrow in [TARIFF_ZONE]: from today's midnight to the midnight after tomorrow. */
 fun fetchPeriod(now: Instant): Pair<Instant, Instant> {
@@ -27,17 +22,8 @@ fun pricesRequestUrl(region: Region, now: Instant): String {
  * main thread. The API allows only a few requests per window.
  */
 fun fetchPrices(region: Region, now: Instant = Instant.now()): List<PriceSlot> {
-    val conn = URI(pricesRequestUrl(region, now)).toURL().openConnection() as HttpURLConnection
-    try {
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 15_000
-        conn.setRequestProperty("Accept", "application/json")
-        if (conn.responseCode != HttpURLConnection.HTTP_OK) throw HttpException(conn.responseCode)
-        val end = fetchPeriod(now).second
-        // The API includes the slot that starts at the end timestamp.
-        return parsePrices(conn.inputStream.bufferedReader().use { it.readText() })
-            .filter { it.start.toInstant().isBefore(end) }
-    } finally {
-        conn.disconnect()
-    }
+    val end = fetchPeriod(now).second
+    // The API includes the slot that starts at the end timestamp.
+    return parsePrices(httpGet(pricesRequestUrl(region, now), timeoutMillis = 15_000))
+        .filter { it.start.toInstant().isBefore(end) }
 }

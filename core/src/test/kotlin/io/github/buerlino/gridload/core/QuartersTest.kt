@@ -76,6 +76,7 @@ class QuartersTest {
         // 0.25 kWh so far, then 3 kW for 10 min: (0.25 + 0.5) * 4.
         val p = recorder.projection(3.0)!!
         assertEquals(3.0, p.kw, 1e-9)
+        assertEquals(at("16:00:00"), p.start)
         assertEquals(at("16:15:00"), p.end)
         assertFalse(p.estimated)
     }
@@ -110,6 +111,16 @@ class QuartersTest {
         assertNull(peakLine(null, null))
         assertFalse(isPeakWarning(3.41, 3.8))
         assertTrue(isPeakWarning(3.42, 3.8))
+    }
+
+    @Test
+    fun parsesTypedKw() {
+        assertEquals(3.5, parseKw(" 3.5 "))
+        assertEquals(3.5, parseKw("3,5"))
+        assertNull(parseKw(""))
+        assertNull(parseKw("0"))
+        assertNull(parseKw("-1"))
+        assertNull(parseKw("3.5 kW"))
     }
 
     @Test

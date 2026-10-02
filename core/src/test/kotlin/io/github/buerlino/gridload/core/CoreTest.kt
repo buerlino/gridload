@@ -1,5 +1,6 @@
 package io.github.buerlino.gridload.core
 
+import java.nio.file.Files
 import java.time.Instant
 import java.time.OffsetDateTime
 import kotlin.test.Test
@@ -46,6 +47,15 @@ class CoreTest {
         // 16:45-17:00 is 0.1759 (green), 17:00-17:15 is 0.2223 (orange).
         assertEquals(Level.GREEN, classify(slots, at("16:59:59"))!!.level)
         assertEquals(Level.ORANGE, classify(slots, at("17:00"))!!.level)
+    }
+
+    @Test
+    fun aSlotCoversItsStartButNotItsEnd() {
+        val slot = slots.first() // 00:00 to 00:15
+        assertTrue(slot.covers(at("00:00")))
+        assertTrue(slot.covers(at("00:14:59")))
+        assertFalse(slot.covers(at("00:15")))
+        assertFalse(slot.covers(at("00:00").minusSeconds(1)))
     }
 
     @Test
@@ -110,6 +120,23 @@ class CoreTest {
         assertEquals(4, ekz.size)
         assertEquals(0.1998, ekz.first().price)
         assertEquals(OffsetDateTime.parse("2026-09-29T00:00+02:00"), ekz.first().start)
+    }
+
+    @Test
+    fun theCacheKeepsSlotsRegionAndFetchTime() {
+        val dir = Files.createTempDirectory("prices").toFile()
+        try {
+            val cache = PriceCache(dir.resolve("prices.json"))
+            assertNull(cache.load())
+            // UTC timestamps as the API sends them for a request in UTC, and local ones.
+            val saved = CachedPrices("ekz", Instant.parse("2026-09-29T10:15:30Z"), twoDays + slots)
+            cache.save(saved)
+            assertEquals(saved, cache.load())
+            cache.clear()
+            assertNull(cache.load())
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 
     @Test

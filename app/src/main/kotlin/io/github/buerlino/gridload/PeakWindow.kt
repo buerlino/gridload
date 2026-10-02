@@ -28,12 +28,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.buerlino.gridload.core.isPeakWarning
+import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.quarterStart
 import java.time.Duration
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.ceil
 
@@ -44,9 +42,6 @@ private val INK = Color(0xFF1C2126)
 private val MUTED = Color(0xFF5B646D)
 private val BAR = Color(0xFF37474F)
 private val PAST_BAR = Color(0xFFB0BEC5)
-private val WARNING = Color(0xFFC62828)
-
-private val quarterFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 /**
  * Peak load's white window under the spot price: the scale (the past quarter hours, this one
@@ -56,32 +51,31 @@ private val quarterFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId
  */
 @Composable
 fun PeakWindow(state: UiState) {
-    val projection = state.projection
+    val projection = state.meter.projection
     val line = state.peakLine
-    val warning = projection != null && line != null && isPeakWarning(projection.kw, line)
-    val current = projection?.end?.minusSeconds(900) ?: quarterStart(Instant.now())
+    val current = projection?.start ?: quarterStart(Instant.now())
     val bars = (PAST_BARS downTo 1).map { i ->
-        val start = current.minusSeconds(900L * i)
-        Bar(state.recent.find { it.start == start }?.kw, quarterFormat.format(start), current = false)
+        val start = current.minusSeconds(QUARTER_SECONDS * i)
+        Bar(state.meter.recent.find { it.start == start }?.kw, timeFormat.format(start), current = false)
     } + Bar(projection?.kw, "now", current = true)
     Column(
         Modifier.fillMaxWidth().widthIn(max = 420.dp).background(Color.White, RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Scale(bars, state.activeGoalKw, state.highest?.kw, warning)
+        Scale(bars, state.activeGoalKw, state.meter.highest?.kw, line, state.peakWarning)
         when {
-            projection == null -> state.meterProblem?.let { Text(it, color = MUTED, fontSize = 14.sp) }
+            projection == null -> state.meter.problem?.let { Text(it, color = MUTED, fontSize = 14.sp) }
             line != null -> {
                 // From the values as drawn, so "0.9 highest seen" and a "0.8" bar give "0.1 kW free".
-                val free = shown(line) - shown(projection.kw)
+                val free = roundKw(line) - roundKw(projection.kw)
                 Text(
                     if (free >= 0) "%.1f kW free".format(free) else "%.1f kW over".format(-free),
                     color = INK, fontSize = 26.sp, fontWeight = FontWeight.Bold,
                 )
                 when {
                     free < 0 -> Warning("This quarter hour sets a new peak.")
-                    warning -> Warning("Close to a new peak. Wait before switching more on.")
+                    state.peakWarning -> Warning("Close to a new peak. Wait before switching more on.")
                 }
             }
         }
@@ -92,13 +86,13 @@ fun PeakWindow(state: UiState) {
 }
 
 @Composable
-private fun Warning(text: String) = Text(text, color = WARNING, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+private fun Warning(text: String) = Text(text, color = RED, fontSize = 14.sp, fontWeight = FontWeight.Medium)
 
 @Composable
 private fun Note(text: String) = Text(text, color = MUTED, fontSize = 12.sp, lineHeight = 15.sp)
 
-/** [kw] rounded as the scale labels it (one decimal). */
-private fun shown(kw: Double) = "%.1f".format(Locale.ROOT, kw).toDouble()
+/** [kw] rounded as the scale and the goal field show it (one decimal). */
+internal fun roundKw(kw: Double) = "%.1f".format(Locale.ROOT, kw).toDouble()
 
 private fun minutesLeft(end: Instant) = ceil(Duration.between(Instant.now(), end).seconds / 60.0).toInt().coerceAtLeast(1)
 
@@ -107,14 +101,14 @@ private class Bar(val kw: Double?, val label: String, val current: Boolean)
 
 /**
  * The vertical scale in kW: the bars side by side, the newest on the right, with the month's
- * highest (solid) and the goal (dashed) across them and labelled to the right.
+ * highest (solid) and the goal (dashed) across them and labelled to the right. [line], the
+ * higher of the two, sets the height with the bars.
  */
 @Composable
-private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, warning: Boolean) {
+private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double?, warning: Boolean) {
     val measurer = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(180.dp)) {
-        val line = listOfNotNull(goal, highest).maxOrNull() ?: 0.0
-        val maxKw = ceil(maxOf(maxOf(line, bars.maxOf { it.kw ?: 0.0 }) * 1.15, 1.0)).toInt()
+        val maxKw = ceil(maxOf(maxOf(line ?: 0.0, bars.maxOf { it.kw ?: 0.0 }) * 1.15, 1.0)).toInt()
         val step = if (maxKw > 8) 2 else 1
         val top = 22.dp.toPx()
         val bottom = size.height - 18.dp.toPx()
@@ -147,7 +141,7 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, warning: Boo
                 return@forEachIndexed
             }
             val barTop = y(bar.kw)
-            val color = if (!bar.current) PAST_BAR else if (warning) WARNING else BAR
+            val color = if (!bar.current) PAST_BAR else if (warning) RED else BAR
             drawRect(color, Offset(x, barTop), Size(barW, bottom - barTop))
             val value = "%.1f".format(bar.kw)
             val inside = measurer.measure(value, TextStyle(color = if (bar.current) Color.White else INK, fontSize = 10.sp, fontWeight = FontWeight.Bold))

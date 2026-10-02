@@ -19,8 +19,7 @@ val WINDOW: Duration = Duration.ofHours(24)
  * Expects [slots] sorted by start, as the API returns them.
  */
 fun classify(slots: List<PriceSlot>, now: Instant): Status? {
-    val current = slots.firstOrNull { !now.isBefore(it.start.toInstant()) && now.isBefore(it.end.toInstant()) }
-        ?: return null
+    val current = slots.firstOrNull { it.covers(now) } ?: return null
     val lastEnd = slots.maxOf { it.end.toInstant() }
     val windowStart = minOf(current.start.toInstant(), lastEnd - WINDOW)
     val window = slots.filter {

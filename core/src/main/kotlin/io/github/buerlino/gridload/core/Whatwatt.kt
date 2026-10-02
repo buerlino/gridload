@@ -1,9 +1,6 @@
 package io.github.buerlino.gridload.core
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.net.HttpURLConnection
-import java.net.URI
 import java.time.Instant
 
 /**
@@ -37,20 +34,8 @@ fun reportUrl(address: String): String {
  * Call off the main thread. Without the Plus licence the device answers 404, with Device
  * Protection on 401 (HTTP Digest, which we don't do).
  */
-fun fetchMeterReading(address: String): MeterReading {
-    val conn = URI(reportUrl(address)).toURL().openConnection() as HttpURLConnection
-    try {
-        conn.connectTimeout = 3_000
-        conn.readTimeout = 3_000
-        conn.setRequestProperty("Accept", "application/json")
-        if (conn.responseCode != HttpURLConnection.HTTP_OK) throw HttpException(conn.responseCode)
-        return parseMeterReading(conn.inputStream.bufferedReader().use { it.readText() })
-    } finally {
-        conn.disconnect()
-    }
-}
-
-private val json = Json { ignoreUnknownKeys = true }
+fun fetchMeterReading(address: String): MeterReading =
+    parseMeterReading(httpGet(reportUrl(address), timeoutMillis = 3_000))
 
 fun parseMeterReading(body: String): MeterReading {
     val r = json.decodeFromString<Report>(body)
