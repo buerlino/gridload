@@ -275,19 +275,27 @@ zone works (user: "make it scalable"):
 - Tests: London's midnights across the October DST change in the request, `tomorrowFrom` in the
   region's zone, every current region on its country's zone.
 - For Switzerland nothing changes. Not tested on the phone; ship it with the next release.
+- The recorder's day files are still named by the whatwatt's own clock zone; the app only uses
+  the names to choose which files to copy, so a whatwatt set ahead of the region's zone copies
+  each day's last quarters late (details in `CLAUDE.md`, Day files).
 
 A new country: add a `Country` (ISO code as the phone reports it, name, flag emoji, zone) to
 `COUNTRIES` and its regions to `REGIONS`; the dropdowns need no change. Then the steps for a
-new region above. A country whose utilities don't follow VSE/AES needs its own parser, and a
+new region above. `tomorrowFrom` is local to the region: the day-ahead auction's ~12:55 CET is
+14:15 in Finland and the Baltics (the zone per candidate country is in
+`research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser, and a
 non-CHF currency needs the price and cost-line texts changed (see
 `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [researched 2026-09-30, not started]
+### Regions outside Switzerland [researched 2026-09-30, revised 2026-10-03, not started]
 
-Spot prices for Germany, Austria and Liechtenstein from the Energy-Charts day-ahead API (a
-second price source and parser, no absolute CHF price, CC BY attribution). The findings, the
-code changes and the user's open questions are in `research/neighbouring_countries.md`. Settle
-the open questions with the user first.
+Recommended first wave: Austria (peak billed on the monthly highest quarter hour from
+1 Jan 2027) and Flanders (since 2023), both with whatwatt-readable meters, plus the other
+Energy-Charts CC BY zones for prices only. Needs a spot-price source and parser, a currency, and
+a minimum billed peak per region. Later: Spain (PVPC), Denmark (spot + grid tariff), the Nordics
+and Baltics, and Norway's hourly peak model. The findings, the tested APIs, the code changes and
+the user's open questions (first: can people outside Switzerland buy a whatwatt?) are in
+`research/neighbouring_countries.md`. Settle the open questions with the user first.
 
 ## Conventions
 
