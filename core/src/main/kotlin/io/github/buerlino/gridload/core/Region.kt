@@ -82,6 +82,8 @@ val CKW = Region(
 )
 
 private fun ekz(tariff: String) = PriceSource.Vse("https://api.tariffs.ekz.ch/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
+private fun primeo(tariff: String) = PriceSource.Vse("https://tarife.primeo-energie.ch/api/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
+
 /**
  * A region on the day-ahead market price of the bidding zone [bzn], from Energy-Charts. The
  * auction's results come out at about 12:55 CET.
@@ -99,8 +101,6 @@ private fun market(
     id, name, "market price", country, PriceSource.EnergyCharts(bzn), LocalTime.of(13, 15),
     minimumKw = minimumKw, peakFrom = peakFrom, priceNote = priceNote, peakNote = peakNote,
 )
-
-private fun primeo(tariff: String) = PriceSource.Vse("https://tarife.primeo-energie.ch/api/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
 
 /**
  * All selectable regions, sorted by name. There is no default: the user picks one on first

@@ -56,7 +56,7 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
   sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
   wave 1 is released; if the thirds hold, nothing changes, else a percentile for `max`.
-- Smaller: the [saving on WAIT rows](#savings-in-francs-on-each-wait-row) (in spot regions from
+- Smaller: the [saving on WAIT rows](#savings-on-each-wait-row) (in spot regions from
   the own price with VAT); the [base load](#2-base-load) is the biggest number in the data
   (~700 kWh a year, far above the peak), one line in the history panel; the
   [widget](#home-screen-widget-or-a-quick-settings-tile) can wait, since without a background
@@ -139,10 +139,10 @@ The delay-start helper, measuring an appliance and "one at a time in the valley"
 of the appliances panel now (start delay per appliance, measured curves, OK/WAIT per row): see
 `CLAUDE.md`, "Appliances", and [appliances.md](appliances.md).
 
-### Savings in francs on each WAIT row
+### Savings on each WAIT row
 
-**What:** the WAIT line gives the saving with the time: "Cheaper at 11:00 · saves 0.09 CHF", or
-"Cheaper tomorrow 10:00 · saves 0.31 CHF".
+**What:** the WAIT line gives the saving, in the country's currency, with the time: "Cheaper at
+11:00 · saves 0.09 CHF", or "Cheaper tomorrow 10:00 · saves 0.31 €".
 
 **Why:** "wait" is easier to act on when it has a price. Most people asking whether to run the
 dishwasher now want to know what it's worth.
@@ -150,13 +150,15 @@ dishwasher now want to know what it's worth.
 **How:** `advise()` (`Appliances.kt`) already prices every candidate start with `runPrice`. The
 saving is (price now − price of the chosen start) × the appliance's kWh, which the appliance
 already derives from its curve. It's `:core` arithmetic with a unit test. The prices are already
-CHF/kWh from the API, so no tariff constants go into the code (`CLAUDE.md`).
+per kWh in the region's currency (`Currency`), so no tariff constants go into the code
+(`CLAUDE.md`).
 
-**Open questions:** does the spot price already include VAT? The app shows the API's price as it
-is, so the saving should match that. (Since wave 1's own price, 2026-10-04: in spot regions the
-saving is the market-price difference × (1 + VAT), the add-on cancels out; without an add-on,
-show no saving, like the cost line.) Hide the saving below a minimum (e.g. under 0.01 CHF, which
-reads as "0.00")? Spot part only: the peak saving stays separate, as in the peak window.
+**VAT:** a utility's tariff includes it. In spot regions the own price answers it: the saving is
+the market-price difference × (1 + VAT), since the add-on cancels out; without an add-on, show no
+saving, like the cost line.
+
+**Open questions:** hide the saving below a minimum (e.g. under 0.01, which reads as "0.00")?
+Spot part only: the peak saving stays separate, as in the peak window.
 
 ### Set a timer or alarm for a WAIT row
 
@@ -180,16 +182,17 @@ hides other apps otherwise). That's not a permission.
 
 ### Where the limit comes from
 
-**What:** the peak window's limit line can come from three places: the floor (the biggest
-appliance × 1.2), the goal, or the month's highest quarter hour. Right now the screen says only
-"2.6 limit". A tap on the limit label would say which one sets it: "Floor from Cooking (2.21 kW
-× 1.2)", "Goal", or "Highest this month, 2 Oct 18:30".
+**What:** the peak window's limit line can come from four places: the floor (the biggest
+appliance × 1.2), the goal, the tariff's minimum (`Region.minimumKw`, e.g. 2 kW in Austria) or
+the month's highest quarter hour. Right now the screen says only "2.6 limit". A tap on the limit
+label would say which one sets it: "Floor from Cooking (2.21 kW × 1.2)", "Goal", "Your tariff's
+minimum", or "Highest this month, 2 Oct 18:30".
 
 **Why:** when the peak window tells Cooking to wait for a limit it set itself, nothing on screen
 explains why. Someone who doesn't know the floor would think the app is broken, which is what the
 floor was meant to fix.
 
-**How:** `peakLine` (`Quarters.kt`) returns only the maximum of the three, so it would need to
+**How:** `peakLine` (`Quarters.kt`) returns only the maximum of the four, so it would need to
 return the winning source with the value (a small pair or a label), and its tests would cover
 which one wins. The explanation goes in a dialog, like the ⓘ ones (`Info` in `SettingsScreen.kt`),
 so the peak window keeps one short line (`CLAUDE.md`: each concept in one place).
@@ -229,11 +232,14 @@ background alarm.
 
 ### German and French
 
-**Why:** GridLoad's regions are German-speaking, except Groupe E (Fribourg, Neuchâtel), which is
-mostly French-speaking. It's the biggest reach gain.
+**Why:** most of GridLoad's regions are German-speaking (Switzerland apart from Groupe E's
+Fribourg and Neuchâtel, Austria, Germany, Liechtenstein, Luxembourg); Wallonia, Brussels and
+Groupe E are mostly French-speaking. It's the biggest reach gain.
 
-**How:** extract the strings into `strings.xml` (`CLAUDE.md` calls this an optional later step),
-then `values-de` and `values-fr`. The fastlane store text per language too
+**How:** German is the next language phase (see the order below): extract the strings into
+`strings.xml`, then `values-de`, later `values-fr`. The help's lines per country and the regions'
+notes are in `:core`, which can't use `strings.xml`, so core returns the facts and the app words
+them. The fastlane store text per language too
 (`fastlane/metadata/android/de-DE/...`). It's a lot of strings, and the UI rules (short, one idea
 per line) apply in each language.
 

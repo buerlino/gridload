@@ -26,9 +26,12 @@ fun pricesRequestUrl(region: Region, now: Instant): String {
  * Blocking fetch of today's and, once published, tomorrow's prices for [region]. Call off the
  * main thread. The APIs allow only a few requests per window.
  */
-fun fetchPrices(region: Region, now: Instant = Instant.now()): List<PriceSlot> {
+fun fetchPrices(region: Region, now: Instant = Instant.now()): List<PriceSlot> =
+    pricesFrom(region, httpGet(pricesRequestUrl(region, now), timeoutMillis = 15_000), now)
+
+/** The slots in [body], the answer to [pricesRequestUrl] for [region] at [now]. */
+fun pricesFrom(region: Region, body: String, now: Instant): List<PriceSlot> {
     val end = fetchPeriod(now, region.zone).second
-    val body = httpGet(pricesRequestUrl(region, now), timeoutMillis = 15_000)
     val slots = when (region.source) {
         is PriceSource.Vse -> parsePrices(body)
         is PriceSource.EnergyCharts -> parseEnergyCharts(body)

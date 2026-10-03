@@ -183,7 +183,7 @@ fun SetupGuide(
                 }
             } else {
                 val skip = state.whatwattAddress.isNullOrBlank()
-                Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, viewModel) }
+                Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, REGIONS.first { it.id == chosenRegion }, viewModel) }
                 if (state.meter.connected) {
                     Section("📊 Mode", MODE_INFO) { PeakLoadSwitch(state, REGIONS.first { it.id == chosenRegion }, viewModel) }
                 }
@@ -257,7 +257,7 @@ fun SettingsScreen(
         ) {
             SwitchRow("whatwatt", null, state.whatwattEnabled, viewModel::setWhatwattEnabled)
             if (state.whatwattEnabled) {
-                Connection(state, viewModel)
+                Connection(state, state.region, viewModel)
                 UnitRow(state.powerUnit, viewModel::setPowerUnit)
                 // The recorder is checked only with peak load on, which is what needs it.
                 if (state.peakEnabled) Recorder(state, viewModel)
@@ -339,11 +339,12 @@ private fun Fold(open: Boolean, onToggle: (() -> Unit)?, label: @Composable RowS
  * read), green once connected.
  * Once connected it folds to "192.168.0.36 · connected", and opens and folds again with a tap;
  * it stays open after a Test, so the result can be read. Until connected, a button opens the
- * setup guide for a new whatwatt in place of the field. Android 17 (API 37) needs the local
+ * setup guide for a new whatwatt in place of the field, for [region] (the one just picked in the
+ * setup guide, which isn't saved until Done). Android 17 (API 37) needs the local
  * network permission for the device; it's asked for on the first test.
  */
 @Composable
-private fun Connection(state: UiState, viewModel: MainViewModel) {
+private fun Connection(state: UiState, region: Region, viewModel: MainViewModel) {
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.testWhatwattConnection() else viewModel.whatwattPermissionDenied()
@@ -356,7 +357,7 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
         return
     }
     if (guide) {
-        WhatwattGuide(state.region, onClose = { guide = false })
+        WhatwattGuide(region, onClose = { guide = false })
         return
     }
     if (connected) {

@@ -334,6 +334,18 @@ class AppliancesTest {
     }
 
     @Test
+    fun negativePricesAreCheaperLikeAnyOthers() {
+        val calm = peak(0.5, 0.5, 3.6, now = "06:00")
+        // −0.05 from 10:00 to 16:00, else 0.10: cheap up to 0.00. From 09:45: 0.25 × 0.10 + 0.75 × −0.05 = −0.0125.
+        val negative = slots.map { it.copy(price = if (it.price < 0.2) -0.05 else 0.10) }
+        assertEquals(-0.0125, dishwasher.runPrice(at("09:45"), negative)!!, 1e-9)
+        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, negative))
+        assertEquals(Advice.Ok(), advise(dishwasher, at("11:00"), peak(0.5, 0.5, 3.6, now = "11:00"), negative))
+        // All below 0: the same advice as the day shifted up.
+        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, slots.map { it.copy(price = it.price - 1.0) }))
+    }
+
+    @Test
     fun pastTheKnownPricesOnlyThePeakCounts() {
         assertEquals(Advice.Ok(pricesMissing = true), advise(dishwasher, at("23:30"), peak(0.5, 0.5, 3.6, now = "23:30"), slots))
         // A kettle doesn't wait for the price, so nothing is missing.

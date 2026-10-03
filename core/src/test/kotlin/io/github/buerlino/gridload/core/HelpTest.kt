@@ -82,6 +82,38 @@ class HelpTest {
     }
 
     @Test
+    fun aCountryWithATariffAndAMarketPrice() {
+        // No country mixes them yet: CKW's tariff plus Austria's and Flanders' market prices, all in Switzerland.
+        val mixed = listOf(
+            CKW,
+            REGIONS.first { it.id == "at" }.copy(id = "a", name = "Alpha", country = SWITZERLAND),
+            REGIONS.first { it.id == "be_flanders" }.copy(id = "b", name = "Beta", country = SWITZERLAND),
+            REGIONS.first { it.id == "ekz" },
+        )
+        assertEquals(
+            CountryHelp(
+                "your tariff's price, or the market price",
+                "Tomorrow's prices come out between noon and 6 pm.",
+                listOf(attribution),
+                listOf(
+                    "Billed by CKW.",
+                    "Billed in Alpha from 2027, at least 2 kW a month.",
+                    "Billed in Beta, at least 2.5 kW a month.",
+                    "Flanders bills the average of the last 12 months.",
+                    "Not billed in Canton of Zurich.",
+                ),
+                withMinimum,
+            ),
+            countryHelp(SWITZERLAND, now, mixed),
+        )
+        // The market price alone next to a tariff: its time and CKW's.
+        assertEquals(
+            "Tomorrow's prices come out between noon and 1 pm.",
+            countryHelp(SWITZERLAND, now, mixed.take(2)).tomorrow,
+        )
+    }
+
+    @Test
     fun generalWithoutACountry() {
         assertEquals(
             CountryHelp("your tariff's price, or the market price", null, emptyList(), emptyList(), withMinimum),

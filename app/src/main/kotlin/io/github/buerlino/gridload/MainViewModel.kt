@@ -263,16 +263,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Switching region drops the cached slots, since they belong to the old region's tariff. */
+    /**
+     * Switching region drops the cached slots, since they belong to the old region's tariff. A
+     * change of country also drops the own price's add-on and VAT; another region of the same
+     * country keeps them.
+     */
     fun selectRegion(region: Region) {
         if (region == _state.value.region) return
+        val newCountry = region.country != _state.value.region.country
         prefs.edit {
             putString(KEY_REGION, region.id)
             remove(KEY_LAST_FETCH_ATTEMPT)
+            if (newCountry) {
+                remove(KEY_PRICE_ADDON)
+                remove(KEY_PRICE_VAT)
+            }
         }
         slots = emptyList()
         lastAttempt = null
-        _state.update { it.copy(region = region, status = null, loading = false, error = null, fetchedAt = null, notice = null, cooldownEnd = null) }
+        _state.update {
+            it.copy(
+                region = region, status = null, loading = false, error = null, fetchedAt = null, notice = null, cooldownEnd = null,
+                priceAddOn = it.priceAddOn.takeUnless { newCountry }, priceVat = it.priceVat.takeUnless { newCountry },
+            )
+        }
         refresh()
     }
 

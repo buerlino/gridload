@@ -20,13 +20,14 @@ GridLoad has three layers, and each needs different things from a country:
 Order (recommended 2026-10-03; the user chose wave 1 = steps 1 and 2 without Czechia, Poland,
 Hungary and Slovenia, then German, Spain, Denmark, and Norway once 2027 is clear):
 
-1. **Austria and Flanders first.** They are the only places outside Switzerland where all three
+1. **Austria and Flanders first** (built in wave 1, 2026-10-04). They are the only places outside Switzerland where all three
    layers fit with almost no new concepts. Both bill the **highest quarter hour of the calendar
    month**, as CKW does. Austria starts on **1 Jan 2027**, so a release before then lands
    exactly when Austrians start caring. Their meters are on the whatwatt's datasheet, and the
    spot zones `AT` and `BE` are CC BY on Energy-Charts. New: one spot-price parser, a currency,
    and a **minimum billed peak** per region (2 kW in AT, 2.5 kW in Flanders).
-2. **The rest of the Energy-Charts CC BY zones, prices only**, in the same release: Germany,
+2. **The rest of the Energy-Charts CC BY zones, prices only** (built in wave 1 without Czechia,
+   Poland, Hungary and Slovenia), in the same release: Germany,
    Luxembourg, Netherlands, Liechtenstein (zone `CH`), and if wanted Czechia, Poland, Hungary,
    Slovenia. No extra code beyond step 1.
 3. **Spain**, prices only: the regulated PVPC is an hourly household price that about a third of
@@ -316,30 +317,16 @@ Notes:
 
 ## What the code needs
 
-The steps are in the skill's roadmap ("Regions outside Switzerland"). Facts they rely on:
-- The code as of v0.11.0: `Region(id, name, utility, country, pricesUrl, tomorrowFrom, zone)`,
-  `Country(code, name, flag, zone)`; `fetchPrices` appends the VSE `start_timestamp`/
-  `end_timestamp`, `parsePrices` reads the VSE JSON, and the main screen shows "Rp/kWh" and
-  "CHF/h" (`MainActivity.kt:343`, `:345`).
-- Energy-Charts: zip `unix_seconds` and `price` (EUR/MWh, ÷1000 for per kWh); a slot ends where
-  the next starts, the last after the same length. It includes the slot at `end` when there is a
-  price for it (checked 2026-10-03: 29 Mar 2026 gave 93 slots, today + tomorrow 192, since
-  tomorrow's prices end before `end`), like Elering and the VSE APIs; the existing filter
-  handles both.
-- The customer's price is roughly (spot + markup + grid fee + levies) × (1 + VAT): affine with a
-  positive factor, so the own price in spot regions never changes the colour, and a multiplier
-  alone would be wrong (the fixed part is larger than spot, and spot can be negative).
-- `peakLine` already has a floor (`peakFloor`, the biggest appliance × 1.2). The tariff's minimum
-  billed peak (AT 2 kW, Flanders 2.5 kW) is a separate value, the "minimum", and the limit is the
-  highest of the four.
-- Texts that assume a Swiss utility: the help's first line (`MainActivity.kt:434`), the Region
-  ⓘ (`SettingsScreen.kt:80`), the whatwatt guide's key line (`WhatwattGuide.kt:37`, CKW).
+Wave 1 (the steps 1 and 2 of the Summary's order) is built: what the code does is in `CLAUDE.md`
+under "Regions outside Switzerland" and "Data source" (`PriceSource`, `parseEnergyCharts`,
+`Currency`, `ownPrice`, `Region.minimumKw`, `countryHelp`), the steps in the skill's roadmap.
+Facts for the next ones:
 - Denmark: add the operator's hourly tariff to the spot price before `classify`, in the same
   currency (a second request; the tariff changes on 1 Apr and 1 Oct, so it can be cached).
 - Norway: from the recorder's quarters, each hour's kWh, each day's highest hour, the month's top
   three days, their average and its step (NVE). The line is the next step's lower bound.
-- Unchanged: refresh policy and cooldown, the recorder script (frozen at v2), permissions,
-  dependencies.
+- Unchanged by either: refresh policy and cooldown, the recorder script (frozen at v2),
+  permissions, dependencies.
 
 ## Open questions
 

@@ -8,9 +8,9 @@ Shift everyday loads to the grid's most desirable time, e.g. noon when PV produc
 
 **Audience:** households who want to use energy effectively and reduce CO2 now; grid operators who want better grid stability.
 
-## Current scope (MVP)
+## What it shows
 
-One field showing a single traffic-light status:
+One colour, like a traffic light:
 
 | Colour | Meaning |
 |--------|---------|
@@ -18,7 +18,7 @@ One field showing a single traffic-light status:
 | Orange | Fair time: average price, only run what you need |
 | Green  | Good time: cheap, run your appliances now |
 
-The price now is compared with the next 24 hours (until tomorrow's prices come out, between noon and 18:00 depending on the utility, with today), and the screen shows when the next good time starts.
+The price now is compared with the next 24 hours (until tomorrow's prices come out, with today: between noon and 18:00 depending on the utility, and at about 13:00 for the market price), and the screen shows when the next good time starts.
 
 The colour depends on the dynamic tariff of the electricity utility that supplies your grid, or, where no utility publishes one, on the day-ahead market price. You pick your country and then your region; tap the region at the top of the screen to change it. Pull down to refresh.
 

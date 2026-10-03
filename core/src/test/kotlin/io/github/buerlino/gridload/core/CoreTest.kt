@@ -74,6 +74,21 @@ class CoreTest {
     }
 
     @Test
+    fun negativePricesClassifyLikeAnyOthers() {
+        // 0.10 until 10:00, −0.05 until 16:00, then 0.20: thirds of −0.05 to 0.20 at 0.0333 and 0.1167.
+        val day = slots.mapIndexed { i, slot -> slot.copy(price = if (i < 40) 0.10 else if (i < 64) -0.05 else 0.20) }
+        val morning = classify(day, at("06:00"))!!
+        assertEquals(Level.ORANGE, morning.level)
+        assertEquals(at("10:00"), morning.nextGreen!!.start.toInstant())
+        assertEquals(Level.GREEN, classify(day, at("12:00"))!!.level)
+        assertEquals(Level.RED, classify(day, at("18:00"))!!.level)
+        // All below 0: the same colours as the day shifted up.
+        val below = day.map { it.copy(price = it.price - 1.0) }
+        listOf("06:00", "12:00", "18:00").forEach { assertEquals(classify(day, at(it))!!.level, classify(below, at(it))!!.level) }
+        assertEquals(at("10:00"), classify(below, at("06:00"))!!.nextGreen!!.start.toInstant())
+    }
+
+    @Test
     fun parsesUtcTimestamps() {
         assertEquals(192, twoDays.size)
         assertEquals(sep29("00:00"), twoDays.first().start.toInstant())
@@ -178,13 +193,16 @@ class CoreTest {
     @Test
     fun energyChartsSpringDstDayHas92Quarters() {
         // Real response for 29 Mar 2026 (23 hours in Vienna), requested from its midnight to the
-        // next. It includes the slot at the end timestamp, which fetchPrices drops.
-        val day = parseEnergyCharts(javaClass.getResource("/ec-at-2026-03-29.json")!!.readText())
+        // next. It includes the slot at the end timestamp.
+        val body = javaClass.getResource("/ec-at-2026-03-29.json")!!.readText()
         val midnight = OffsetDateTime.parse("2026-03-29T00:00+01:00").toInstant()
         val nextMidnight = OffsetDateTime.parse("2026-03-30T00:00+02:00").toInstant()
+        assertEquals(nextMidnight, parseEnergyCharts(body).last().start.toInstant())
+        // As the answer for 28 Mar, whose tomorrow it is, the slot at the end is dropped.
+        val day = pricesFrom(REGIONS.first { it.id == "at" }, body, OffsetDateTime.parse("2026-03-28T15:00+01:00").toInstant())
+        assertEquals(92, day.size)
         assertEquals(midnight, day.first().start.toInstant())
-        assertEquals(nextMidnight, day.last().start.toInstant())
-        assertEquals(92, day.count { it.start.toInstant().isBefore(nextMidnight) })
+        assertEquals(nextMidnight, day.last().end.toInstant())
     }
 
     @Test

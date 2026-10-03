@@ -21,9 +21,9 @@ data class CountryHelp(
     val limit: String,
 )
 
-/** The help for [country]'s regions at [now]; for null (the phone's country isn't listed), a general one with no country's lines. */
-fun countryHelp(country: Country?, now: Instant): CountryHelp {
-    val regions = REGIONS.filter { it.country == country }
+/** The help for [country]'s regions in [all] at [now]; for null (the phone's country isn't listed), a general one with no country's lines. */
+fun countryHelp(country: Country?, now: Instant, all: List<Region> = REGIONS): CountryHelp {
+    val regions = all.filter { it.country == country }
     val spot = regions.count { it.isSpot }
     val price = when {
         regions.isEmpty() || spot in 1..<regions.size -> "your tariff's price, or the market price"

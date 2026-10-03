@@ -7,8 +7,9 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * The API allows 4 requests per ~1000 s window. Waiting 5 minutes between attempts keeps us
- * under that however often the user taps refresh.
+ * CKW's API allows 4 requests per ~1000 s window, and Energy-Charts answers 429 after about 3
+ * quick requests. Waiting 5 minutes between attempts keeps us under both however often the user
+ * refreshes.
  */
 val FETCH_COOLDOWN: Duration = Duration.ofMinutes(5)
 
