@@ -58,7 +58,9 @@ auto-start is `services.berry.auto_run` with `run_delay` **60 to 86400 s** (defa
 persists across reboots and firmware updates; `DELETE /api/v1/berry` deletes the script but
 doesn't stop it (stop with `run=false` first). `ww.httpreq` could push each finished quarter to
 a phone, but the SD files make that unnecessary. Not known yet: whether Berry needs the Plus
-licence. Firmware (user, 2026-10-03): 2.0.0 does not run Berry, 2.8.2 does.
+licence. Firmware: whatwatt's docs date Berry from 2.0.0, and `/api/v1/system` on 2.0.0 already had
+`services.berry.execution_status`; the script is tested only on 2.8.2 (an earlier note that 2.0.0
+doesn't run Berry was from memory, 2026-10-03).
 
 ## The draft script
 

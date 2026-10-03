@@ -151,9 +151,9 @@ per line) apply in each language.
 
 ## Settings and diagnostics
 
-- **Firmware check in Test:** `device.firmware` in `/api/v1/system`. Firmware 2.0.0 doesn't run
-  Berry, 2.8.2 does (already noted in the skill as a possible next step). Test could say "Firmware
-  2.0.0 is too old for the recorder; update it on USB power".
+- ~~Firmware check in Test~~: dropped 2026-10-03. `device.firmware` is in `/api/v1/system`, but no
+  version is known to fail: the docs date Berry from 2.0.0, and the device reported
+  `services.berry` on 2.0.0. Revisit if someone's recorder fails on an older firmware.
 - **whatwatt health in Settings → Recorder (opened):** `wifi.rssi` (−64 at the meter here),
   `device.last_reboot`, and maybe `device.plug.v_scap` (supercap voltage; 3.2 V came before a
   reboot during the download tests), all in `/api/v1/system`, which the sync already fetches.

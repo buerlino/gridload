@@ -67,7 +67,7 @@ private val STEPS = listOf(
         "⬆️ Update it",
         listOf(
             "Open its address in your browser.",
-            "Update the firmware. GridLoad's recorder doesn't run on old firmware such as 2.0.0.",
+            "Update the firmware. GridLoad's recorder is tested on 2.8.2.",
             "Keep it on USB power until the update is done.",
         ),
         "whatwatt Go Reference Manual" to "https://whatwatt.ch/doc/whatwatt_Go_Reference_Manual_v1.0.pdf",

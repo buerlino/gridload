@@ -158,8 +158,8 @@ Open, in order:
 4. ~~Release v0.8.0~~: tagged 2026-10-03 (store screenshots 1 and 3 retaken).
 
 Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
-(user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
-in Test or the recorder check is a possible next step, ask the user); the values of
+(the docs say Berry since 2.0.0, and the device reported `services.berry` on 2.0.0; tested only
+on 2.8.2. A firmware check was dropped on 2026-10-03: no version is known to fail); the values of
 `execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
 
 ### Panels and history [released in v0.9.0, 2026-10-03]
@@ -260,8 +260,7 @@ since `vibrate()` without attributes counts as touch feedback, which is OFF in s
 notification vibrations; alarm and ringtone stay on). Every earlier alarm that day was dropped too.
 Built then (user: "let the user decide"): Settings → Mode → **Vibrate at the limit**,
 Unless silent (notification, default) | Always (alarm), `peak_vibrate_always`; seen in Settings
-with its ⓘ. Not seen vibrating yet: check `dumpsys vibrator_manager` after the next real alarm
-(usage NOTIFICATION or ALARM, played).
+with its ⓘ. Not seen vibrating yet: a rainy-day task (below).
 
 ### Settings and setup guide rework [released in v0.11.0, 2026-10-03]
 
@@ -333,6 +332,14 @@ a minimum billed peak per region. Later: Spain (PVPC), Denmark (spot + grid tari
 and Baltics, and Norway's hourly peak model. The findings, the tested APIs, the code changes and
 the user's open questions (first: can people outside Switzerland buy a whatwatt?) are in
 `research/neighbouring_countries.md`. Settle the open questions with the user first.
+
+### Rainy day
+
+Little tasks for when there's nothing else (user, 2026-10-03: skipped for now).
+- **Vibrate at the limit on the phone:** after a real limit alarm, check
+  `adb shell dumpsys vibrator_manager` for GridLoad's 400 ms vibration with usage NOTIFICATION
+  (Unless silent) or ALARM (Always) and that it was played, not `ignored_for_settings`. Try both
+  settings, in silent mode too.
 
 ## Conventions
 
