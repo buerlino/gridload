@@ -154,11 +154,7 @@ fun SetupGuide(
                 Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
                 return@Page
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = back) { Text("←", fontSize = 22.sp) }
-                Text("Setup guide", Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Text("$step of 2", color = MUTED)
-            }
+            TitleRow("Setup guide", back) { Text("$step of 2", color = MUTED) }
             if (step == 1) {
                 Section("⚡ Region", REGION_INFO) {
                     Picker(COUNTRIES.find { it.code == country }?.label ?: "Choose your country", COUNTRIES, Country::label, { country = it.code })
@@ -205,11 +201,7 @@ fun SettingsScreen(
     BackHandler(onBack = onBack)
     LaunchedEffect(Unit) { if (pickRegion) viewModel.setSectionOpen(REGION, true) }
     Page {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("←", fontSize = 22.sp) }
-            Text("Settings", Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") }
-        }
+        TitleRow("Settings", onBack) { OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") } }
         val closed = state.closedSections
         val toggle = { id: String -> viewModel.setSectionOpen(id, id in closed) }
         Section("⚡ Region", REGION_INFO, REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label) }) {
@@ -561,6 +553,16 @@ internal fun Page(content: @Composable ColumnScope.() -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             content = content,
         )
+    }
+}
+
+/** A [Page]'s top row: ← and the [title], with [trailing] at the end. */
+@Composable
+internal fun TitleRow(title: String, onBack: () -> Unit, trailing: @Composable RowScope.() -> Unit = {}) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = onBack) { Text("←", fontSize = 22.sp) }
+        Text(title, Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        trailing()
     }
 }
 

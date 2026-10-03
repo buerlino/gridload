@@ -16,8 +16,11 @@ flaws; the user decides; then work through the checklist below and tick items of
   and the research notes, and UI text copied into docs (it drifts from the code).
 - **Repo:** files nothing uses, fastlane changelogs for versions F-Droid never built, `.gitignore`
   comments, loose git objects (`git gc`).
-- **Build/CI:** `./gradlew :core:test :app:lintDebug` (warnings), `--warning-mode all`
-  (deprecations), action versions in `.github/workflows/`, redundant `gradle.properties`.
+- **Build/CI:** `./gradlew :core:test :app:lintDebug` (warnings; add `:app:lintAnalyzeDebug
+  --rerun`, since lint can repeat a stale report), Kotlin compiler warnings (lines starting
+  `w:` in the build output), `--warning-mode all` (deprecations), two clean unsigned
+  `assembleRelease` builds with the same sha256 (reproducible for F-Droid), action versions in
+  `.github/workflows/`, redundant `gradle.properties`.
 
 ## Pass 2026-10-02
 
@@ -304,3 +307,28 @@ user's. Where the work differed from the checklist:
   "The result usually shows right after Done." and "until you tap Done" (user).
 - **3.4:** "One at a time" is covered by OK/WAIT, so it went too; "Recommended first" dropped
   the delay-start helper and is now two ideas.
+
+## Pass 2026-10-03 (history screen)
+
+Report (at `371ae77`), checked by reading the code: the full-screen history's tap mapping, DST
+days, default day, last month and colours were right apart from the items below. The user asked
+for everything to be fixed, and for 1.2 the cleanest option.
+
+### Done (2026-10-03)
+
+Verified with 74 tests (1 new), lint 0 (`--rerun`), no compiler warnings, two clean unsigned
+release builds with the same sha256. Not seen on the phone yet.
+- [x] 1.1 Taps outside the day bars' plot (the axis, the limit's label) did pick day 1 or the
+  last day; now they do nothing, and a tap before the first draw too.
+- [x] 1.2 The history mixed zones; now all its days and times are the region's, so a time
+  never lands on another day than its bar. The one exception to "times in the phone's zone",
+  in `CLAUDE.md`. (`timeFormat` has the phone's zone built in, so the history has its own
+  `clockFormat`.)
+- [x] 1.3 After the process is killed, "No quarter hours recorded this month." shows until the
+  files load: accepted, noted in `CLAUDE.md`.
+- [x] 2.1 `DayQuarters` in core (slots, `slot`, `hourSlot`, the day's quarters and highest)
+  and `Quarter.day(zone)`, shared with `dailyHighest`; tested on 29 Mar and 25 Oct 2026.
+- [x] 3.1 The day's highest comes from `DayQuarters`, once. 3.2 `Plot` holds the limit and
+  draws it. 3.3 `highestText`. 3.4 `TitleRow` next to `Page`. 3.5 `comingTime(at, today =
+  "at ")`. 3.6 The `Charts.kt` comment.
+- [x] 4.1 to 4.8 The docs; 4.7 is in the checklist above. 5.1 `git gc`.

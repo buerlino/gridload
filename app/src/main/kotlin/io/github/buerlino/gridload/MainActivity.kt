@@ -177,10 +177,10 @@ private data class Look(val background: Color, val content: Color, val headline:
 
 internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
-/** A time still to come: "14:15", or "tomorrow 10:00" when it isn't today. */
-internal fun comingTime(at: Instant): String {
+/** A time still to come: "14:15" ([today] before it), or "tomorrow 10:00" when it isn't today. */
+internal fun comingTime(at: Instant, today: String = ""): String {
     val local = at.atZone(ZoneId.systemDefault())
-    return (if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow ") + timeFormat.format(local)
+    return (if (local.toLocalDate() == LocalDate.now()) today else "tomorrow ") + timeFormat.format(local)
 }
 
 /**

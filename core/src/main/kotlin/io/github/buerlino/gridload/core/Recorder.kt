@@ -92,12 +92,34 @@ fun missingQuarters(recording: Recording, month: YearMonth, until: Instant, zone
 fun recordedSince(recording: Recording, month: YearMonth, zone: ZoneId): Instant? =
     recording.quarters.firstOrNull()?.start?.takeIf { it > month.start(zone) && YearMonth.from(it.atZone(zone)) == month }
 
+/** The day in [zone] this quarter hour belongs to, by its start. */
+fun Quarter.day(zone: ZoneId): LocalDate = start.atZone(zone).toLocalDate()
+
 /** Each day of [month] with a recorded quarter, and that day's highest quarter, in order. */
 fun dailyHighest(recording: Recording, month: YearMonth, zone: ZoneId): List<Pair<LocalDate, Quarter>> =
-    recording.quarters.groupBy { it.start.atZone(zone).toLocalDate() }
+    recording.quarters.groupBy { it.day(zone) }
         .filterKeys { YearMonth.from(it) == month }
         .map { (day, quarters) -> day to quarters.maxBy { it.kwh } }
         .sortedBy { it.first }
+
+/**
+ * The recorded quarter hours of [date], a day in [zone], each in its slot from midnight: 96
+ * slots, or 92 and 100 on the DST days, so a missed quarter leaves its slot empty.
+ */
+class DayQuarters(val date: LocalDate, private val zone: ZoneId, recorded: List<Quarter>) {
+    private val start = date.atStartOfDay(zone).toInstant()
+    val slots = slot(date.plusDays(1).atStartOfDay(zone).toInstant())
+    val quarters = recorded.filter { it.day(zone) == date }
+
+    /** The day's highest, the first of equal ones; null with nothing recorded. */
+    val highest = quarters.maxByOrNull { it.kwh }
+
+    /** The slot of the quarter hour starting at [time]. */
+    fun slot(time: Instant) = (Duration.between(start, time).seconds / QUARTER_SECONDS).toInt()
+
+    /** The slot starting at [hour]:00 on the day's clock. */
+    fun hourSlot(hour: Int) = slot(date.atTime(hour, 0).atZone(zone).toInstant())
+}
 
 /** What the whatwatt says about the recorder; null where it didn't say. */
 data class RecorderStatus(

@@ -77,6 +77,27 @@ class RecorderTest {
         assertEquals(emptyList(), dailyHighest(recording, YearMonth.of(2026, 9), zurich))
     }
 
+    @Test
+    fun laysOutADayInQuarters() {
+        assertEquals(96, DayQuarters(LocalDate.of(2026, 10, 3), zurich, emptyList()).slots)
+        // 29 Mar: 02:00 to 03:00 doesn't exist.
+        val spring = DayQuarters(LocalDate.of(2026, 3, 29), zurich, emptyList())
+        assertEquals(92, spring.slots)
+        assertEquals(20, spring.hourSlot(6))
+        // 25 Oct: 02:00 to 03:00 twice; 02:15 CEST is 00:15 UTC, 02:15 CET 01:15 UTC.
+        val first = Quarter(Instant.parse("2026-10-25T00:15:00Z"), 0.1)
+        val second = Quarter(Instant.parse("2026-10-25T01:15:00Z"), 0.3)
+        val dayBefore = Quarter(Instant.parse("2026-10-24T21:45:00Z"), 0.5)
+        val autumn = DayQuarters(LocalDate.of(2026, 10, 25), zurich, listOf(dayBefore, first, second))
+        assertEquals(100, autumn.slots)
+        assertEquals(28, autumn.hourSlot(6))
+        assertEquals(listOf(first, second), autumn.quarters)
+        assertEquals(listOf(9, 13), autumn.quarters.map { autumn.slot(it.start) })
+        assertEquals(second, autumn.highest)
+        assertEquals(99, autumn.slot(Instant.parse("2026-10-25T22:45:00Z")))
+        assertNull(spring.highest)
+    }
+
     private val running = RecorderStatus(RECORDER_SCRIPT, "RUNNING", autoRun = true, runDelaySeconds = 60, sdCard = true, secondsSinceBoot = 9000)
     private val recorded = parseRecording(listOf(line("21:30:00", 0.1, 1.0)))
 

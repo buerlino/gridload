@@ -166,7 +166,7 @@ private fun whenToStart(appliance: Appliance, at: Instant, now: Instant) =
     if (appliance.delayMinutes > 0) {
         "Delay ${duration(Duration.between(now, at).toMillis() / 60_000.0)}"
     } else {
-        comingTime(at).let { if (it.startsWith("tomorrow")) it else "at $it" }
+        comingTime(at, today = "at ")
     }
 
 /** "3 min", "2 h", "1 h 55 min"; to the nearest minute. */

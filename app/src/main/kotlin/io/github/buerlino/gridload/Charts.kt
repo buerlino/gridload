@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.PowerUnit
 import kotlin.math.ceil
 
-// The white panels on the main screen (peak window and history) and their charts.
+// The white panels on the main screen and the charts' parts, shared with the History screen.
 
 internal val INK = Color(0xFF1C2126)
 internal val MUTED = Color(0xFF5B646D)

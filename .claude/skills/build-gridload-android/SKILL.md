@@ -21,8 +21,9 @@ in git.
   unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm, the appliances and
   their measuring), `WhatwattMeter` (reading, the recorder's sync, checks and actions, the Test)
   and the screens: main (`MainActivity.kt`, `PeakWindow.kt`, `AppliancesPanel.kt`,
-  `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), Settings and the
-  setup guide (`SettingsScreen.kt`, `WhatwattGuide.kt`).
+  `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), the History
+  screen (`HistoryScreen` in `HistoryPanel.kt`), Settings and the setup guide
+  (`SettingsScreen.kt`, `WhatwattGuide.kt`; `Page` and `TitleRow` are shared).
 - **No background work** and no accounts, cloud or optimization engine.
 
 ## Working on the phone
@@ -99,7 +100,7 @@ Work phase by phase and update the status in brackets.
 - **v0.6:** back to the lean core.
 - **v0.7:** the whatwatt (phases 1 to 3) and the UI rework: no modes, Settings as Region then
   Measurement, ⓘ dialogs. Details in `CLAUDE.md`.
-- **Declutter 2026-10-02:** see [declutter.md](declutter.md), which also holds the reusable
+- **Declutter passes:** see [declutter.md](declutter.md), which also holds the reusable
   checklist for the next pass.
 
 ### F-Droid [submitted 2026-09-29, in review]
@@ -206,7 +207,7 @@ build (3 min · 0.10 kWh · 2.0 kW right after Done, which tested `doneAt`/`done
 `appliances.json` (export/import) and the `measuring` pref are a format to keep.
 
 Still open:
-1. **Not blocking, a v0.10.1 if needed:** the logic is covered by core tests, and what's left in
+1. **Not blocking, a patch release if needed:** the logic is covered by core tests, and what's left in
    the app is plain text and one rounding.
    - On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now,
      e.g. after the hob is switched off mid-quarter; with the limit at 2.1 and a 0.85 kW base it

@@ -44,7 +44,7 @@ The quarter hours come from the **GridLoad recorder**, a small Berry script that
 
 **Appliances** (the second panel, with peak load on): measure each appliance once with **+** (tap Start, switch it on, tap Done when it has finished). From the recorder's quarter hours, GridLoad learns how much it draws, for how long, and when in the run. Each row then says **OK**, or **WAIT** with when: starting now would reach the limit, or, for appliances that can wait (a dishwasher, a washing machine), a later start is clearly cheaper. Tap a row to see its run in the peak window. With a start delay on the appliance, it says what delay to set. "Counts for the limit" (on by default) lets an appliance's heaviest quarter hour raise the floor, so the biggest appliance on its own is never told to wait. A measured appliance gives variants with another run time ("Cooking 60 min", or "Kettle 1.5 L" from the amount of water). Settings → Mode → Appliances exports and imports them as a file, for a new phone.
 
-**History** (the third panel): the month so far, one bar per day (its highest quarter hour), with the limit across it. All three panels fold to their top line.
+**History** (the third panel): the month so far, one bar per day (its highest quarter hour), with the limit across it. Tap the chart for a day's quarter hours and last month. All three panels fold to their top line.
 
 ### What you need
 
