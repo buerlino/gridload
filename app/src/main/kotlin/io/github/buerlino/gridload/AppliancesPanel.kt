@@ -129,7 +129,12 @@ private fun ApplianceRow(appliance: Appliance, advice: Advice?, onClick: () -> U
             Text(appliance.name, color = INK, fontSize = 16.sp)
             line?.let { Text(it, color = MUTED, fontSize = 13.sp) }
         }
-        if (chip == null) Text("–", color = MUTED, fontSize = 16.sp) else Chip(chip, if (chip == "OK") GREEN else RED)
+        when (chip) {
+            null -> Text("–", color = MUTED, fontSize = 16.sp)
+            "OK" -> Chip(chip, GREEN, Color.White)
+            // Black on orange, as on the main screen's "Fair time".
+            else -> Chip(chip, ORANGE, Color.Black)
+        }
     }
 }
 
@@ -144,10 +149,10 @@ private fun duration(minutes: Double): String {
 }
 
 @Composable
-private fun Chip(text: String, color: Color) {
+private fun Chip(text: String, color: Color, textColor: Color) {
     Text(
         text, Modifier.background(color, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
-        color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+        color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold,
     )
 }
 
@@ -172,7 +177,7 @@ private fun MeasuringRow(state: UiState, viewModel: MainViewModel) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(measuring.appliance.name, Modifier.weight(1f), color = INK, fontSize = 16.sp)
-            Chip("Measuring", MUTED)
+            Chip("Measuring", MUTED, Color.White)
         }
         val result = state.measurement
         val line = when {

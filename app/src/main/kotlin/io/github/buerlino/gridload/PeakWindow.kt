@@ -26,7 +26,7 @@ import java.time.Instant
 import kotlin.math.ceil
 
 /** How many recorded quarter hours are shown left of the current one. */
-const val PAST_BARS = 2
+const val PAST_BARS = 3
 
 /**
  * Peak load's white panel under the spot price. Its header says how much more fits under the

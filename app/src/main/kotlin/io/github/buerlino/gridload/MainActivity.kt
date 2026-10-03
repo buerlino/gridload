@@ -38,6 +38,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.ScrollState
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,7 +132,7 @@ class MainActivity : ComponentActivity() {
 }
 
 internal val GREEN = Color(0xFF2E7D32)
-private val ORANGE = Color(0xFFFFA000)
+internal val ORANGE = Color(0xFFFFA000)
 internal val RED = Color(0xFFC62828)
 private val GREY = Color(0xFF616161)
 
@@ -150,23 +167,36 @@ private fun Screen(
     if (showHelp) HelpDialog(onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background)) {
         PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp)) {
                 TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
                 // Each part scrolls, so that pulling down anywhere refreshes.
                 if (state.showPeak) {
-                    Spot(state, label, content, small = true, Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 16.dp))
-                    Column(
-                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        PeakWindow(state, onToggle = onTogglePeak, onOpenSettings = { onOpenSettings(false) })
-                        AppliancesPanel(state, viewModel)
-                        HistoryPanel(state, onToggle = onToggleHistory)
+                    val collapse = remember { Collapse() }
+                    val panelScroll = rememberScrollState()
+                    Column(Modifier.weight(1f).nestedScroll(collapse)) {
+                        Spot(
+                            state, label, content, collapse,
+                            Modifier.clipToBounds()
+                                .layout { measurable, constraints ->
+                                    val placeable = measurable.measure(constraints)
+                                    layout(placeable.width, (placeable.height - collapse.offset).roundToInt()) { placeable.place(0, 0) }
+                                }
+                                .onSizeChanged { collapse.full = it.height.toFloat() }
+                                .verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 16.dp),
+                        )
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().edgeShadows(panelScroll, bleed = 24.dp).verticalScroll(panelScroll),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            PeakWindow(state, onToggle = onTogglePeak, onOpenSettings = { onOpenSettings(false) })
+                            AppliancesPanel(state, viewModel)
+                            HistoryPanel(state, onToggle = onToggleHistory)
+                        }
                     }
                 } else {
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                        Spot(state, label, content, small = false, Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight))
+                        Spot(state, label, content, collapse = null, Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight))
                     }
                 }
                 Updated(state, content)
@@ -175,28 +205,107 @@ private fun Screen(
     }
 }
 
-/** The headline, the price, the cost now and the next good time; [small] above the panels. */
+/**
+ * A soft shadow from the strip above and the "Updated" line below onto the scrolled content,
+ * shown only while content is behind that edge, so it reads as sliding under them. [bleed]
+ * widens it to the screen's edges past the side padding. Goes before [verticalScroll], so it
+ * draws at the visible area's edges.
+ */
+private fun Modifier.edgeShadows(scroll: ScrollState, bleed: Dp): Modifier = drawWithContent {
+    drawContent()
+    val height = 6.dp.toPx()
+    // Grows in over the first 8 dp scrolled past an edge, rather than popping in.
+    val ramp = 8.dp.toPx()
+    val left = -bleed.toPx()
+    val width = size.width + 2 * bleed.toPx()
+    val top = (scroll.value / ramp).coerceAtMost(1f)
+    val bottom = ((scroll.maxValue - scroll.value) / ramp).coerceAtMost(1f)
+    if (top > 0f) drawRect(
+        Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.18f * top), 1f to Color.Transparent, endY = height),
+        topLeft = Offset(left, 0f), size = Size(width, height),
+    )
+    if (bottom > 0f) drawRect(
+        Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.18f * bottom), startY = size.height - height, endY = size.height),
+        topLeft = Offset(left, size.height - height), size = Size(width, height),
+    )
+}
+
+/** The headline's size in the collapsed strip, relative to its size above the panels. */
+private const val STRIP_HEADLINE = 0.75f
+
+/**
+ * How far the spot part above the panels has collapsed, in px. Scrolling the panels up first
+ * shrinks it to a strip with only the headline; scrolling down grows it back once the panels
+ * are at their top, before a pull reaches pull-to-refresh.
+ */
+private class Collapse : NestedScrollConnection {
+    /** The spot part's full height and the strip's, both in px. */
+    var full by mutableFloatStateOf(0f)
+    var strip by mutableFloatStateOf(0f)
+    private val range get() = (full - strip).coerceAtLeast(0f)
+    private var collapsed by mutableFloatStateOf(0f)
+    val offset get() = collapsed.coerceAtMost(range)
+    val fraction get() = if (range > 0f) offset / range else 0f
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (available.y >= 0f) return Offset.Zero
+        val before = offset
+        collapsed = (before - available.y).coerceAtMost(range)
+        return Offset(0f, before - collapsed)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (available.y <= 0f) return Offset.Zero
+        val before = offset
+        collapsed = (before - available.y).coerceAtLeast(0f)
+        return Offset(0f, before - collapsed)
+    }
+}
+
+/** The headline, the price, the cost now and the next good time; smaller and collapsing above the panels. */
 @Composable
-private fun Spot(state: UiState, label: String, content: Color, small: Boolean, modifier: Modifier) {
+private fun Spot(state: UiState, label: String, content: Color, collapse: Collapse?, modifier: Modifier) {
+    val small = collapse != null
+    val shrink = collapse?.fraction ?: 0f
+    val spacing = if (small) 6.dp else 12.dp
+    val density = LocalDensity.current
     Column(
         modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (small) 6.dp else 12.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(spacing, Alignment.CenterVertically),
     ) {
         Text(
             label, color = content, fontSize = if (small) 32.sp else 44.sp, lineHeight = if (small) 38.sp else 52.sp,
             fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+            modifier = Modifier
+                .onSizeChanged { size ->
+                    // The strip: the top padding, the shrunk headline and a little space below it.
+                    collapse?.strip = with(density) { 4.dp.toPx() + size.height * STRIP_HEADLINE + 8.dp.toPx() }
+                }
+                .graphicsLayer {
+                    val scale = 1f - (1f - STRIP_HEADLINE) * shrink
+                    scaleX = scale
+                    scaleY = scale
+                    transformOrigin = TransformOrigin(0.5f, 0f)
+                },
         )
-        val textSize = if (small) 16.sp else 20.sp
-        state.status?.let { status ->
-            Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
-            state.meter.kw?.let { kw ->
-                Text("${state.powerUnit.format(kw)} now · %.2f CHF/h".format(kw * status.slot.price), color = content, fontSize = textSize)
+        // The lines below fade out as the strip closes over them.
+        Column(
+            Modifier.graphicsLayer { alpha = (1f - 2f * shrink).coerceAtLeast(0f) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(spacing),
+        ) {
+            val textSize = if (small) 16.sp else 20.sp
+            state.status?.let { status ->
+                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
+                state.meter.kw?.let { kw ->
+                    Text("${state.powerUnit.format(kw)} now · %.2f CHF/h".format(kw * status.slot.price), color = content, fontSize = textSize)
+                }
+                status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
             }
-            status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
+            state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
+            if (!small) state.meter.problem?.let { Text(it, color = content) }
         }
-        state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
-        if (!small) state.meter.problem?.let { Text(it, color = content) }
     }
 }
 
@@ -212,7 +321,7 @@ private fun Updated(state: UiState, content: Color) {
             coolingDown = false
         }
     }
-    Column(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         state.notice?.let { Text(it, color = content) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(state.fetchedAt?.let { "Updated ${timeFormat.format(it)}" } ?: "Pull down to refresh", color = content)
