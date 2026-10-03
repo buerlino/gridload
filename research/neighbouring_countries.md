@@ -322,8 +322,10 @@ The steps are in the skill's roadmap ("Regions outside Switzerland"). Facts they
   `end_timestamp`, `parsePrices` reads the VSE JSON, and the main screen shows "Rp/kWh" and
   "CHF/h" (`MainActivity.kt:343`, `:345`).
 - Energy-Charts: zip `unix_seconds` and `price` (EUR/MWh, ÷1000 for per kWh); a slot ends where
-  the next starts, the last after the same length. Check on a saved response whether it includes
-  the slot at `end` (Elering does, like the VSE APIs; the existing filter handles both).
+  the next starts, the last after the same length. It includes the slot at `end` when there is a
+  price for it (checked 2026-10-03: 29 Mar 2026 gave 93 slots, today + tomorrow 192, since
+  tomorrow's prices end before `end`), like Elering and the VSE APIs; the existing filter
+  handles both.
 - The customer's price is roughly (spot + markup + grid fee + levies) × (1 + VAT): affine with a
   positive factor, so the own price in spot regions never changes the colour, and a multiplier
   alone would be wrong (the fixed part is larger than spot, and spot can be negative).

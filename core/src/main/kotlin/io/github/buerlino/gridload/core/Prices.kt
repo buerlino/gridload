@@ -4,8 +4,12 @@ import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
-/** One quarter-hour slot. [price] is the `integrated` (total) price in CHF/kWh. */
+/**
+ * One slot, usually a quarter hour. [price] is per kWh in the region's currency: a VSE tariff's
+ * `integrated` (total) price, or the market price.
+ */
 data class PriceSlot(
     val start: OffsetDateTime,
     val end: OffsetDateTime,
@@ -19,6 +23,24 @@ data class PriceSlot(
  * monthly fee (`CHF_m`) next to the kWh price, so pick the `CHF_kWh` entry.
  */
 fun parsePrices(body: String): List<PriceSlot> = json.decodeFromString<Response>(body).prices.map { it.toPriceSlot() }
+
+/**
+ * Parses an Energy-Charts `/price` response: each `unix_seconds` starts a slot that ends where
+ * the next one starts (the last one after the same length), `price` is in EUR/MWh. A slot
+ * without a price is left out. A deprecated answer or one without prices can't be read.
+ */
+fun parseEnergyCharts(body: String): List<PriceSlot> {
+    val response = json.decodeFromString<EnergyChartsResponse>(body)
+    val starts = response.unix_seconds
+    check(!response.deprecated && starts.size >= 2 && starts.size == response.price.size) { "Unreadable Energy-Charts answer" }
+    return starts.indices.mapNotNull { i ->
+        val price = response.price[i] ?: return@mapNotNull null
+        val end = starts.getOrNull(i + 1) ?: (starts[i] + starts[i] - starts[i - 1])
+        PriceSlot(utc(starts[i]), utc(end), price / 1000)
+    }
+}
+
+private fun utc(epochSecond: Long) = OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ZoneOffset.UTC)
 
 /** The last fetched prices of the region with [regionId]. */
 data class CachedPrices(val regionId: String, val fetchedAt: Instant, val slots: List<PriceSlot>)
@@ -46,6 +68,10 @@ private const val KWH = "CHF_kWh"
 
 @Serializable
 private class Response(val prices: List<Slot>)
+
+@Suppress("PropertyName")
+@Serializable
+private class EnergyChartsResponse(val unix_seconds: List<Long>, val price: List<Double?>, val deprecated: Boolean = false)
 
 @Suppress("PropertyName")
 @Serializable

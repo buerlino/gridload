@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
@@ -142,7 +143,7 @@ class CoreTest {
     fun requestCoversTodayAndTomorrowInUtc() {
         // Winter time starts on 25 October, which then has 25 hours.
         val url = pricesRequestUrl(CKW, OffsetDateTime.parse("2026-10-24T15:00+02:00").toInstant())
-        assertTrue(url.startsWith(CKW.pricesUrl + "&"))
+        assertTrue(url.startsWith((CKW.source as PriceSource.Vse).url + "&"))
         assertTrue(url.endsWith("&start_timestamp=2026-10-23T22:00:00Z&end_timestamp=2026-10-25T23:00:00Z"), url)
         // Another zone's midnights.
         val london = pricesRequestUrl(CKW.copy(zone = java.time.ZoneId.of("Europe/London")), OffsetDateTime.parse("2026-10-24T15:00+02:00").toInstant())
@@ -150,9 +151,54 @@ class CoreTest {
     }
 
     @Test
+    fun energyChartsRequestCoversTodayAndTomorrowInUtc() {
+        val austria = CKW.copy(source = PriceSource.EnergyCharts("AT"), zone = java.time.ZoneId.of("Europe/Vienna"))
+        assertEquals(
+            "https://api.energy-charts.info/price?bzn=AT&start=2026-10-23T22:00:00Z&end=2026-10-25T23:00:00Z",
+            pricesRequestUrl(austria, OffsetDateTime.parse("2026-10-24T15:00+02:00").toInstant()),
+        )
+    }
+
+    @Test
+    fun parsesEnergyChartsMarketPrices() {
+        // Real response for Austria, today + tomorrow, fetched 2026-10-03 23:16 (EUR/MWh).
+        val at = parseEnergyCharts(javaClass.getResource("/ec-at-2026-10-03-to-04.json")!!.readText())
+        assertEquals(192, at.size)
+        assertEquals(OffsetDateTime.parse("2026-10-03T00:00+02:00").toInstant(), at.first().start.toInstant())
+        assertEquals(OffsetDateTime.parse("2026-10-03T00:15+02:00").toInstant(), at.first().end.toInstant())
+        assertEquals(0.20451, at.first().price, 1e-9)
+        assertTrue(at.zipWithNext().all { (a, b) -> a.end == b.start })
+        // The last slot ends after the same length.
+        assertEquals(OffsetDateTime.parse("2026-10-05T00:00+02:00").toInstant(), at.last().end.toInstant())
+        assertTrue(classify(at, OffsetDateTime.parse("2026-10-03T19:00+02:00").toInstant()) != null)
+    }
+
+    @Test
+    fun energyChartsSpringDstDayHas92Quarters() {
+        // Real response for 29 Mar 2026 (23 hours in Vienna), requested from its midnight to the
+        // next. It includes the slot at the end timestamp, which fetchPrices drops.
+        val day = parseEnergyCharts(javaClass.getResource("/ec-at-2026-03-29.json")!!.readText())
+        val midnight = OffsetDateTime.parse("2026-03-29T00:00+01:00").toInstant()
+        val nextMidnight = OffsetDateTime.parse("2026-03-30T00:00+02:00").toInstant()
+        assertEquals(midnight, day.first().start.toInstant())
+        assertEquals(nextMidnight, day.last().start.toInstant())
+        assertEquals(92, day.count { it.start.toInstant().isBefore(nextMidnight) })
+    }
+
+    @Test
+    fun unreadableEnergyChartsAnswers() {
+        assertFailsWith<IllegalStateException> { parseEnergyCharts("""{"unix_seconds":[0,900],"price":[1.0,2.0],"deprecated":true}""") }
+        assertFailsWith<IllegalStateException> { parseEnergyCharts("""{"unix_seconds":[],"price":[]}""") }
+        // A slot without a price is left out; the others keep their times.
+        val slots = parseEnergyCharts("""{"unix_seconds":[0,900,1800],"price":[10.0,null,-5.0]}""")
+        assertEquals(listOf(0.01, -0.005), slots.map { it.price })
+        assertEquals(Instant.ofEpochSecond(2700), slots.last().end.toInstant())
+    }
+
+    @Test
     fun regionsHaveUniqueIdsAndHttpsUrls() {
         assertEquals(REGIONS.size, REGIONS.map { it.id }.toSet().size)
-        assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") && "?" in it.pricesUrl })
+        assertTrue(REGIONS.all { val source = it.source; source !is PriceSource.Vse || (source.url.startsWith("https://") && "?" in source.url) })
         assertEquals(REGIONS.sortedBy { it.name }, REGIONS)
         assertTrue(CKW in REGIONS)
         assertTrue(REGIONS.all { it.country in COUNTRIES })

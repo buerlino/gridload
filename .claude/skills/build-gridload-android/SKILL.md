@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 non-CHF currency needs the price and cost-line texts changed (see
 `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user, not started]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; step 1 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -359,7 +359,12 @@ starts then). In English; German is the next phase. No app code before the user 
 plan: approved 2026-10-03, start when the user says so. Each step ends green on the verify
 command above.
 
-1. **A price source per region** (`:core` only, nothing visible changes).
+1. ~~**A price source per region**~~ (`:core` only, nothing visible changes): done 2026-10-03.
+   `PriceSource` in `Region.kt`, `parseEnergyCharts` in `Prices.kt`, fixtures
+   `ec-at-2026-10-03-to-04.json` (192 quarters) and `ec-at-2026-03-29.json` (93: Energy-Charts
+   includes the slot at `end` when there is a price for it, like the VSE APIs). A missing
+   (`null`) price drops only that slot. Seen on the Fairphone 6: CKW from the cache and a pull to
+   refresh, as before. The 25 Oct fixtures are still to come (26 Oct).
    - `Region.pricesUrl` becomes `Region.source`, a small sealed type: `Vse(url)` (today's
      regions, unchanged requests) and `EnergyCharts(bzn)`. `fetchPrices(region)` builds the
      request from `fetchPeriod(now, region.zone)` (instants, not dates) and parses by source.
@@ -437,6 +442,8 @@ command above.
      where none publishes one.
    - The whatwatt guide's key line (`WhatwattGuide.kt:37`): "from your grid operator", the CKW
      address only for CKW.
+   - The fetch errors (`priceError` in `MainViewModel.kt`) say "the utility's server"; in spot
+     regions it's the market price's ("the price server").
    - Attribution in the help: "Market prices: Bundesnetzagentur | SMARD.de, via
      energy-charts.info (CC BY 4.0)".
    - README and `full_description.txt`: which layers work where (prices everywhere listed, the
