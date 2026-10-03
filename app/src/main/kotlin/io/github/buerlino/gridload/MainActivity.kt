@@ -32,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -101,7 +102,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = NEUTRAL) {
                 val state by viewModel.state.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
@@ -136,6 +137,38 @@ internal val GREEN = Color(0xFF2E7D32)
 internal val ORANGE = Color(0xFFFFA000)
 internal val RED = Color(0xFFC62828)
 private val GREY = Color(0xFF616161)
+
+/**
+ * Settings, the guide, dialogs and sheets: white, light grey and the panels' dark ink, always
+ * light (user, 2026-10-03), so the colours stay reserved for good, fair and bad.
+ */
+private val NEUTRAL = lightColorScheme(
+    primary = INK,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFE6E8EB),
+    onPrimaryContainer = INK,
+    secondary = INK,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFE6E8EB),
+    onSecondaryContainer = INK,
+    tertiary = INK,
+    onTertiary = Color.White,
+    background = Color.White,
+    onBackground = INK,
+    surface = Color.White,
+    onSurface = INK,
+    surfaceVariant = Color(0xFFEDEEF0),
+    onSurfaceVariant = MUTED,
+    surfaceTint = Color.White,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color.White,
+    surfaceContainer = Color.White,
+    surfaceContainerHigh = Color.White,
+    surfaceContainerHighest = Color(0xFFE6E8EB),
+    outline = Color(0xFF8A9199),
+    outlineVariant = Color(0xFFD5D8DB),
+    error = RED,
+)
 
 private data class Look(val background: Color, val content: Color, val headline: String)
 
@@ -193,7 +226,7 @@ private fun Screen(
                         ) {
                             PeakWindow(state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(false) })
                             // The peak window is above the appliances, so a preview scrolls up to it.
-                            AppliancesPanel(state, viewModel, onPreview = { name ->
+                            if (state.appliancesEnabled) AppliancesPanel(state, viewModel, onPreview = { name ->
                                 viewModel.setPreview(name)
                                 if (name != null) scope.launch { panelScroll.animateScrollTo(0) }
                             })

@@ -74,6 +74,10 @@ data class UiState(
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
     val appliancesOpen: Boolean = true,
+    /** Whether the main screen shows the appliances panel at all (Settings → Mode). */
+    val appliancesEnabled: Boolean = true,
+    /** The Settings sections folded to their summary, by id. */
+    val closedSections: Set<String> = emptySet(),
     /** The measured appliances, and for each (by name) whether to start it now; no advice without a reading, nor for one that can wait without prices. */
     val appliances: List<Appliance> = emptyList(),
     val advice: Map<String, Advice> = emptyMap(),
@@ -160,6 +164,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
             appliancesOpen = prefs.getBoolean(KEY_APPLIANCES_OPEN, true),
+            appliancesEnabled = prefs.getBoolean(KEY_APPLIANCES_ENABLED, true),
+            closedSections = prefs.getStringSet(KEY_SETTINGS_CLOSED, null).orEmpty().toSet(),
             applianceHelpSeen = prefs.getBoolean(KEY_APPLIANCE_HELP_SEEN, false),
             measuring = prefs.getString(KEY_MEASURING, null)?.let { runCatching { parseMeasuring(it) }.getOrNull() },
         ),
@@ -308,6 +314,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAppliancesOpen(open: Boolean) {
         prefs.edit { putBoolean(KEY_APPLIANCES_OPEN, open) }
         _state.update { it.copy(appliancesOpen = open) }
+    }
+
+    /** The appliances switch in Settings; hiding the panel also closes its preview. */
+    fun setAppliancesEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_APPLIANCES_ENABLED, enabled) }
+        _state.update { it.copy(appliancesEnabled = enabled, preview = it.preview.takeIf { enabled }) }
+        derive()
+    }
+
+    fun setSectionOpen(id: String, open: Boolean) {
+        val closed = if (open) _state.value.closedSections - id else _state.value.closedSections + id
+        prefs.edit { putStringSet(KEY_SETTINGS_CLOSED, closed) }
+        _state.update { it.copy(closedSections = closed) }
     }
 
     /** Shows [name]'s run, started now, in the peak window; null hides it. */
@@ -527,5 +546,7 @@ private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_PEAK_OPEN = "peak_open"
 private const val KEY_HISTORY_OPEN = "history_open"
 private const val KEY_APPLIANCES_OPEN = "appliances_open"
+private const val KEY_APPLIANCES_ENABLED = "appliances_enabled"
+private const val KEY_SETTINGS_CLOSED = "settings_closed"
 private const val KEY_APPLIANCE_HELP_SEEN = "appliance_help_seen"
 private const val KEY_MEASURING = "measuring"

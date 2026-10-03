@@ -134,8 +134,8 @@ The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak
 whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
 download measurements are in `research/whatwatt_berry_script.md`. The whatwatt runs on meter
 power: poll it gently (every 5 s while visible), and never download big SD files at full speed
-(it rebooted twice; ≤ 8 KB/s held). Also open: the Measurement/whatwatt categorization (ask
-before touching it).
+(it rebooted twice; ≤ 8 KB/s held). The Settings sections are settled
+(2026-10-03: Region, Measurement with the recorder, Mode with peak load; see `CLAUDE.md`).
 
 Phase 4, the recorder on the whatwatt. Done 2026-10-03: script v2 (version marker, start lines,
 no `print`) as a `:core` resource; `Recorder.kt` (day files, merge, gaps, `checkRecorder`, the
@@ -230,6 +230,23 @@ this month, so only after a `pm clear` or on a fresh phone; checked in the code:
 To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
 the `&quot;` entities).
+
+### Settings and setup guide rework [built 2026-10-03, not released]
+
+The user's list of 2026-10-03; the design is in `CLAUDE.md` under UI ("Settings", "Sections",
+"Setup guide"). Done and seen on the Fairphone 6: the sections as light grey cards that fold to
+a summary (`settings_closed`), ⓘ on every section title, the recorder folded into the
+Measurement card, Mode (📊) with peak load, goal, countdown and the appliances switch
+(`appliances_enabled`), no dividers, the connection block folding by tap with a green Test
+result, the setup guide on the same cards with ← and "n of 2", and the appliances panel's title
+without 🔌, bold. Not seen: a recorder warning in the folded Measurement summary.
+Open, in order:
+1. ~~A theme~~: done 2026-10-03, the user chose "neutral ink", always light (`NEUTRAL` in
+   `MainActivity.kt`); seen in Settings and a dialog. Not yet seen in the appliance sheets.
+2. **Redo the help** (user, 2026-10-03: "at the end"): `HelpContent` has grown long and still
+   says "🔌 Appliances" and "Settings lists them under Recorder". Rework it after the theme,
+   for the current app (sections, Mode, the folded recorder, the appliances switch), and check
+   the ⓘ texts against it.
 
 ### Countries and time zones [built 2026-10-03, not released]
 

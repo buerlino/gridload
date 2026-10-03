@@ -87,7 +87,7 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
         open = state.appliancesOpen,
         onToggle = { viewModel.setAppliancesOpen(!state.appliancesOpen) },
         header = {
-            Text("🔌 Appliances", Modifier.weight(1f), color = INK, fontSize = 16.sp)
+            Text("Appliances", Modifier.weight(1f), color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             if (!state.appliancesOpen) summary(state)?.let { Text(it, color = MUTED, fontSize = 14.sp) }
         },
     ) {
