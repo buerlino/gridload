@@ -45,7 +45,7 @@ GridLoad: an Android app that shows whether now is a good time to run household 
 
 ### UI text
 
-The UI copy is inline Kotlin string literals in `MainActivity.kt`, `PeakWindow.kt`, `HistoryPanel.kt`, `SettingsScreen.kt`, `WhatwattGuide.kt`, `MainViewModel.kt` and `WhatwattMeter.kt`. No `strings.xml`: the app is English-only, and the user chose to reword in place (2026-09-30); extracting the strings stays an optional later step.
+The UI copy is inline Kotlin string literals in `MainActivity.kt`, `PeakWindow.kt`, `HistoryPanel.kt`, `Charts.kt`, `SettingsScreen.kt`, `WhatwattGuide.kt`, `MainViewModel.kt` and `WhatwattMeter.kt`. No `strings.xml`: the app is English-only, and the user chose to reword in place (2026-09-30); extracting the strings stays an optional later step.
 
 Rules (user, 2026-09-30 and 2026-10-02):
 - Short, one idea per line. Drop anything the screen already shows.

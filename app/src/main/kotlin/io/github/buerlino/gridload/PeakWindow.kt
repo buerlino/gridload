@@ -1,40 +1,21 @@
 package io.github.buerlino.gridload
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.PowerUnit
@@ -46,11 +27,6 @@ import kotlin.math.ceil
 
 /** How many recorded quarter hours are shown left of the current one. */
 const val PAST_BARS = 2
-
-internal val INK = Color(0xFF1C2126)
-internal val MUTED = Color(0xFF5B646D)
-internal val BAR = Color(0xFF37474F)
-internal val PAST_BAR = Color(0xFFB0BEC5)
 
 /**
  * Peak load's white panel under the spot price. Its header says how much more fits under the
@@ -124,35 +100,6 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onOpenSettings: () -> Unit)
     }
 }
 
-/**
- * A white panel on the main screen: a header row that collapses and expands it ([onToggle]),
- * then [content], which decides itself what shows when collapsed.
- */
-@Composable
-internal fun Panel(
-    open: Boolean,
-    onToggle: () -> Unit,
-    header: @Composable RowScope.() -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        Modifier.fillMaxWidth().widthIn(max = 420.dp).background(Color.White, RoundedCornerShape(16.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                .clickable(onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            header()
-            Text(if (open) "▴" else "▾", color = MUTED, fontSize = 20.sp)
-        }
-        content()
-    }
-}
-
 private const val OVER = "This quarter hour sets a new peak."
 private const val NEAR = "Close to a new peak. Wait a bit."
 
@@ -163,9 +110,6 @@ private fun Warning(text: String, modifier: Modifier) = Text(text, modifier, col
 private fun Note(text: String) = Text(text, color = MUTED, fontSize = 12.sp, lineHeight = 15.sp)
 
 private fun minutesLeft(end: Instant) = ceil(Duration.between(Instant.now(), end).seconds / 60.0).toInt().coerceAtLeast(1)
-
-/** A whole number of kW on a scale's axis: "2", or "2000" in W. */
-internal fun tickLabel(kw: Int, unit: PowerUnit) = if (unit == PowerUnit.W) "${kw * 1000}" else "$kw"
 
 /** One column of the scale: a recorded quarter hour, or the current one projected; [kw] null when unknown. */
 private class Bar(val kw: Double?, val label: String, val current: Boolean)
@@ -179,44 +123,30 @@ private class Bar(val kw: Double?, val label: String, val current: Boolean)
 private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double?, warning: Boolean, unit: PowerUnit) {
     val measurer = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(180.dp)) {
-        val maxKw = ceil(maxOf(maxOf(line ?: 0.0, bars.maxOf { it.kw ?: 0.0 }) * 1.15, 1.0)).toInt()
-        val step = if (maxKw > 8) 2 else 1
-        val top = 22.dp.toPx()
         val bottom = size.height - 18.dp.toPx()
-        val small = TextStyle(color = MUTED, fontSize = 10.sp)
-        val ticks = (0..maxKw step step).map { it to measurer.measure(tickLabel(it, unit), small) }
-        val unitLabel = measurer.measure(unit.id, small)
-        val axisX = maxOf(ticks.maxOf { it.second.size.width }, unitLabel.size.width) + 6.dp.toPx()
+        val axis = Axis(measurer, unit, maxOf(line ?: 0.0, bars.maxOf { it.kw ?: 0.0 }), 22.dp.toPx(), bottom, 6.dp.toPx())
         val gap = 8.dp.toPx()
         // The current quarter hour is 1.6 times as wide as the past ones, so it stands out.
         val widths = bars.map { if (it.current) 45.dp.toPx() else 28.dp.toPx() }
-        val xs = widths.runningFold(axisX + 10.dp.toPx()) { x, w -> x + w + gap }
+        val xs = widths.runningFold(axis.x + 10.dp.toPx()) { x, w -> x + w + gap }
         val linesEnd = xs.last() - gap + 6.dp.toPx()
         val labelX = linesEnd + 8.dp.toPx()
-        fun y(kw: Double) = bottom - (kw / maxKw * (bottom - top)).toFloat()
-        val lineYs = listOfNotNull(highest, goal).map { y(it) }
+        val lineYs = listOfNotNull(highest, goal).map { axis.y(it) }
         val halfLine = 1.5.dp.toPx()
         fun clearOfLines(top: Float, height: Int) = lineYs.none { it + halfLine > top && it - halfLine < top + height }
-
-        for ((k, r) in ticks) {
-            drawText(r, topLeft = Offset(axisX - 6.dp.toPx() - r.size.width, y(k.toDouble()) - r.size.height / 2))
-            drawLine(MUTED, Offset(axisX, y(k.toDouble())), Offset(axisX + 4.dp.toPx(), y(k.toDouble())), 1.dp.toPx())
-        }
-        drawText(unitLabel, topLeft = Offset(axisX - 6.dp.toPx() - unitLabel.size.width, 0f))
-        drawLine(MUTED, Offset(axisX, top), Offset(axisX, bottom), 1.dp.toPx())
-        drawLine(MUTED, Offset(axisX, bottom), Offset(linesEnd, bottom), 1.dp.toPx())
+        axis.draw(this, linesEnd)
 
         bars.forEachIndexed { i, bar ->
             val x = xs[i]
             val barW = widths[i]
-            val label = measurer.measure(bar.label, small)
+            val label = measurer.measure(bar.label, SMALL)
             drawText(label, topLeft = Offset(x + (barW - label.size.width) / 2, bottom + 3.dp.toPx()))
             if (bar.kw == null) {
-                val dash = measurer.measure("–", small)
+                val dash = measurer.measure("–", SMALL)
                 drawText(dash, topLeft = Offset(x + (barW - dash.size.width) / 2, bottom - dash.size.height))
                 return@forEachIndexed
             }
-            val barTop = y(bar.kw)
+            val barTop = axis.y(bar.kw)
             val color = if (!bar.current) PAST_BAR else if (warning) RED else BAR
             drawRect(color, Offset(x, barTop), Size(barW, bottom - barTop))
             // Above the bar, moved up past any line it would touch.
@@ -227,37 +157,12 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
             drawText(value, topLeft = Offset(x + (barW - value.size.width) / 2, valueTop))
         }
 
-        highest?.let { drawLine(INK, Offset(axisX, y(it)), Offset(linesEnd, y(it)), 2.5.dp.toPx()) }
-        goal?.let {
-            val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))
-            drawLine(INK, Offset(axisX, y(it)), Offset(linesEnd, y(it)), 1.5.dp.toPx(), pathEffect = dash)
-        }
-
-        val width = Constraints(maxWidth = (size.width - labelX).toInt().coerceAtLeast(1))
-        val labelStyle = TextStyle(color = INK, fontSize = 12.sp, lineHeight = 14.sp)
-        fun label(kw: Double, what: String) = measurer.measure(buildAnnotatedString {
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(unit.number(kw)) }
-            append(" $what")
-        }, labelStyle, constraints = width)
-        val labels = listOfNotNull(highest?.let { y(it) to label(it, "highest") }, goal?.let { y(it) to label(it, "goal") })
-            .sortedBy { it.first }
+        drawLines(axis, highest, goal, linesEnd)
+        val width = (size.width - labelX).toInt()
+        val labels = listOfNotNull(
+            highest?.let { axis.y(it) to lineLabel(measurer, unit, it, "highest", width) },
+            goal?.let { axis.y(it) to lineLabel(measurer, unit, it, "goal", width) },
+        )
         drawLabels(labels, labelX)
     }
-}
-
-/** Draws [labels] (wanted centre y, text) at [x], pushed apart where they would overlap. */
-internal fun DrawScope.drawLabels(labels: List<Pair<Float, TextLayoutResult>>, x: Float) {
-    val space = 2.dp.toPx()
-    val tops = FloatArray(labels.size)
-    var minTop = 0f
-    labels.forEachIndexed { i, (centre, text) ->
-        tops[i] = maxOf(centre - text.size.height / 2, minTop)
-        minTop = tops[i] + text.size.height + space
-    }
-    var maxBottom = size.height
-    for (i in labels.indices.reversed()) {
-        tops[i] = minOf(tops[i], maxBottom - labels[i].second.size.height)
-        maxBottom = tops[i] - space
-    }
-    labels.forEachIndexed { i, (_, text) -> drawText(text, topLeft = Offset(x, tops[i])) }
 }

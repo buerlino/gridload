@@ -163,12 +163,15 @@ Quick check of the uncommitted panels work: lint 0 issues, tests green, the only
 deprecation is still a plugin's. No leftovers of the dropped scale switch or `roundKw`.
 - [x] 1.1 `Note` was made `internal` without need; private again.
 - [x] 1.2 `CLAUDE.md` UI text: the file list was missing `HistoryPanel.kt` and `WhatwattGuide.kt`.
-- [ ] 2.1 `Scale` (`PeakWindow.kt`) and `DayBars` (`HistoryPanel.kt`) repeat the y axis (maxKw
+- [x] 2.1 `Scale` (`PeakWindow.kt`) and `DayBars` (`HistoryPanel.kt`) repeat the y axis (maxKw
   and step, ticks, unit label, axis lines) and the "0.9 highest" / "goal" labels, ~25 lines.
   Extract a shared `drawAxis` and `lineLabel` while the history chart is reworked; the shared
   panel pieces (`Panel`, colours, `tickLabel`, `drawLabels`) could then move from
   `PeakWindow.kt` to a small `Charts.kt`.
 - [ ] 2.2 Store screenshots show the Refresh button and the old peak window: retake before the
   next release.
+- Done 2.1: `Charts.kt` holds `Panel`, the colours, `SMALL`, `Axis` (ticks, unit, axis lines,
+  `y()`), `drawLines`, `lineLabel` and `drawLabels` (which now sorts by itself); `tickLabel` is
+  folded into `Axis`. The history's highest line is now 2.5 dp like the peak window's (was 2).
 - Accepted: `peak_scale_without_reading` stays in existing prefs, unread (removing it would need
   migration code for nothing).

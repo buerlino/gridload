@@ -20,7 +20,7 @@ in git.
 - **Architecture:** single Activity. `:core` (plain Kotlin/JVM, no Android) holds the logic, all
   unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm),
   `WhatwattMeter` (reading, recording, the Test) and the screens: main (`MainActivity.kt`,
-  `PeakWindow.kt`, `HistoryPanel.kt`), Settings and the setup guide (`SettingsScreen.kt`).
+  `PeakWindow.kt`, `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), Settings and the setup guide (`SettingsScreen.kt`).
 - **No background work** and no accounts, cloud or optimization engine.
 
 ## Working on the phone
@@ -154,7 +154,7 @@ Unknowns to check when they matter: whether Berry needs the Plus licence; the mi
 in Test or the recorder check is a possible next step, ask the user); the values of
 `execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
 
-### Panels and history [steps 1 to 4 built 2026-10-03, not committed; step 5 docs done]
+### Panels and history [built and tested 2026-10-03, committed; release next]
 
 Making room for the history on the main screen (user, 2026-10-03; the design is in `CLAUDE.md`
 under UI, "Power unit" and "History"). In order:
@@ -171,9 +171,13 @@ under UI, "Power unit" and "History"). In order:
 
 Tested on the Fairphone 6 (2026-10-03): collapse, scrolling with both open (`adb shell wm size
 1116x1500` to force it, `wm size reset` after), pull to refresh and the blocked pull, ↻ dimmed,
-W, recorder details, first start with the SIM's country. Not yet seen on the phone: the
-peak window without a reading, the red header near a peak, the guide starting each step at its
-top (fixed after the test).
+W, recorder details, first start with the SIM's country. Seen on the phone too (2026-10-03, after the
+`Charts.kt` refactor): the peak window without a reading (wrong address in the prefs), the red
+"kW over" header and warning, open and collapsed, and the guide's Region step back at its top
+after Measurement.
+
+History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-value (too thin to
+hit). The dark bar marks the month's highest, which is today's so far.
 
 Later: the appliance calculator (design with the user first, see `CLAUDE.md`).
 
