@@ -110,15 +110,19 @@ utilities' APIs), category `Market & Price`, `GPL-3.0-only`, `Binaries` +
 `AllowedAPKSigningKeys` for reproducible builds. The pipeline is green: `fdroid build` (Debian
 13, JDK 21 by default, so no `sudo` block) and the reproducible-build check.
 
-The recipe is at v0.6.0 (versionCode 8, the user's fork commit `6aeacf167`); the reviewer's
-R8 request was answered with v0.3.1. Auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode:
-Version`) builds v0.7.0 and later once merged. Before moving the recipe to a new version:
+The recipe is at v0.10.0 (versionCode 12, the user's fork commit `cb4172fe1`, pushed
+2026-10-03; its pipeline was still running when the session ended, so check it); the reviewer's
+R8 request was answered with v0.3.1. The second review (2026-10-03) asked for a current version
+and corrected "no native code" (the APK has AndroidX's `libandroidx.graphics.path.so`, ~10 KB
+per ABI; the MR description now says so). The NonFreeNet text now also names the whatwatt and
+its paid Plus licence. Auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) builds
+later tags once merged. Before moving the recipe to a new version:
 check that the GitHub APK's signer matches `AllowedAPKSigningKeys` and that its contents equal
 an unsigned build of the tag (all entries outside `META-INF/`), then commit in the clone at
 `../fdroiddata`. Pushing to the fork needs a GitLab token (`write_repository`) as the password;
 the fork has no credential helper.
 
-Next: answer reviewer comments. The user posts on GitLab (it's public under their name);
+Next: on-device testing by the reviewer; answer further comments. The user posts on GitLab (it's public under their name);
 Claude drafts the answers and any recipe changes, and can check the merge request and
 pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
@@ -203,7 +207,10 @@ Still open:
      "Cheaper · Delay 3 h" (evening prices; checks 1.3's rounding and 1.4's separator); the
      row before tomorrow's prices are out (1.5, before 12:00 for CKW).
    - The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
-   - Store screenshots without the appliances panel: retake before F-Droid ships it.
+   - ~~Store screenshots~~: done 2026-10-03 on the Fairphone 6, demo mode, "Kettle 1L test"
+     hidden for the shots: 1 main screen with the appliances, 2 the "Cooking" preview, 3
+     scrolled (strip, appliances, history), 4 help and 5 Settings kept from v0.9. F-Droid takes
+     them from the built tag, so they show there from the first tag after v0.10.0.
 2. Left to the user: the setup help's "The result shows up to 15 minutes later." is still true,
    though the result now usually comes at once (the user's text).
 
