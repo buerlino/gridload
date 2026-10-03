@@ -136,7 +136,7 @@ Why the next 24 hours (checked 2026-09-29 on 1 Aug to 30 Sep 2026): you can't ru
 
 ## Peak load with whatwatt
 
-Built step by step, as the user decides. Released in v0.7.0 (phases 1 to 3); phase 4 (the recorder) is built, not released.
+Built step by step, as the user decides. Released in v0.7.0 (phases 1 to 3) and v0.8.0 (phase 4, the recorder).
 
 ### Household and tariff
 
@@ -208,12 +208,12 @@ Raw responses are in `private/` (gitignored; they contain the meter's id): `what
 1. The whatwatt step, Settings card, cost line and "not reachable" line (`core/.../Whatwatt.kt`): done, v0.7.0.
 2. Live reading and recording (`core/.../Quarters.kt`): done, v0.7.0. Checked against the SD log, interpolated the same way: 18:15 quarter 0.0270 kWh in the app, 0.0265 on the SD card; 18:45 quarter 0.0852 against 0.0856, within the register's 0.001 kWh.
 3. The peak window and the in-app alarm (`PeakWindow.kt`): done, v0.7.0.
-4. The recorder on the whatwatt: built 2026-10-03 (script v2, install/update/start/remove, the sync, the warnings; the app's own recording removed, no fallback). Validated overnight on 2026-10-03: 32 quarters within 0.0012 kWh of the CSV log, only the two restart quarters missing, no reboot. Open: the DST night (25 Oct 2026) and a release. Details in the skill.
+4. The recorder on the whatwatt: done 2026-10-03 (script v2, install/update/start/remove, the sync, the warnings; the app's own recording removed, no fallback). Validated overnight on 2026-10-03 (32 quarters within 0.0012 kWh of the CSV log, no reboot) and on the device (Install, Stop/Start, Remove). Released in v0.8.0. Open: the DST night (25 Oct 2026). Details in the skill.
 5. Later, if wanted: a background alarm (it needs a service polling the whatwatt, the notification permission and local network access in the background). Remote access already works without app changes over a Tailscale subnet route: [research/tailscale_remote_whatwatt.md](research/tailscale_remote_whatwatt.md).
 
 ## Current state
 
-Released: **v0.7.0** (tag `v0.7.0`, versionCode 9, 2026-10-02: the whatwatt, peak load and the UI rework) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review, with the recipe at v0.6.0 (user, 2026-10-02); auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) picks up v0.7.0 and later tags once merged. Built, not released: whatwatt phase 4, the recorder on the whatwatt (v0.8.0 when released). iOS is out of scope for now. The user gives further instructions step by step; the roadmap and each phase's status are in the skill.
+Released: **v0.8.0** (tag `v0.8.0`, versionCode 10, 2026-10-03: the recorder on the whatwatt, the whatwatt guide); before it v0.7.0 (versionCode 9, 2026-10-02: the whatwatt, peak load and the UI rework) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review, with the recipe at v0.6.0 (user, 2026-10-02); auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) picks up v0.7.0 and later tags once merged. iOS is out of scope for now. The user gives further instructions step by step; the roadmap and each phase's status are in the skill.
 
 ## Conventions
 

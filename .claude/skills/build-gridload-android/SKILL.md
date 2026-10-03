@@ -120,7 +120,7 @@ Next: answer reviewer comments. The user posts on GitLab (it's public under thei
 Claude drafts the answers and any recipe changes, and can check the merge request and
 pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, built 2026-10-03, not released]
+### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, in v0.8.0]
 
 The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak load with
 whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
@@ -147,8 +147,7 @@ Open, in order:
    quarter, so a fresh gap can take that long to show.
 3. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
    file just has 100 lines; check it.
-4. **Release v0.8.0** when the user asks (changelog: the recorder, no more "seen only while open",
-   the v0.7 quarters are deleted).
+4. ~~Release v0.8.0~~: tagged 2026-10-03 (store screenshots 1 and 3 retaken).
 
 Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
 (user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
