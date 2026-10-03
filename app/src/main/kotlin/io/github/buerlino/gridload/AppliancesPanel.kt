@@ -125,7 +125,7 @@ private fun summary(state: UiState): String? {
 /** The row's line under the name: why WAIT and when, or that only the peak was judged. */
 internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant): String? = when (advice) {
     is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
-    is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak at any start"
+    is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak right now"
     is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
 }
 
@@ -272,7 +272,8 @@ private fun MeasureHelp(onDismiss: () -> Unit) {
 }
 
 /**
- * Adds an appliance ([initial] has no name) or edits one: its name, Can wait and Start delay.
+ * Adds an appliance ([initial] has no name) or edits one: its name, Can wait, Counts for the
+ * limit and Start delay.
  * A new one is measured with Start; an existing one shows its curve and can be measured again or
  * deleted. ⓘ in the title reopens the setup help.
  */
@@ -281,12 +282,13 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
     val isNew = initial.name.isEmpty()
     var name by remember { mutableStateOf(initial.name) }
     var canWait by remember { mutableStateOf(initial.canWait) }
+    var countsForLimit by remember { mutableStateOf(initial.countsForLimit) }
     var delay by remember { mutableIntStateOf(initial.delayMinutes) }
     var confirmDelete by remember { mutableStateOf(false) }
     var variant by remember { mutableStateOf(false) }
     val trimmed = name.trim()
     val taken = trimmed != initial.name && (state.appliances.any { it.name == trimmed } || state.measuring?.appliance?.name == trimmed)
-    val edited = initial.copy(name = trimmed, canWait = canWait, delayMinutes = delay)
+    val edited = initial.copy(name = trimmed, canWait = canWait, delayMinutes = delay, countsForLimit = countsForLimit)
     val recorder = state.meter.recorder
     // Why a measurement can't start now, if it can't.
     val blocked = when {
@@ -339,6 +341,10 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Can wait", Modifier.weight(1f))
                     Switch(checked = canWait, onCheckedChange = { canWait = it })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Counts for the limit", Modifier.weight(1f))
+                    Switch(checked = countsForLimit, onCheckedChange = { countsForLimit = it })
                 }
                 Text("Start delay")
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {

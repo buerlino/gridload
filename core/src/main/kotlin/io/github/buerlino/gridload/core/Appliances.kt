@@ -18,7 +18,8 @@ data class Piece(val min: Double, val kw: Double)
 /**
  * A measured appliance; its name is the key. [curve] is its extra draw, piece after piece from
  * the start. [canWait]: the price counts too, not only the peak. [delayMinutes]: the step of the
- * appliance's start delay (0 = none), so the advice is a delay to set on it.
+ * appliance's start delay (0 = none), so the advice is a delay to set on it. [countsForLimit]:
+ * its heaviest quarter hour can raise the limit ([peakFloor]).
  */
 @Serializable
 data class Appliance(
@@ -26,12 +27,32 @@ data class Appliance(
     val curve: List<Piece>,
     val canWait: Boolean = true,
     val delayMinutes: Int = 0,
+    val countsForLimit: Boolean = true,
 )
 
 /** A curve's run time, its energy and its power (the highest piece). */
 val List<Piece>.minutes: Double get() = sumOf { it.min }
 val List<Piece>.kwh: Double get() = sumOf { it.min * it.kw } / 60
 val List<Piece>.kw: Double get() = maxOf { it.kw }
+
+/**
+ * The curve's heaviest quarter hour on its own, as an average kW: the most it draws in any 15
+ * minutes, so wherever in a quarter hour it starts. The most is where the 15 minutes start or end
+ * at a change between pieces.
+ */
+val List<Piece>.heaviestQuarterKw: Double get() =
+    runningFold(0.0) { t, piece -> t + piece.min }.flatMap { listOf(it, it - 15) }.maxOf { kwhBetween(it, it + 15) } * 4
+
+/** The floor's margin above the biggest appliance, for the house's base draw and some variation. */
+const val FLOOR_MARGIN = 1.2
+
+/**
+ * The lowest the limit goes: the heaviest quarter hour of the biggest appliance that counts for
+ * it, plus [FLOOR_MARGIN]. That appliance sets a peak this high by itself, so it shouldn't wait
+ * for one; only stacking others on it should. Null with none.
+ */
+fun peakFloor(appliances: List<Appliance>): Double? =
+    appliances.filter { it.countsForLimit }.maxOfOrNull { it.curve.heaviestQuarterKw }?.times(FLOOR_MARGIN)
 
 /** Tap water's temperature, for [waterShare]. */
 private const val TAP_CELSIUS = 15.0
@@ -216,7 +237,7 @@ fun Appliance.quarterLoads(start: Instant, peak: PeakNow): List<QuarterLoad> {
     }.toList()
 }
 
-/** Whether starting at [start] keeps every quarter hour of the run below the peak window's warning. */
+/** Whether starting at [start] keeps every quarter hour of the run below the limit. */
 internal fun Appliance.fitsPeak(start: Instant, peak: PeakNow): Boolean {
     val line = peak.line ?: return true
     return quarterLoads(start, peak).none { isPeakWarning(it.kw, line) }
@@ -250,7 +271,7 @@ sealed interface Advice {
 
 /**
  * Whether to start [appliance] now. A start is fine when no quarter hour of the run reaches the
- * peak window's warning and, if it can wait, its run price is in the cheapest third of all
+ * limit and, if it can wait, its run price is in the cheapest third of all
  * candidate starts' (the main colour's thirds). Only runs within the known prices compete; when
  * even starting now runs past them, the price isn't judged. When every cheaper start sets a new
  * peak, now is the best that fits. With no prices at all, one that can wait gets no advice (null),

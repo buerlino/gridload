@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -104,36 +103,16 @@ internal class Axis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, priv
     }
 }
 
-/** The month's highest (solid) and the goal (dashed) across the chart from the axis to [end]. */
-internal fun DrawScope.drawLines(axis: Axis, highest: Double?, goal: Double?, end: Float) {
-    highest?.let { drawLine(INK, Offset(axis.x, axis.y(it)), Offset(end, axis.y(it)), 2.5.dp.toPx()) }
-    goal?.let {
-        val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))
-        drawLine(INK, Offset(axis.x, axis.y(it)), Offset(end, axis.y(it)), 1.5.dp.toPx(), pathEffect = dash)
-    }
-}
-
-/** A line's label, "**0.9** highest", wrapped within [maxWidth] px. */
-internal fun lineLabel(measurer: TextMeasurer, unit: PowerUnit, kw: Double, what: String, maxWidth: Int) =
+/** A label for the limit, "**0.9** limit", wrapped within [maxWidth] px. */
+internal fun limitLabel(measurer: TextMeasurer, unit: PowerUnit, kw: Double, maxWidth: Int) =
     measurer.measure(buildAnnotatedString {
         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(unit.number(kw)) }
-        append(" $what")
+        append(" limit")
     }, TextStyle(color = INK, fontSize = 12.sp, lineHeight = 14.sp), constraints = Constraints(maxWidth = maxWidth.coerceAtLeast(1)))
 
-/** Draws [labels] (wanted centre y, text) at [x], pushed apart where they would overlap. */
-internal fun DrawScope.drawLabels(labels: List<Pair<Float, TextLayoutResult>>, x: Float) {
-    val sorted = labels.sortedBy { it.first }
-    val space = 2.dp.toPx()
-    val tops = FloatArray(sorted.size)
-    var minTop = 0f
-    sorted.forEachIndexed { i, (centre, text) ->
-        tops[i] = maxOf(centre - text.size.height / 2, minTop)
-        minTop = tops[i] + text.size.height + space
-    }
-    var maxBottom = size.height
-    for (i in sorted.indices.reversed()) {
-        tops[i] = minOf(tops[i], maxBottom - sorted[i].second.size.height)
-        maxBottom = tops[i] - space
-    }
-    sorted.forEachIndexed { i, (_, text) -> drawText(text, topLeft = Offset(x, tops[i])) }
+/** The limit at [kw] across the chart from the axis to [end], with its [label] at [labelX], kept within the chart. */
+internal fun DrawScope.drawLimit(axis: Axis, kw: Double, label: TextLayoutResult, end: Float, labelX: Float) {
+    val y = axis.y(kw)
+    drawLine(INK, Offset(axis.x, y), Offset(end, y), 2.5.dp.toPx())
+    drawText(label, topLeft = Offset(labelX, (y - label.size.height / 2).coerceIn(0f, size.height - label.size.height)))
 }

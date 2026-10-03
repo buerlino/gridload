@@ -88,7 +88,7 @@ private val MODE_INFO = Info(
     "Mode",
     "Without peak load, GridLoad shows the price and what you use now.\n\n" +
         "Peak load: some grid tariffs also charge for the month's highest quarter hour, your average kW over 15 minutes. " +
-        "A scale shows this quarter hour, the hour before and the month's highest. Close to a new peak, the bar turns red " +
+        "A scale shows this quarter hour, the hour before and the limit not to pass. At the limit, the bar turns red " +
         "and the phone vibrates. Your appliances say whether they fit, and the history shows each day's highest. It needs " +
         "GridLoad's recorder on the whatwatt, and an SD card in it.",
 )
@@ -100,12 +100,14 @@ private val RECORDER_INFO = Info(
 )
 private val GOAL_INFO = Info(
     "Goal",
-    "Off: the line not to pass is this month's highest quarter hour. On: your own value. The line is then the higher " +
-        "of the two, since everything up to the month's highest is billed anyway.",
+    "The limit not to pass is the highest of this month's highest quarter hour, your biggest appliance's plus 20%, " +
+        "and the goal when it's on. Everything up to the month's highest is billed anyway, and the biggest appliance sets " +
+        "such a peak by itself. A goal raises the limit, e.g. to what you expect to need this month.",
 )
 private val APPLIANCES_INFO = Info(
     "Appliances",
-    "On: the main screen shows your measured appliances, each with OK or WAIT. Off hides the panel; the appliances stay. " +
+    "On: the main screen shows your measured appliances, each with OK or WAIT, and the biggest can raise the limit. " +
+        "Off hides the panel; the appliances stay. " +
         "Export saves them to a file, so you don't have to measure them again on a new phone. Import adds them from such " +
         "a file; one with the same name is replaced.",
 )
@@ -467,7 +469,7 @@ private fun UnitRow(unit: PowerUnit, onUnit: (PowerUnit) -> Unit) {
     }
 }
 
-/** The goal in the power unit, first filled with last month's highest. Blank leaves only the month's highest. */
+/** The goal in the power unit, first filled with last month's highest. Blank: it doesn't count for the limit. */
 @Composable
 private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
     val unit = state.powerUnit

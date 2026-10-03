@@ -2,7 +2,6 @@ package io.github.buerlino.gridload
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
@@ -41,10 +40,10 @@ private val APPLIANCE = Color(0xFF1E88E5)
 
 /**
  * Peak load's white panel under the spot price. Its header says how much more fits under the
- * line ("1.3 kW free"), with the minutes left in this quarter hour if switched on; open, the
- * scale shows the past quarter hours, this one projected in the middle, room for the coming
- * ones, the goal and the month's highest. The bar and the header turn red within 10% of the
- * line. Without a line (no goal, nothing recorded yet) the header shows the draw now. The
+ * limit ("1.3 kW free", [peakLine]), with the minutes left in this quarter hour if switched on;
+ * open, the scale shows the past quarter hours, this one projected in the middle, room for the
+ * coming ones, and the limit. The bar and the header turn red at the limit. Without one (no
+ * goal, no appliance, nothing recorded yet) the header shows the draw now. The
  * warning and what's wrong with the recorder (tap it for Settings) show collapsed too, so the
  * alarm is never hidden. With a preview (an appliance row tapped), the coming quarter hours
  * show its run started now on top of the house, and the header the tightest of them.
@@ -59,16 +58,11 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
     val preview = state.preview?.takeIf { projection != null }
     val loads = state.previewLoads.associateBy { it.start }
     fun warns(kw: Double) = line != null && isPeakWarning(kw, line)
-    // From the values as drawn, so "0.9 highest" and a "0.8" bar give "0.1 kW free". With a
-    // preview, from the run's highest quarter hour.
+    // From the values as drawn, so "0.9 limit" and a "0.8" bar give "0.1 kW free". With a
+    // preview, from the run's highest quarter hour. Red from the exact values.
     val drawn = if (preview != null) state.previewLoads.maxOf { it.kw } else projection?.kw
     val free = if (drawn != null && line != null) unit.round(line) - unit.round(drawn) else null
-    val warning = when {
-        free != null && free < 0 -> OVER
-        preview == null && state.peakWarning -> NEAR
-        else -> null
-    }
-    val red = warning != null || (preview != null && state.previewLoads.any { warns(it.kw) })
+    val red = if (preview != null) state.previewLoads.any { warns(it.kw) } else state.peakWarning
     Panel(
         open = state.peakOpen || preview != null,
         onToggle = if (preview != null) onClosePreview else onToggle,
@@ -107,7 +101,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                 val load = loads[start]
                 Bar(load?.houseKw, timeFormat.format(start), load?.addedKw ?: 0.0, coming = true, warning = load != null && warns(load.kw))
             }
-            Scale(past + now + coming, state.activeGoalKw, meter.highest?.kw, line, unit)
+            Scale(past + now + coming, line, unit)
             if (preview != null) {
                 Note(buildAnnotatedString {
                     withStyle(SpanStyle(color = BAR)) { append("■") }
@@ -126,19 +120,15 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                     if (advice is Advice.NewPeak) Warning(text, Modifier) else Text(text, color = INK, fontSize = 14.sp)
                 }
             } else if (projection != null && line != null) {
-                // Both always laid out, so the panel keeps its height when a warning comes or goes.
-                Box {
-                    for (text in listOf(OVER, NEAR)) {
-                        Warning(text, if (text == warning) Modifier else Modifier.alpha(0f).clearAndSetSemantics {})
-                    }
-                }
+                // Always laid out, so the panel keeps its height when the warning comes or goes.
+                Warning(OVER, if (red) Modifier else Modifier.alpha(0f).clearAndSetSemantics {})
             }
             // In its first minute the recorder's line for the quarter before may still be on its way.
             if (projection?.estimated == true && Duration.between(projection.start, Instant.now()).seconds >= 60) {
                 Note("Estimated: the recorder has no start for this quarter hour.")
             }
-        } else {
-            warning?.let { Warning(it, Modifier) }
+        } else if (red) {
+            Warning(OVER, Modifier)
         }
         meter.recorder?.takeIf { meter.problem == null }?.let { check ->
             val text = meter.recorderAction ?: recorderLine(check)
@@ -152,7 +142,6 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
 }
 
 private const val OVER = "This quarter hour sets a new peak."
-private const val NEAR = "Close to a new peak. Wait a bit."
 
 @Composable
 private fun Warning(text: String, modifier: Modifier) = Text(text, modifier, color = RED, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -168,7 +157,7 @@ private fun minutesLeft(end: Instant) = ceil(Duration.between(Instant.now(), end
 /**
  * One column of the scale: a recorded quarter hour, the current one projected, or a coming one.
  * [kw] is the house's, null when unknown (a coming one then stays empty); [addedKw] an
- * appliance's on top in the preview. [warning]: close to the line, so it's drawn red.
+ * appliance's on top in the preview. [warning]: at the limit, so it's drawn red.
  */
 private class Bar(
     val kw: Double?,
@@ -181,11 +170,10 @@ private class Bar(
 
 /**
  * The vertical scale in [unit]: the bars side by side, the current one in the middle and wider,
- * with the month's highest (solid) and the goal (dashed) across them and labelled to the right.
- * [line], the higher of the two, sets the height with the bars. Each value sits above its bar.
+ * with the limit ([line]) across them and labelled to the right. Each value sits above its bar.
  */
 @Composable
-private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double?, unit: PowerUnit) {
+private fun Scale(bars: List<Bar>, line: Double?, unit: PowerUnit) {
     val measurer = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(180.dp)) {
         val bottom = size.height - 18.dp.toPx()
@@ -199,7 +187,7 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
         val xs = widths.runningFold(start) { x, w -> x + w + gap }
         val linesEnd = xs.last() - gap + 6.dp.toPx()
         val labelX = linesEnd + 8.dp.toPx()
-        val lineYs = listOfNotNull(highest, goal).map { axis.y(it) }
+        val lineYs = listOfNotNull(line).map { axis.y(it) }
         val halfLine = 1.5.dp.toPx()
         fun clearOfLines(top: Float, height: Int) = lineYs.none { it + halfLine > top && it - halfLine < top + height }
         axis.draw(this, linesEnd)
@@ -232,12 +220,6 @@ private fun Scale(bars: List<Bar>, goal: Double?, highest: Double?, line: Double
             drawText(value, topLeft = Offset(x + (barW - value.size.width) / 2, valueTop))
         }
 
-        drawLines(axis, highest, goal, linesEnd)
-        val width = (size.width - labelX).toInt()
-        val labels = listOfNotNull(
-            highest?.let { axis.y(it) to lineLabel(measurer, unit, it, "highest", width) },
-            goal?.let { axis.y(it) to lineLabel(measurer, unit, it, "goal", width) },
-        )
-        drawLabels(labels, labelX)
+        line?.let { drawLimit(axis, it, limitLabel(measurer, unit, it, (size.width - labelX).toInt()), linesEnd, labelX) }
     }
 }

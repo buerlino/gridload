@@ -39,6 +39,7 @@ import io.github.buerlino.gridload.core.mergeAppliances
 import io.github.buerlino.gridload.core.parseAppliances
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
+import io.github.buerlino.gridload.core.peakFloor
 import io.github.buerlino.gridload.core.peakLine
 import io.github.buerlino.gridload.core.quarterLoads
 import io.github.buerlino.gridload.core.reachedServer
@@ -65,7 +66,7 @@ data class UiState(
     val meter: MeterState = MeterState(),
     /** The peak load switch; it counts only while the whatwatt is on. */
     val peakEnabled: Boolean = false,
-    /** The goal switch and its value in kW; with it off, or blank, the line is the month's highest. */
+    /** The goal switch and its value in kW; off, or blank, it doesn't count for the limit. */
     val goalEnabled: Boolean = false,
     val goalKw: Double? = null,
     /** Show the minutes left in this quarter hour in the peak window's header. */
@@ -100,9 +101,9 @@ data class UiState(
     /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
     val cooldownEnd: Instant? = null,
 ) {
-    val activeGoalKw: Double? get() = goalKw?.takeIf { goalEnabled }
-    val peakLine: Double? get() = peakLine(activeGoalKw, meter.highest)
-    /** Whether this quarter hour's projection is close to the line (or over it): the bar turns red. */
+    /** The limit: the goal (when on), the floor from the appliances (while their panel shows) or the month's highest, whichever is highest. */
+    val peakLine: Double? get() = peakLine(goalKw?.takeIf { goalEnabled }, peakFloor(appliances).takeIf { appliancesEnabled }, meter.highest)
+    /** Whether this quarter hour's projection reaches the limit: the bar turns red. */
     val peakWarning: Boolean get() {
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
@@ -120,7 +121,7 @@ data class UiState(
  * The region, the whatwatt and peak load settings, and "first start done" are saved in SharedPreferences.
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read by [WhatwattMeter]; with peak load on, the phone vibrates
- * once per quarter hour when it comes close to a new peak; the quarter hours come from the
+ * once per quarter hour when it reaches the limit; the quarter hours come from the
  * recorder on the whatwatt. The appliances are kept in `appliances.json` and advised with each
  * reading and each minute; a measurement under way is kept in the prefs.
  */
@@ -290,7 +291,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(goalEnabled = enabled, goalKw = first ?: it.goalKw) }
     }
 
-    /** The goal in kW; null (a blank field) leaves only the month's highest. */
+    /** The goal in kW; null (a blank field) doesn't count for the limit. */
     fun setGoal(kw: Double?) {
         prefs.edit { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }
         _state.update { it.copy(goalKw = kw) }
@@ -459,7 +460,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         derive()
     }
 
-    /** With peak load on, vibrates once per quarter hour when it comes close to the line. */
+    /** With peak load on, vibrates once per quarter hour when it reaches the limit. */
     private fun warnIfClose() {
         val state = _state.value
         val end = state.meter.projection?.end ?: return

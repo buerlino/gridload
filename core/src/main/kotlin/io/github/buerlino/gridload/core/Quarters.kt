@@ -21,19 +21,19 @@ data class Projection(val kw: Double, val end: Instant, val time: Instant, val u
     val baseKw: Double? get() = usedKwh?.let { used -> hours(start, time).takeIf { it >= BASE_MINUTES / 60.0 }?.let { used / it } }
 }
 
-/** Warn when this quarter hour's projection reaches this share of the line: a 10% margin. */
-const val WARN_SHARE = 0.9
-
 /** A shorter stretch of a quarter hour says too little about the base draw (a fridge cycling). */
 private const val BASE_MINUTES = 5
 
 /**
- * The kW not to pass in this quarter hour: the higher of the goal and the month's highest
- * quarter hour, since anything up to the month's highest is billed anyway. Null with neither.
+ * The limit, the kW not to pass in this quarter hour: the highest of the goal, the floor
+ * ([peakFloor]) and the month's highest quarter hour. Anything up to the month's highest is
+ * billed anyway, and the biggest appliance sets a peak up to the floor by itself, so only
+ * stacking passes it. Null with none of them.
  */
-fun peakLine(goalKw: Double?, highest: Quarter?): Double? = listOfNotNull(goalKw, highest?.kw).maxOrNull()
+fun peakLine(goalKw: Double?, floorKw: Double?, highest: Quarter?): Double? = listOfNotNull(goalKw, floorKw, highest?.kw).maxOrNull()
 
-fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= WARN_SHARE * line
+/** Red at the limit: the bar, the vibration and an appliance's WAIT. */
+fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= line
 
 /** A typed number (kW, W, minutes, litres), with a decimal point or comma; null unless it's above 0. */
 fun parsePositive(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }

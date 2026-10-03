@@ -192,7 +192,7 @@ Open: a full-screen view of the chart on tap (the user's idea; its content to be
 
 The design is in `CLAUDE.md` under "Appliances", the reasoning in `research/appliances.md`; the
 recorder stays at v2. Built and tested on the Fairphone 6 (2026-10-03): the measuring flow
-("Cooking", "Kettle 1 L"), OK and WAIT ("Sets a new peak at any start"), the collapsed summary,
+("Cooking", "Kettle 1 L"), OK and WAIT ("Sets a new peak right now"), the collapsed summary,
 rename, delete, variants ("Cooking 60 min", "Kettle 1.5 L"), export and import, and an R8 release
 build (a measurement survives a force-stop). Declutter pass afterwards: see
 [declutter.md](declutter.md).
@@ -230,6 +230,16 @@ this month, so only after a `pm clear` or on a fresh phone; checked in the code:
 To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
 the `&quot;` entities).
+
+### The limit and its floor [built 2026-10-03, not released]
+
+Design in `CLAUDE.md` under "Peak load" (The limit, Alarm) and "Appliances"; the reasoning in
+`research/appliances.md` ("The floor"). One line, the limit = max(goal, floor, month's highest),
+floor = the biggest appliance with "Counts for the limit" on × 1.2, red at the limit (no 90%).
+Core tests cover the floor, the heaviest quarter and the old JSON. Seen on the Fairphone 6 in an
+R8 build: "2.6 limit" in the peak window and the history, "2.2 kW free" at 0.4 kW, all five rows
+OK (Cooking included), the switch in the edit sheet. Not seen yet: the switch turned off (the
+limit falling to the next appliance), and a red bar at the limit.
 
 ### Settings and setup guide rework [built 2026-10-03, not released]
 

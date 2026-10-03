@@ -44,15 +44,18 @@ class QuartersTest {
     }
 
     @Test
-    fun theLineIsTheHigherOfGoalAndMonthsHighest() {
+    fun theLineIsTheHighestOfGoalFloorAndMonthsHighest() {
         val highest = Quarter(at("17:15:00"), 0.95)
         assertEquals(3.8, highest.kw, 1e-9)
-        assertEquals(3.8, peakLine(3.0, highest)!!, 1e-9)
-        assertEquals(4.5, peakLine(4.5, highest)!!, 1e-9)
-        assertEquals(3.0, peakLine(3.0, null)!!, 1e-9)
-        assertNull(peakLine(null, null))
-        assertFalse(isPeakWarning(3.41, 3.8))
-        assertTrue(isPeakWarning(3.42, 3.8))
+        assertEquals(3.8, peakLine(3.0, 2.6, highest)!!, 1e-9)
+        assertEquals(4.5, peakLine(4.5, 2.6, highest)!!, 1e-9)
+        assertEquals(4.2, peakLine(3.0, 4.2, highest)!!, 1e-9)
+        assertEquals(3.0, peakLine(3.0, null, null)!!, 1e-9)
+        assertEquals(2.6, peakLine(null, 2.6, null)!!, 1e-9)
+        assertNull(peakLine(null, null, null))
+        // Red at the line itself.
+        assertFalse(isPeakWarning(3.79, 3.8))
+        assertTrue(isPeakWarning(3.8, 3.8))
     }
 
     @Test

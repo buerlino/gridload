@@ -24,8 +24,8 @@ import java.time.ZoneId
 
 /**
  * The month so far, below the peak window: its header names the month's highest quarter hour
- * and when it was; open, one bar per day (that day's highest), with the month's highest and the
- * goal across them. The day of the month's highest is red, today dark. Days before the recorder
+ * and when it was; open, one bar per day (that day's highest), with the limit across them, as in
+ * the peak window. The day of the month's highest is red, today dark. Days before the recorder
  * started, or still to come, have no bar.
  */
 @Composable
@@ -48,23 +48,21 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
-        if (state.historyOpen && highest != null) DayBars(state.meter.days, highest, state.activeGoalKw, unit, state.region.zone)
+        if (state.historyOpen && highest != null) DayBars(state.meter.days, highest, state.peakLine ?: highest.kw, unit, state.region.zone)
     }
 }
 
-/** One bar per day of this month: the month's highest in red (its line labelled), today dark, the rest grey. */
+/** One bar per day of this month: the month's highest in red, today dark, the rest grey; the limit at [line]. */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal: Double?, unit: PowerUnit, zone: ZoneId) {
+private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, line: Double, unit: PowerUnit, zone: ZoneId) {
     val measurer = rememberTextMeasurer()
     val today = LocalDate.now(zone)
     val month = YearMonth.from(today)
     Canvas(Modifier.fillMaxWidth().height(150.dp)) {
         val bottom = size.height - 18.dp.toPx()
-        val axis = Axis(measurer, unit, maxOf(goal ?: 0.0, highest.kw), 16.dp.toPx(), bottom, 6.dp.toPx())
-        val labelWidth = 80.dp.roundToPx()
-        val highestLabel = lineLabel(measurer, unit, highest.kw, "highest", labelWidth)
-        val goalLabel = goal?.let { axis.y(it) to lineLabel(measurer, unit, it, "goal", labelWidth) }
-        val labelX = size.width - maxOf(highestLabel.size.width, goalLabel?.second?.size?.width ?: 0)
+        val axis = Axis(measurer, unit, line, 16.dp.toPx(), bottom, 6.dp.toPx())
+        val label = limitLabel(measurer, unit, line, 80.dp.roundToPx())
+        val labelX = size.width - label.size.width
         val plotStart = axis.x + 6.dp.toPx()
         val linesEnd = labelX - 8.dp.toPx()
         val slot = (linesEnd - plotStart) / month.lengthOfMonth()
@@ -85,7 +83,6 @@ private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal
             }
             drawRect(color, Offset(x(day.dayOfMonth), barTop), Size(barW, bottom - barTop))
         }
-        drawLines(axis, highest.kw, goal, linesEnd)
-        drawLabels(listOfNotNull(axis.y(highest.kw) to highestLabel, goalLabel), labelX)
+        drawLimit(axis, line, label, linesEnd, labelX)
     }
 }

@@ -62,11 +62,12 @@ the whole run: fine for a kettle, clumsy for a dishwasher.
 
 - **The household in later quarters is the draw now** (user, 2026-10-03): the house keeps drawing
   what it draws, and this agrees with the peak window's bar. This quarter uses the bar's own
-  projection, so the row and the bar always agree (both at 90% of the line).
+  projection, so the row and the bar always agree (both at the limit; at 90% of the line until
+  the floor, below).
 - **A short run adds little to a quarter:** power × minutes / 15. So starting at the next quarter
   hour often fits when now doesn't: a kettle in a fresh quarter adds 2.2 kW × 3/15. A long run
   adds its full power to every quarter it covers. Seen on the phone: a kettle at 14:15 drawing
-  2.1 kW made every row "Sets a new peak at any start", since later quarters assume the draw now.
+  2.1 kW made every row "Sets a new peak at any start", since later quarters assume the draw now. That text claimed more than the app knows (a running appliance ends at some point), so it now says "Sets a new peak right now".
 - **The run price is weighted by energy,** so a dishwasher's heavy first 30 minutes count most,
   not its quiet drying phase.
 - **The rule is the main colour's thirds** over the candidates' run prices (user, 2026-10-03), so
@@ -80,6 +81,37 @@ the whole run: fine for a kettle, clumsy for a dishwasher.
   raises the draw, and the other rows react through the projection. A row can disagree with the
   main colour ("Good time" on screen, the dishwasher WAIT because its 3 h run reaches into dearer
   hours); the help says so in one line.
+
+## The floor (2026-10-03)
+
+The problem, seen on the phone: early in October the month's highest was 2.1 kW, set by
+"Cooking" itself. With the line at 2.1, 90% of it at 1.9 and the house at 0.2–0.4 kW, Cooking's
+heaviest quarter (2.21 kW on its own) reached the warning at every start, so the appliance that
+had set the peak was told to wait for it, all month. The app felt broken.
+
+The user's idea: peaks happen, but stacking them should not; the biggest appliance sets the
+peak to stay under. On a linear tariff (CKW Home dynamic, 1.08 CHF/kW a month incl. VAT) only
+the month's final highest quarter is billed, so a peak the biggest appliance sets anyway costs
+nothing extra, and a stack on top of it does.
+
+Decided with the user:
+- **One line, the limit** = max(goal when on, floor, month's highest). The user didn't want
+  several lines on the columns ("it will only confuse"); the goal stays as an override that can
+  only raise it.
+- **The floor** = the biggest appliance's heaviest quarter hour on its own × 1.2, over the
+  appliances with "Counts for the limit" on (a switch per appliance, so a rarely used one can't
+  raise it). Deterministic, from the measured curves only. The heaviest quarter is the most the
+  curve draws in any 15 minutes (the worst start within a quarter), found exactly at the piece
+  boundaries rather than by trying start minutes. Cooking: (12.62 × 2.335 + 2.38 × 1.529) / 15 =
+  2.21 kW → 2.65.
+- **No 90% margin:** with both, Cooking alone (2.21 + the house) would come within 8% of the
+  floor and still wait. The 20% is the margin now, red is at the limit, and "kW free" and the red
+  bar agree. The warning "Close to a new peak. Wait a bit." went with it.
+- The floor counts only while the appliances panel is shown, so a hidden panel can't raise the
+  limit unseen.
+
+Rejected: a floor plus the highest as two lines (confusing), a floor from the highest alone (the
+problem above), and the floor as a typed value (that's the goal).
 
 ## Variants instead of categories
 

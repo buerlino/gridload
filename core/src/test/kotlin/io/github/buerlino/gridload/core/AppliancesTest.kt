@@ -45,6 +45,29 @@ class AppliancesTest {
         assertFailsWith<IllegalArgumentException> { parseAppliances("""[{"name":"A","curve":[{"min":5,"kw":2},{"min":5,"kw":0}]}]""") }
         assertEquals(2, parseAppliances("""[{"name":"A","curve":[{"min":5,"kw":2},{"min":5,"kw":0},{"min":5,"kw":1}]}]""").single().curve.count { it.kw > 0 })
         assertFailsWith<IllegalArgumentException> { parseAppliances("""[{"name":"A","curve":[{"min":1e400,"kw":2}]}]""") }
+        // Files from before the limit switch count for it.
+        assertTrue(parseAppliances("""[{"name":"A","curve":[{"min":1,"kw":1}],"canWait":false,"delayMinutes":30}]""").single().countsForLimit)
+        assertEquals(listOf(kettle.copy(countsForLimit = false)), parseAppliances(appliancesJson(listOf(kettle.copy(countsForLimit = false)))))
+    }
+
+    @Test
+    fun theHeaviestQuarterIsTheMostInAny15Minutes() {
+        // Shorter than a quarter: all of it in one.
+        assertEquals(0.44, kettle.curve.heaviestQuarterKw, 1e-9)
+        assertEquals(2.0, dishwasher.curve.heaviestQuarterKw, 1e-9)
+        // A peak in the middle: its 10 minutes and 5 of the 1 kW around it.
+        assertEquals(35.0 / 15, listOf(Piece(10.0, 1.0), Piece(10.0, 3.0), Piece(10.0, 1.0)).heaviestQuarterKw, 1e-9)
+        // Cooking as measured: the first 12.62 minutes at 2.335 and 2.38 of the 1.529 after them.
+        val cooking = listOf(Piece(12.62, 2.335), Piece(15.0, 1.529), Piece(5.52, 0.225))
+        assertEquals((12.62 * 2.335 + 2.38 * 1.529) / 15, cooking.heaviestQuarterKw, 1e-9)
+    }
+
+    @Test
+    fun theFloorIsTheBiggestApplianceThatCountsPlus20Percent() {
+        assertEquals(2.4, peakFloor(listOf(kettle, dishwasher))!!, 1e-9)
+        assertEquals(0.528, peakFloor(listOf(kettle, dishwasher.copy(countsForLimit = false)))!!, 1e-9)
+        assertEquals(null, peakFloor(listOf(dishwasher.copy(countsForLimit = false))))
+        assertEquals(null, peakFloor(emptyList()))
     }
 
     @Test
@@ -256,16 +279,16 @@ class AppliancesTest {
         PeakNow(Projection(projectionKw, quarterStart(at(now)).plusSeconds(QUARTER_SECONDS), at(now)), drawKw, line)
 
     @Test
-    fun theKettleFitsWhenItsQuarterStaysBelowTheWarning() {
-        // Line 4.0, so the warning is at 3.6. The kettle adds 2.2 × 3 / 15 = 0.44 to its quarter.
-        assertTrue(kettle.fitsPeak(at("10:07"), peak(3.1, 0.5, 4.0)))
-        assertFalse(kettle.fitsPeak(at("10:07"), peak(3.2, 0.5, 4.0)))
+    fun theKettleFitsWhenItsQuarterStaysBelowTheLimit() {
+        // The kettle adds 2.2 × 3 / 15 = 0.44 to its quarter.
+        assertTrue(kettle.fitsPeak(at("10:07"), peak(3.1, 0.5, 3.6)))
+        assertFalse(kettle.fitsPeak(at("10:07"), peak(3.2, 0.5, 3.6)))
         // In a fresh quarter the house draws 0.5 now.
-        assertTrue(kettle.fitsPeak(at("10:15"), peak(3.2, 0.5, 4.0)))
+        assertTrue(kettle.fitsPeak(at("10:15"), peak(3.2, 0.5, 3.6)))
         assertTrue(kettle.fitsPeak(at("10:07"), peak(9.0, 9.0, null)))
         // A run of a full hour adds its whole power to each quarter: 0.5 + 2.0 against 3.6.
-        assertTrue(dishwasher.fitsPeak(at("10:15"), peak(3.2, 0.5, 4.0)))
-        assertFalse(dishwasher.fitsPeak(at("10:15"), peak(3.2, 1.7, 4.0)))
+        assertTrue(dishwasher.fitsPeak(at("10:15"), peak(3.2, 0.5, 3.6)))
+        assertFalse(dishwasher.fitsPeak(at("10:15"), peak(3.2, 1.7, 3.6)))
     }
 
     @Test
@@ -299,12 +322,12 @@ class AppliancesTest {
 
     @Test
     fun aRunThatCanWaitWaitsForTheCheapestThird() {
-        val calm = peak(0.5, 0.5, 4.0, now = "06:00")
+        val calm = peak(0.5, 0.5, 3.6, now = "06:00")
         // Thirds of 0.15 to 0.30: cheap up to 0.20. From 09:45 a quarter of the run is at 0.30: 0.1875.
         assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, slots))
         // With a 1 h start delay, the steps are 07:00, 08:00, ...: 10:00 is the first cheap one.
         assertEquals(Advice.Cheaper(at("10:00")), advise(dishwasher.copy(delayMinutes = 60), at("06:00"), calm, slots))
-        assertEquals(Advice.Ok(), advise(dishwasher, at("11:00"), peak(0.5, 0.5, 4.0, now = "11:00"), slots))
+        assertEquals(Advice.Ok(), advise(dishwasher, at("11:00"), peak(0.5, 0.5, 3.6, now = "11:00"), slots))
         // A kettle doesn't wait for the price; nor does anything on a flat day.
         assertEquals(Advice.Ok(), advise(kettle, at("06:00"), calm, slots))
         assertEquals(Advice.Ok(), advise(dishwasher, at("06:00"), calm, slots.map { it.copy(price = 0.2274) }))
@@ -312,9 +335,9 @@ class AppliancesTest {
 
     @Test
     fun pastTheKnownPricesOnlyThePeakCounts() {
-        assertEquals(Advice.Ok(pricesMissing = true), advise(dishwasher, at("23:30"), peak(0.5, 0.5, 4.0, now = "23:30"), slots))
+        assertEquals(Advice.Ok(pricesMissing = true), advise(dishwasher, at("23:30"), peak(0.5, 0.5, 3.6, now = "23:30"), slots))
         // A kettle doesn't wait for the price, so nothing is missing.
-        assertEquals(Advice.Ok(), advise(kettle, at("23:30"), peak(0.5, 0.5, 4.0, now = "23:30"), slots))
+        assertEquals(Advice.Ok(), advise(kettle, at("23:30"), peak(0.5, 0.5, 3.6, now = "23:30"), slots))
     }
 
     @Test
@@ -322,20 +345,20 @@ class AppliancesTest {
         // Cheap from 22:00 to midnight, and nothing known after it: with a 1 h delay, 22:00 is "Delay 2 h".
         val evening = slots.map { if (it.start.hour >= 22) it.copy(price = 0.15) else it }
         val delayed = dishwasher.copy(delayMinutes = 60)
-        assertEquals(Advice.Cheaper(at("22:00")), advise(delayed, at("20:00"), peak(0.5, 0.5, 4.0, now = "20:00"), evening))
+        assertEquals(Advice.Cheaper(at("22:00")), advise(delayed, at("20:00"), peak(0.5, 0.5, 3.6, now = "20:00"), evening))
         // At 22:30 a delay of 1 h runs past midnight: only now competes.
-        assertEquals(Advice.Ok(), advise(delayed, at("22:30"), peak(0.5, 0.5, 4.0, now = "22:30"), evening))
-        assertEquals(Advice.Ok(pricesMissing = true), advise(delayed, at("23:30"), peak(0.5, 0.5, 4.0, now = "23:30"), evening))
+        assertEquals(Advice.Ok(), advise(delayed, at("22:30"), peak(0.5, 0.5, 3.6, now = "22:30"), evening))
+        assertEquals(Advice.Ok(pricesMissing = true), advise(delayed, at("23:30"), peak(0.5, 0.5, 3.6, now = "23:30"), evening))
     }
 
     @Test
     fun withoutPricesOnlyANewPeakIsSaid() {
         // None fetched, or the fetch failed: no advice for one that can wait ("–"), but a new peak is still said.
-        assertEquals(null, advise(dishwasher, at("06:00"), peak(0.5, 0.5, 4.0, now = "06:00"), emptyList()))
-        assertEquals(Advice.NewPeak(at("06:15")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 4.0, now = "06:00"), emptyList()))
+        assertEquals(null, advise(dishwasher, at("06:00"), peak(0.5, 0.5, 3.6, now = "06:00"), emptyList()))
+        assertEquals(Advice.NewPeak(at("06:15")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), emptyList()))
         // One that can't wait is judged by the peak alone, as always.
-        assertEquals(Advice.Ok(), advise(kettle, at("06:00"), peak(0.5, 0.5, 4.0, now = "06:00"), emptyList()))
-        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 4.0), emptyList()))
+        assertEquals(Advice.Ok(), advise(kettle, at("06:00"), peak(0.5, 0.5, 3.6, now = "06:00"), emptyList()))
+        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), emptyList()))
     }
 
     @Test
@@ -354,7 +377,7 @@ class AppliancesTest {
         }.toList()
         assertEquals(100, dst.size)
         val now = OffsetDateTime.parse("2026-10-25T01:50+02:00").toInstant()
-        val calm = PeakNow(Projection(0.5, quarterStart(now).plusSeconds(QUARTER_SECONDS), now), 0.5, 4.0)
+        val calm = PeakNow(Projection(0.5, quarterStart(now).plusSeconds(QUARTER_SECONDS), now), 0.5, 3.6)
         // Cheap up to 0.20: from 10:45, 15 min at 0.30 and 45 at 0.15 is 0.1875.
         assertEquals(Advice.Cheaper(OffsetDateTime.parse("2026-10-25T10:45+01:00").toInstant()), advise(dishwasher, now, calm, dst))
         // Through the repeated hour: 02:30 summer time to 02:30 winter time is one hour.
@@ -364,17 +387,17 @@ class AppliancesTest {
     @Test
     fun aNewPeakSaysWhenItFits() {
         // The kettle sets a peak in this busy quarter (3.2 + 0.44 ≥ 3.6), but fits from 10:15 at 0.5 kW.
-        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 4.0), slots))
+        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), slots))
         // Drawing 2.0 kW all along against a 1.0 line: no quarter fits.
         assertEquals(Advice.NewPeak(null), advise(kettle, at("10:07"), peak(2.0, 2.0, 1.0), slots))
         // The dishwasher at 06:00: a new peak now, and the first start that's cheap and fits is 09:45.
-        assertEquals(Advice.NewPeak(at("09:45")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 4.0, now = "06:00"), slots))
+        assertEquals(Advice.NewPeak(at("09:45")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), slots))
     }
 
     @Test
     fun whenEveryCheaperStartSetsAPeakNowIsBest() {
         // 10 min at 2 kW adds 1.33 to a quarter: it fits this one (projected 0.5), but no later one at 3.0 kW.
         val short = Appliance("D", listOf(Piece(10.0, 2.0)))
-        assertEquals(Advice.Ok(), advise(short, at("06:00"), peak(0.5, 3.0, 4.0, now = "06:00"), slots))
+        assertEquals(Advice.Ok(), advise(short, at("06:00"), peak(0.5, 3.0, 3.6, now = "06:00"), slots))
     }
 }
