@@ -176,7 +176,7 @@ fun SetupGuide(
                     REGIONS.filter { it.country.code == country }.forEach { r ->
                         OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 2 }) {
                             Text(r.name, fontWeight = FontWeight.Bold)
-                            Text(r.utility)
+                            Text(r.utility.replaceFirstChar { it.uppercase() }) // "Market price" on its own line
                         }
                     }
                 }

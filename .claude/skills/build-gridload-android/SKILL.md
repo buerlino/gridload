@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 4 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 5 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -389,8 +389,8 @@ command above.
    `"%.1f Rp/kWh"`/`"%.2f CHF/h"`. No other CHF or Rp in UI text. Seen on the Fairphone 6
    (debug build, 23:26): "24.1 Rp/kWh", "1.2 kW now · 0.28 CHF/h", as before.
    Liechtenstein's `Country` gets `Currency.EUR` in step 5 (its source is in €).
-3. ~~**The own price in spot regions**~~ (user, 2026-10-03): done 2026-10-03, waiting for the
-   user's look before step 4. `Country.vat`, `Region.isSpot`, `ownPrice` in `Currency.kt`,
+3. ~~**The own price in spot regions**~~ (user, 2026-10-03): done 2026-10-03, approved by the
+   user. `Country.vat`, `Region.isSpot`, `ownPrice` in `Currency.kt`,
    `parseNonNegative`, `UiState.yourPrice` (screen only), `SettingsAt` (TOP, REGION_LIST,
    PRICE) for where Settings opens, `PriceFields` in `SettingsScreen.kt` (the VAT field shows the
    country's rate; typing that rate saves blank). Tests: the formula (negative spot, VAT 0 and
@@ -416,7 +416,7 @@ command above.
    - Tests: the formula (negative spot, VAT 0 and blank), the default VAT per country.
    - Phone: an AT region (temporarily, while CKW's peak stays recorded) without and with an
      add-on; the link lands on the fields; the cost line with the whatwatt.
-4. ~~**The minimum billed peak**~~: done 2026-10-03, waiting for the user's look before step 5.
+4. ~~**The minimum billed peak**~~: done 2026-10-03, approved by the user (2026-10-04).
    `Region.minimumKw` (CKW 0.0, the other six null), `peakLine(goal, floor, minimum, highest)`
    (a minimum of 0 is no line, else CKW with nothing recorded would draw a 0 limit),
    `PeakLoadSwitch` in `SettingsScreen.kt`, one sentence in the Mode ⓘ. Tests: `peakLine` with
@@ -443,7 +443,29 @@ command above.
    - Tests: `peakLine` with each combination, each region's `minimumKw`.
    - Phone: Flanders (2.5) above the user's month's highest (~2.4) shows "2.5 limit" and moves
      "kW free"; Wallonia shows the line under the switch.
-5. **The regions** (`Region.kt`, README, store text).
+5. **The regions** (`Region.kt`, README, store text): done 2026-10-04, approved by the user.
+   `AUSTRIA` … `LIECHTENSTEIN` and `market(id, name, country, bzn, minimumKw)` in `Region.kt`; `COUNTRIES` sorted by name; ids `at`, `be_flanders`,
+   `be_wallonia_brussels`, `de`, `lu`, `nl`, `li` (a prefs format now). Tests: `marketPriceRegions`
+   (country, zone, bzn, minimum, 13:15, label) and `countryOf` for each code. README and store
+   text list the new regions and the attribution. Seen on the Fairphone 6 (debug build,
+   2026-10-04 00:04–00:07, first start redone via `first_start_done`): the country list with
+   all seven, sorted, flags; Belgium's two cards ("Flanders" / "market price", "Wallonia and
+   Brussels" / "market price"; the user then asked for "Market price" on the cards, which the
+   guide now capitalises; the label stays "Austria (market price)"); Wallonia: "Your region doesn't bill a peak." on the guide's Mode
+   card, then "Market price 20.7 ct/kWh", "Set your price ›", no cost line, "● 11:30", Kettle
+   "Cheaper at 11:30", the header wrapping to two lines; Austria via Settings → Setup guide: no
+   line under the switch, "Market price 21.8 ct/kWh", "● 09:15", "2.6 limit" (the floor, above
+   Austria's 2.0). One Energy-Charts request each (96 quarters of 4 Oct). Back on CKW afterwards
+   (prefs, appliances and CKW's `prices.json` restored from the backup, so no CKW request;
+   recorded quarters intact). Still open: tomorrow's market prices (after 13:15; it was past
+   midnight). The header wrapping for "Wallonia and Brussels (market price)" stays (user,
+   2026-10-04). Approved and committed by the user's request (2026-10-04).
+   Noted for step 6 (reads wrong outside Switzerland now): the welcome/help's "based on your
+   utility's price" (`MainActivity.kt`), the Region ⓘ (`REGION_INFO`), `priceError`'s "the
+   utility's server", the whatwatt guide's key line, `WhatwattMeter`'s "Ask your utility for
+   it" (the grid operator abroad), the store text's first paragraph ("It reads your utility's
+   dynamic electricity price"), and the help's "Tomorrow's prices come out between noon and
+   6 pm" (still true at 13:15).
    - Countries: AT `Europe/Vienna`, BE `Europe/Brussels`, DE `Europe/Berlin`, LU
      `Europe/Luxembourg`, NL `Europe/Amsterdam`, LI `Europe/Vaduz`, each with currency and VAT.
    - Regions (label "<name> (market price)", `tomorrowFrom` 13:15 local): Austria (`AT`, 2.0),

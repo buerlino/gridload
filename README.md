@@ -20,7 +20,9 @@ One field showing a single traffic-light status:
 
 The price now is compared with the next 24 hours (until tomorrow's prices come out, between noon and 18:00 depending on the utility, with today), and the screen shows when the next good time starts.
 
-The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so you pick your country (only Switzerland so far) and then your region; tap the region at the top of the screen to change it. Pull down to refresh.
+The colour depends on the dynamic tariff of the electricity utility that supplies your grid, or, where no utility publishes one, on the day-ahead market price. You pick your country and then your region; tap the region at the top of the screen to change it. Pull down to refresh.
+
+### Switzerland: utilities' dynamic tariffs
 
 | Region | Utility | Data source |
 |--------|---------|-------------|
@@ -34,11 +36,25 @@ The colour depends on the dynamic tariff of the electricity utility that supplie
 
 All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves only its own grid area, and the colour follows its dynamic tariff, so outside those areas it says nothing about your price.
 
+### Elsewhere: the market price
+
+| Country | Region | Bidding zone | Peak billed |
+|---------|--------|--------------|-------------|
+| Austria | Austria | AT | from 1 Jan 2027, at least 2 kW |
+| Belgium | Flanders | BE | yes, at least 2.5 kW |
+| Belgium | Wallonia and Brussels | BE | no (the time-of-use grid fee isn't in the colour) |
+| Germany | Germany | DE-LU | no |
+| Luxembourg | Luxembourg | DE-LU | no |
+| Netherlands | Netherlands | NL | no |
+| Liechtenstein | Liechtenstein | CH (hourly, shown in €) | no |
+
+Data source: `https://api.energy-charts.info/price`, day-ahead prices, out at about 13:00. Market prices: Bundesnetzagentur | SMARD.de, via [Energy-Charts](https://energy-charts.info) (CC BY 4.0). The market price isn't what you pay, but your supplier's markup, the grid fee and the levies add the same amount to every hour, so the colour is the same. To see your own price, enter that add-on (ct/kWh excl. VAT, from your bill) in Settings → Region; the VAT is preset per country.
+
 ## Measurement
 
 With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in Settings under Measurement, the screen also shows what the home draws right now and what that costs per hour.
 
-**Peak load** (a switch under Settings → 📊 Mode, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a panel shows how many kW are still free and a scale with the three quarter hours before, this quarter hour's projected draw ("now"), three coming columns and one line, the **limit**. The limit is the highest of an optional goal, the floor (the heaviest quarter hour of the biggest appliance with "Counts for the limit" on, × 1.2) and the month's highest. When this quarter hour reaches the limit, the bar turns red and the phone vibrates (unless it's silent, or always: Settings → 📊 Mode). Power shows in kW or W (Settings → Measurement).
+**Peak load** (a switch under Settings → 📊 Mode, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a panel shows how many kW are still free and a scale with the three quarter hours before, this quarter hour's projected draw ("now"), three coming columns and one line, the **limit**. The limit is the highest of an optional goal, the floor (the heaviest quarter hour of the biggest appliance with "Counts for the limit" on, × 1.2), the least peak your tariff bills (Austria 2 kW, Flanders 2.5 kW) and the month's highest. When this quarter hour reaches the limit, the bar turns red and the phone vibrates (unless it's silent, or always: Settings → 📊 Mode). Power shows in kW or W (Settings → Measurement).
 
 The quarter hours come from the **GridLoad recorder**, a small Berry script that the app installs on the whatwatt (Settings → Measurement → Recorder → Install). It records every quarter hour on the whatwatt's SD card around the clock, also while the app is closed or the phone is away, and the app copies the new ones when it opens. There is no fallback: if the recorder stops, the app says exactly what is wrong (no SD card, not installed, another script in the slot, stopped, nothing saved since a time). Quarter hours it missed (e.g. while the whatwatt restarted) are listed in Settings under Recorder, opened.
 

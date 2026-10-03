@@ -14,9 +14,17 @@ data class Country(val code: String, val name: String, val flag: String, val zon
 }
 
 val SWITZERLAND = Country("CH", "Switzerland", "🇨🇭", ZoneId.of("Europe/Zurich"), Currency.CHF)
+val AUSTRIA = Country("AT", "Austria", "🇦🇹", ZoneId.of("Europe/Vienna"), Currency.EUR, vat = 20.0)
+val BELGIUM = Country("BE", "Belgium", "🇧🇪", ZoneId.of("Europe/Brussels"), Currency.EUR, vat = 6.0)
+val GERMANY = Country("DE", "Germany", "🇩🇪", ZoneId.of("Europe/Berlin"), Currency.EUR, vat = 19.0)
+val LUXEMBOURG = Country("LU", "Luxembourg", "🇱🇺", ZoneId.of("Europe/Luxembourg"), Currency.EUR, vat = 8.0)
+val NETHERLANDS = Country("NL", "Netherlands", "🇳🇱", ZoneId.of("Europe/Amsterdam"), Currency.EUR, vat = 21.0)
 
-/** The countries the user picks from before the region, so each list stays short. */
-val COUNTRIES: List<Country> = listOf(SWITZERLAND)
+// Households pay CHF, but its market price comes in € from Energy-Charts, so it shows € for now.
+val LIECHTENSTEIN = Country("LI", "Liechtenstein", "🇱🇮", ZoneId.of("Europe/Vaduz"), Currency.EUR, vat = 8.1)
+
+/** The countries the user picks from before the region, so each list stays short; sorted by name. */
+val COUNTRIES: List<Country> = listOf(AUSTRIA, BELGIUM, GERMANY, LIECHTENSTEIN, LUXEMBOURG, NETHERLANDS, SWITZERLAND)
 
 /** The first of [codes] (e.g. the SIM's country, then the locale's) that is in [COUNTRIES]. */
 fun countryOf(vararg codes: String?): Country? =
@@ -69,13 +77,21 @@ val CKW = Region(
 )
 
 private fun ekz(tariff: String) = PriceSource.Vse("https://api.tariffs.ekz.ch/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
+/**
+ * A region on the day-ahead market price of the bidding zone [bzn], from Energy-Charts. The
+ * auction's results come out at about 12:55 CET.
+ */
+private fun market(id: String, name: String, country: Country, bzn: String, minimumKw: Double? = null) =
+    Region(id, name, "market price", country, PriceSource.EnergyCharts(bzn), LocalTime.of(13, 15), minimumKw = minimumKw)
+
 private fun primeo(tariff: String) = PriceSource.Vse("https://tarife.primeo-energie.ch/api/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
 
 /**
  * All selectable regions, sorted by name. There is no default: the user picks one on first
  * start. Installs from before that got [CKW], the only region then, without saving it. Of the
  * Swiss ones only CKW bills a household peak (checked 2026-10-03; Groupe E unconfirmed, treated
- * as none).
+ * as none). Outside Switzerland, Austria bills the month's highest quarter hour from 1 Jan 2027
+ * with at least 2 kW, and Flanders at least 2.5 kW (on the average of the last 12 months).
  */
 val REGIONS: List<Region> = listOf(
     CKW,
@@ -91,4 +107,13 @@ val REGIONS: List<Region> = listOf(
     Region("primeo", "Northwestern Switzerland", "Primeo Energie", SWITZERLAND, primeo("NetzDynamisch"), LocalTime.of(18, 0)),
     Region("primeo_avag", "Olten area", "AVAG", SWITZERLAND, primeo("NetzDynamischAVAG"), LocalTime.of(18, 0)),
     Region("primeo_elag", "Gretzenbach", "ELAG", SWITZERLAND, primeo("NetzDynamischELAG"), LocalTime.of(18, 0)),
+    market("at", "Austria", AUSTRIA, "AT", minimumKw = 2.0),
+    market("be_flanders", "Flanders", BELGIUM, "BE", minimumKw = 2.5),
+    // Its time-of-use grid fee isn't in the colour.
+    market("be_wallonia_brussels", "Wallonia and Brussels", BELGIUM, "BE"),
+    market("de", "Germany", GERMANY, "DE-LU"),
+    market("lu", "Luxembourg", LUXEMBOURG, "DE-LU"),
+    market("nl", "Netherlands", NETHERLANDS, "NL"),
+    // Liechtenstein is in the Swiss bidding zone, whose market price is hourly.
+    market("li", "Liechtenstein", LIECHTENSTEIN, "CH"),
 ).sortedBy { it.name }

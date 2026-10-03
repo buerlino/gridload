@@ -2,6 +2,7 @@ package io.github.buerlino.gridload.core
 
 import java.nio.file.Files
 import java.time.Instant
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.util.Locale
 import kotlin.test.Test
@@ -111,7 +112,7 @@ class CoreTest {
         assertFalse(wantsFetch(twoDays, sep29("12:00"), CKW))
         assertTrue(wantsFetch(sep29, OffsetDateTime.parse("2026-09-30T00:00+02:00").toInstant(), CKW))
         // A region that publishes later waits for its own time.
-        assertFalse(wantsFetch(sep29, sep29("17:59"), CKW.copy(tomorrowFrom = java.time.LocalTime.of(18, 0))))
+        assertFalse(wantsFetch(sep29, sep29("17:59"), CKW.copy(tomorrowFrom = LocalTime.of(18, 0))))
         // Its time is in its own zone: 12:00 in Zurich is only 11:00 in London.
         assertFalse(wantsFetch(sep29, sep29("12:00"), CKW.copy(zone = java.time.ZoneId.of("Europe/London"))))
     }
@@ -217,10 +218,42 @@ class CoreTest {
     }
 
     @Test
+    fun marketPriceRegions() {
+        data class Expected(val country: Country, val zone: String, val bzn: String, val minimumKw: Double?)
+        val expected = mapOf(
+            "at" to Expected(AUSTRIA, "Europe/Vienna", "AT", 2.0),
+            "be_flanders" to Expected(BELGIUM, "Europe/Brussels", "BE", 2.5),
+            "be_wallonia_brussels" to Expected(BELGIUM, "Europe/Brussels", "BE", null),
+            "de" to Expected(GERMANY, "Europe/Berlin", "DE-LU", null),
+            "lu" to Expected(LUXEMBOURG, "Europe/Luxembourg", "DE-LU", null),
+            "nl" to Expected(NETHERLANDS, "Europe/Amsterdam", "NL", null),
+            "li" to Expected(LIECHTENSTEIN, "Europe/Vaduz", "CH", null),
+        )
+        assertEquals(expected, REGIONS.filter { it.isSpot }.associate {
+            it.id to Expected(it.country, it.zone.id, (it.source as PriceSource.EnergyCharts).bzn, it.minimumKw)
+        })
+        REGIONS.filter { it.isSpot }.forEach {
+            assertEquals(LocalTime.of(13, 15), it.tomorrowFrom)
+            assertEquals("${it.name} (market price)", it.label)
+        }
+        // Every Swiss region is a utility's tariff; Liechtenstein shows € like its source.
+        assertTrue(REGIONS.filter { it.country == SWITZERLAND }.none { it.isSpot })
+        assertEquals(Currency.EUR, LIECHTENSTEIN.currency)
+        assertEquals(COUNTRIES.sortedBy { it.name }, COUNTRIES)
+        assertTrue(COUNTRIES.all { country -> REGIONS.any { it.country == country } })
+        assertEquals(COUNTRIES.size, COUNTRIES.map { it.code }.toSet().size)
+    }
+
+    @Test
     fun countryIsTheFirstKnownCode() {
         assertEquals(SWITZERLAND, countryOf("ch"))
         assertEquals(SWITZERLAND, countryOf("", "US", "CH"))
-        assertNull(countryOf(null, "DE"))
+        assertNull(countryOf(null, "FR"))
+        assertEquals(
+            listOf(AUSTRIA, BELGIUM, GERMANY, LUXEMBOURG, NETHERLANDS, LIECHTENSTEIN),
+            listOf("at", "be", "de", "lu", "nl", "li").map { countryOf(it) },
+        )
+        assertEquals(GERMANY, countryOf("US", "DE"))
     }
 
     @Test
@@ -246,17 +279,15 @@ class CoreTest {
         assertEquals("%.2f CHF/h".format(Locale.ROOT, 1.3 * it.price), Currency.CHF.perHour(1.3 * it.price, Locale.ROOT))
     }
 
-    private val austria = Country("AT", "Austria", "🇦🇹", java.time.ZoneId.of("Europe/Vienna"), Currency.EUR, vat = 20.0)
-
     @Test
     fun ownPriceAddsTheAddOnThenVat() {
-        assertEquals(0.36, ownPrice(0.113, 18.7, 20.0, austria), 1e-9)
+        assertEquals(0.36, ownPrice(0.113, 18.7, 20.0, AUSTRIA), 1e-9)
         // Blank VAT is the country's.
-        assertEquals(0.36, ownPrice(0.113, 18.7, null, austria), 1e-9)
-        assertEquals(0.30, ownPrice(0.113, 18.7, 0.0, austria), 1e-9)
+        assertEquals(0.36, ownPrice(0.113, 18.7, null, AUSTRIA), 1e-9)
+        assertEquals(0.30, ownPrice(0.113, 18.7, 0.0, AUSTRIA), 1e-9)
         // A negative market price lowers it, and can still be outweighed by the add-on.
-        assertEquals(0.18, ownPrice(-0.035, 18.5, 20.0, austria), 1e-9)
-        assertEquals(-0.03, ownPrice(-0.035, 0.5, 0.0, austria), 1e-9)
+        assertEquals(0.18, ownPrice(-0.035, 18.5, 20.0, AUSTRIA), 1e-9)
+        assertEquals(-0.03, ownPrice(-0.035, 0.5, 0.0, AUSTRIA), 1e-9)
         // No VAT where the country has none.
         assertEquals(0.30, ownPrice(0.113, 18.7, null, SWITZERLAND), 1e-9)
     }
@@ -279,7 +310,7 @@ class CoreTest {
 
     @Test
     fun ownPriceKeepsTheColourAndTheNextGoodTime() {
-        val own = twoDays.map { it.copy(price = ownPrice(it.price, 18.5, 20.0, austria)) }
+        val own = twoDays.map { it.copy(price = ownPrice(it.price, 18.5, 20.0, AUSTRIA)) }
         for (slot in twoDays) {
             val time = slot.start.toInstant()
             assertEquals(classify(twoDays, time)?.level, classify(own, time)?.level)
