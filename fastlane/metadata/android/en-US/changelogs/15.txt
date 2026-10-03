@@ -1,0 +1,4 @@
+- New countries: Austria, Belgium (Flanders; Wallonia and Brussels), Germany, Liechtenstein, Luxembourg and the Netherlands, on the day-ahead market price.
+- Your price: add your add-on and VAT to the market price to see what you pay. The colour stays the same.
+- The limit includes the least peak your tariff bills (Austria 2 kW, Flanders 2.5 kW).
+- The help shows only what applies in your country.

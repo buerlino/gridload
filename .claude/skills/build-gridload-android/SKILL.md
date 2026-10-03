@@ -355,7 +355,7 @@ Energy-Charts needs a new `PriceSource` (its request in `pricesRequestUrl`, its 
 `pricesFrom`); a currency other than CHF and EUR needs a new `Currency` (see
 `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6b done, 6c next]
+### Regions outside Switzerland [wave 1 released in v0.12.0, 2026-10-04]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -378,29 +378,52 @@ Fairphone 6 with the user's prefs, appliances and recorded quarters restored aft
 5. ~~**The regions**~~: done 2026-10-04 (`market(...)` in `Region.kt`, README, store text).
    **Open:** tomorrow's market prices on the phone (after 13:15; not seen yet).
 6. ~~**Texts**~~: done 2026-10-04 (the Region ⓘ, `WhatwattGuide(region, …)`, "Ask your grid
-   operator", `priceError(e, region)`, README's "What works where", the store text).
-   **Open:** a fetch error's text on the phone (not seen).
+   operator", `priceError(e, region)`, README's "What works where", the store text). A fetch
+   error's text seen on the phone with step 7.
 6b. ~~**The help per country**~~: done 2026-10-04 (`countryHelp` in `Help.kt`, `Region.peakFrom`,
    `priceNote`/`peakNote`, `HelpContent(country)`, `HelpTest`). **Open:** the general version on
    the phone (not seen; needs a phone whose SIM and locale aren't in the list).
-6c. **The colour on market prices** (Claude, 2026-10-04, `:core` and a script only; see
-   `research/feature_ideas.md`, Review): the thirds were scored on CKW's smooth hourly prices
-   only. Request one month of AT and DE-LU from Energy-Charts (one request each, saved in
-   `research/`, not re-requested) and score every quarter hour as `CLAUDE.md` (Classification)
-   did: the share of green, orange and red, the average saving from waiting at each, and how
-   many greens missed more than 5 ct. If the thirds hold, nothing changes and the result goes
-   into `CLAUDE.md`; if spikes squeeze them, propose a percentile for `max` to the user, with
-   the same scores for both.
-7. **Release v0.12.0** after 6b, before 1 Jan 2027 (Austria's start). The user decided
-   (2026-10-04) not to wait for the DST tests: the 25 Oct fixtures (CKW and AT) and the
-   recorder's DST check follow on 26 Oct, in a patch release only if they turn something up.
-   - F-Droid: the recipe's NonFreeNet text names the utilities' APIs; Energy-Charts is a new
-     network service, so draft an update of the text for the user to post (only once the merge
-     request is merged, or in it while still open).
-   - Phone, release build with R8: switch CH → AT → CH and back; the cache per region; offline
-     start in AT.
+6c. ~~**The colour on market prices**~~: done 2026-10-04. September 2026 for AT, DE-LU and CKW
+   (one request each, saved with the script in `research/energy_charts/`; run
+   `python3 research/energy_charts/score.py`, don't re-request). The thirds order the colours
+   on market prices too, but 36 to 37% of greens missed more than 5 ct (CKW 0.4%); a 90th
+   percentile for `max` halves that there, but on CKW only turns orange into red. The user kept
+   `max` (2026-10-04); the scores are in `CLAUDE.md` (Classification).
+7. ~~**Release v0.12.0**~~: tagged 2026-10-04 (versionCode 15). The user decided (2026-10-04)
+   not to wait for the DST tests: the 25 Oct fixtures (CKW and AT) and the recorder's DST check
+   follow on 26 Oct, in a patch release only if they turn something up.
+   - F-Droid (user, 2026-10-04): once the tag is pushed and the GitHub APK checked, one recipe
+     commit in `../fdroiddata`: the 0.12.0 build (versionCode 15), `CurrentVersion`, and the
+     NonFreeNet text, kept about as short as before (only the first sentence changes):
+     ```
+     NonFreeNet:
+       en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
+         optional peak load reads a whatwatt Go meter reader on the local network, which
+         needs its paid Plus licence.
+     ```
+     The user pushes it to the fork and comments on the MR: "v0.12.0 adds regions outside
+     Switzerland, priced from Energy-Charts (api.energy-charts.info), so the NonFreeNet text
+     now names it, and the recipe moves to 0.12.0."
+   - Seen on the Fairphone 6 (2026-10-04 01:20–01:28, R8 build signed with the debug key, the
+     user's prefs, appliances and `prices.json` restored afterwards, the recorded quarters left
+     alone): CKW → AT ("Market price 19.6 ct/kWh", "Set your price ›", the next good time) →
+     CKW. There is one `prices.json` for the current region, as designed: switching back
+     fetches again (the colour within a second), it doesn't read an older region's cache.
+     Offline start in AT: the colour from the cache at once. Offline switch to Germany: "No
+     prices" and "No connection to the price server. Check your internet." (step 6's open
+     item). Add-on 15 and VAT 6 in Flanders (36.1 ct/kWh, the cost line in €/h) kept in
+     Wallonia, cleared in Austria (VAT back to 20). The whatwatt guide's key line names the CKW
+     email for CKW only. Energy-Charts gave no 429 at about one request a minute. Still unseen:
+     tomorrow's market prices (after 13:15) and the help's general version (no phone with a SIM
+     and locale outside the list).
 
 Later phases, in order (each settled with the user before it starts):
+- **A percentile for `max` in market-price regions** (right after v0.12.0; the scores are in
+  `CLAUDE.md`, Classification): `classify` takes the window's 90th percentile in place of `max`
+  where `region.isSpot`, and so does the appliances' price OK (`advise` uses the same thirds).
+  Settle with the user first: the percentile (90th or 95th), and whether a slot above it is
+  simply red. Re-run `research/energy_charts/score.py` on the saved months for the numbers;
+  core tests on the saved AT month.
 - **Energy planning** (Claude's proposal, 2026-10-04, to confirm with the user: before German,
   so the new strings are translated once and wave 1's users, mostly without a whatwatt, get
   more than one colour; the reasoning is in `research/feature_ideas.md`, Review). Each step is

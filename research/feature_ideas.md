@@ -56,6 +56,8 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
   sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
   wave 1 is released; if the thirds hold, nothing changes, else a percentile for `max`.
+  Done 2026-10-04 (`CLAUDE.md`, Classification): the order holds, but spikes make green too
+  generous; `max` kept for v0.12.0, a percentile for market-price regions comes next.
 - Smaller: the [saving on WAIT rows](#savings-on-each-wait-row) (in spot regions from
   the own price with VAT); the [base load](#2-base-load) is the biggest number in the data
   (~700 kWh a year, far above the peak), one line in the history panel; the
