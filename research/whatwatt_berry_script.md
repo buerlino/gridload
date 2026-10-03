@@ -163,3 +163,25 @@ write is ignored silently (no `print`). Found on the device on 2026-10-03:
   file lists no other states.
 - `PUT /api/v1/berry` with no query answers `{"run":true}`.
 
+
+## Overnight validation (2026-10-02 23:44 to 2026-10-03 07:45)
+
+v1 ran from 23:44, and the app replaced it with v2 at 00:18:29 (its first `start` line). Every
+recorder quarter was compared with the CSV log (30 s setting, downloaded at 6 KB/s), its register
+interpolated at the boundaries the same way:
+
+- **32 quarters, all within 0.0012 kWh (0.005 kW), mean difference +0.00001 kWh**; 26 of them
+  within 0.0005. The end registers agree to 0.0006 kWh. The CSV log's rows are ~33 s apart (gaps up
+  to 204 s), so most of the difference is the reference's.
+- Missing: only 23:30 (the v1 install at 23:44) and 00:15 (the v2 update at 00:18), as expected
+  after a restart: the quarter in which the script starts is lost. Nothing else is missing.
+- No reboot all night (`last_reboot` still 2026-10-02 22:45:41, 9.1 h up), `v_scap` 3.76–3.80 V.
+- The meter stayed `OK` all night, so what `onreport` delivers without a meter reading is still
+  untested; the script ignores a report without a register either way.
+- The listed `size` of the open CSV log lagged (17 284 bytes listed, 208 027 downloaded).
+
+Then the CSV log was turned off (`services.sd.enable: false`, 07:52, user's go-ahead from
+2026-10-02). The recorder keeps running. The old logs `20261002.CSV` and `20261003.CSV` were then
+deleted (`DELETE /sdcard/<name>`, 204; user's go-ahead), so only the `GL*.CSV` day files are left.
+The web UI's SD logging switch is the same `services.sd.enable`, so it shows off too; `services.sd.recorder_mode`
+is the whatwatt's own option, unrelated to the GridLoad recorder, and stays off.

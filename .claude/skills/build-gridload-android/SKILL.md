@@ -135,17 +135,13 @@ local copies, install/start/remove over HTTP) with tests against a fake whatwatt
 recording removed (user: no fallback, precise warnings instead); the Recorder row in Settings,
 the red lines in the peak window, the help, ⓘ texts, README and store text.
 Open, in order:
-1. **Validate overnight:** the v1 draft ran from 2026-10-02 23:44 and the app updates it to v2
-   on first contact. Compare every `GL*.CSV` quarter with the CSV log's register interpolated
-   at the boundaries (download the CSV at ≤ 6 KB/s, `curl --limit-rate 6k`). Check
-   `last_reboot`: after a reboot, the quarter under way and the one the script starts in should
-   be missing (with a `start` line) and the rest fine. Check what `onreport` delivers when the
-   meter isn't `OK`. Then turn the CSV log off (`services.sd.enable: false`; the user agreed)
-   and ask whether to delete the old `2026100*.CSV` logs from the card.
-2. **On the phone:** the update v1 → v2 by the app, Install/Remove/Start on a real device
-   (remove and reinstall loses a quarter or two; tell the user first), each warning state (e.g.
-   prefs pointing to a wrong address, `auto_run` off via `PUT /api/v1/settings`), and the R8
-   release build (the script is a Java resource: check it loads).
+1. ~~Validate overnight~~: done 2026-10-03, 32 quarters within 0.0012 kWh of the CSV log, only
+   the two restart quarters missing (results in the research file); CSV log turned off. Still
+   open: what `onreport` delivers when the meter isn't `OK`. The old CSV logs are deleted.
+2. **On the phone:** done 2026-10-03: the update v1 → v2 by the app, the waiting and gap lines,
+   the Remove dialog (cancelled), the auto-run warning → Fix, the R8 release build. Still open:
+   Install and Remove on a real device (remove and reinstall loses a quarter or two; tell the
+   user first) and the other warning states (e.g. `run=false` for Stopped).
 3. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
    file just has 100 lines; check it.
 4. **Release v0.8.0** when the user asks (changelog: the recorder, no more "seen only while open",
