@@ -245,7 +245,10 @@ Still open:
    - ~~Store screenshots~~: done 2026-10-03 on the Fairphone 6, demo mode, "Kettle 1L test"
      hidden for the shots: 1 main screen with the appliances, 2 the "Cooking" preview, 3
      scrolled (strip, appliances, history), 4 help and 5 Settings kept from v0.9. F-Droid takes
-     them from the built tag, so they show there from the first tag after v0.10.0.
+     them from the built tag, so they show there from the first tag after v0.10.0. All retaken
+     for v0.11.1 (2026-10-03 23:14, R8 build, neutral theme): 1 main screen, 2 the "Cooking"
+     preview, 3 scrolled (strip, appliances, history), 4 the History screen (new), 5 help,
+     6 Settings.
 2. ~~The setup help's result line~~: done 2026-10-03 (user): "The result usually shows right
    after Done." and "Switch nothing else on or off until you tap Done."
 
