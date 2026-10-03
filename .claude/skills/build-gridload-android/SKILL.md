@@ -111,8 +111,9 @@ utilities' APIs), category `Market & Price`, `GPL-3.0-only`, `Binaries` +
 `AllowedAPKSigningKeys` for reproducible builds. The pipeline is green: `fdroid build` (Debian
 13, JDK 21 by default, so no `sudo` block) and the reproducible-build check.
 
-The recipe is at v0.10.0 (versionCode 12, the user's fork commit `cb4172fe1`, pushed
-2026-10-03; its pipeline was still running when the session ended, so check it); the reviewer's
+The recipe is at v0.10.0 (versionCode 12, the user's fork commits `cb4172fe1` and `87bc0a2d7`,
+2026-10-03: the first failed only `fdroid rewritemeta`, which wraps long text values at about 80
+columns with continuation lines indented 2 more, so write them wrapped that way); the reviewer's
 R8 request was answered with v0.3.1. The second review (2026-10-03) asked for a current version
 and corrected "no native code" (the APK has AndroidX's `libandroidx.graphics.path.so`, ~10 KB
 per ABI; the MR description now says so). The NonFreeNet text now also names the whatwatt and
