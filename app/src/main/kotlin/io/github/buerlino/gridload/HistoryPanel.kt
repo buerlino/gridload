@@ -107,7 +107,7 @@ fun HistoryScreen(state: UiState, onBack: () -> Unit) {
             TextButton(onClick = { lastMonth = false }, enabled = lastMonth) { Text("›", fontSize = 22.sp) }
         }
         if (highest == null) {
-            Text("No quarter hours recorded this month.", color = MUTED)
+            Text("No quarter hours recorded.", color = MUTED)
         } else {
             Text(highestText(highest, unit, zone), color = INK)
             DayBars(days, highest, line, maxKw, unit, month, today, selected, height = 200.dp, onDay = { selectedDay = it.toEpochDay() })
@@ -204,7 +204,7 @@ private fun DayBars(
         val barW = maxOf(slot - 2.dp.toPx(), 1f)
         fun x(day: Int) = plot.start + (day - 1) * slot + (slot - barW) / 2
 
-        if (selected != null) drawRect(SELECTED, Offset(plot.start + (selected.dayOfMonth - 1) * slot, 0f), Size(slot, bottom))
+        if (selected != null) drawRect(SELECTED, Offset(plot.start + (selected.dayOfMonth - 1) * slot, plot.axis.top), Size(slot, bottom - plot.axis.top))
         plot.axis.draw(this, plot.end)
         for (day in listOf(1, 8, 15, 22, 29).filter { it <= length }) {
             val r = measurer.measure("$day", SMALL)

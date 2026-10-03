@@ -109,6 +109,9 @@ class MainActivity : ComponentActivity() {
                 var showHistory by rememberSaveable { mutableStateOf(false) }
                 // Settings opened from the region in the top bar, with the region list open.
                 var pickRegion by remember { mutableStateOf(false) }
+                // Here rather than in Screen, so it's where it was after Settings or the history.
+                val panelScroll = rememberScrollState()
+                val collapse = remember { Collapse() }
                 when {
                     !state.firstStartDone || showGuide -> SetupGuide(
                         state, viewModel,
@@ -123,7 +126,7 @@ class MainActivity : ComponentActivity() {
                     )
                     showHistory -> HistoryScreen(state, onBack = { showHistory = false })
                     else -> Screen(
-                        state, viewModel,
+                        state, viewModel, panelScroll, collapse,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { region -> pickRegion = region; showSettings = true },
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
@@ -193,6 +196,8 @@ internal fun comingTime(at: Instant, today: String = ""): String {
 private fun Screen(
     state: UiState,
     viewModel: MainViewModel,
+    panelScroll: ScrollState,
+    collapse: Collapse,
     onRefresh: () -> Unit,
     onOpenSettings: (pickRegion: Boolean) -> Unit,
     onTogglePeak: () -> Unit,
@@ -209,8 +214,6 @@ private fun Screen(
                 TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
                 // Each part scrolls, so that pulling down anywhere refreshes.
                 if (state.showPeak) {
-                    val collapse = remember { Collapse() }
-                    val panelScroll = rememberScrollState()
                     val scope = rememberCoroutineScope()
                     Column(Modifier.weight(1f).nestedScroll(collapse)) {
                         Spot(

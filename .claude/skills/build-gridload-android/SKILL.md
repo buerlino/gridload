@@ -193,9 +193,23 @@ History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-val
 hit). The month's highest day red, today dark (only seen with today as the highest so far).
 Full screen on tap: built 2026-10-03 (`HistoryScreen` in `HistoryPanel.kt`; the user chose a
 day's quarter hours and last month, opened by tapping the chart, as its own screen; design in
-`CLAUDE.md` under History). Not seen on the phone yet: opening and back, ‹ › to last month (no
-limit line there), tapping days (the bars are ~10 dp wide, a tap picks the slot under the finger),
-a day with a gap, W.
+`CLAUDE.md` under History). Seen on the Fairphone 6 (2026-10-03, R8 build): opening by tapping
+the chart, back by ← and by the system back; this month (3 Oct, today, as the highest, red; 2 Oct
+grey; the day of the highest shaded and shown below); tapping days, also above a short bar
+(the shade and the quarter bars follow); taps on days without a bar, the axis labels and the limit's
+label do nothing; ‹ › to an empty September and back, the day reset to the month's highest; the
+four gaps of 2 and 3 Oct (2 Oct 23:30; 3 Oct 00:15, 08:15, 20:15) as empty slots, matching
+Settings → Recorder ("4 quarter hours missing this month"); W ("2560 W", the axis to 4000,
+"2650 limit"); process death with the screen open (back on History with the tapped day). Last
+month with data, seen with a temporary fake `GL260915.CSV` (3 Oct's lines 18 days earlier,
+debug build, deleted afterwards): no limit line, its own highest red, the scale to 3 kW, the
+day reset to 15 Sep. Fixed then (user): the shade now starts at the axis top (it stuck out above
+the top tick), an empty month says "No quarter hours recorded." (not "this month" under
+"September 2026"), and the main screen keeps its scroll and strip after History and Settings
+(they were reset to the top). After the declutter, the Settings and setup-guide title rows
+(`TitleRow`) and the WAIT rows ("Cheaper tomorrow 10:00", `comingTime`) look as before. Still
+open: today dark while another day is the month's highest (from 4 Oct on); last month with real
+data (from 1 Nov); the DST day's 100 slots (25 Oct).
 
 ### Appliances panel [released in v0.10.0, 2026-10-03]
 

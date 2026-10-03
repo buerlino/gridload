@@ -78,7 +78,7 @@ internal fun Panel(
  * A chart's vertical axis in [unit], from 0 at [bottom] to whole kW at [top] a bit above
  * [maxKw] (2 kW steps above 8), with its tick labels and the unit [gap] px left of [x].
  */
-internal class Axis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, private val top: Float, private val bottom: Float, private val gap: Float) {
+internal class Axis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, val top: Float, private val bottom: Float, private val gap: Float) {
     private val topKw = ceil(maxOf(maxKw * 1.15, 1.0)).toInt()
     private val ticks = (0..topKw step if (topKw > 8) 2 else 1).map { kw ->
         kw to measurer.measure(if (unit == PowerUnit.W) "${kw * 1000}" else "$kw", SMALL)
