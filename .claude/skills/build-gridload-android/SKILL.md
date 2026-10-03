@@ -37,15 +37,15 @@ in git.
   prefs (below) instead.
 - R8 release build for testing: `assembleRelease`, then `zipalign -p 4` and `apksigner` with
   `~/.android/debug.keystore`; it installs over debug builds.
-- Prefs and files of the debug build: `adb shell run-as io.github.buerlino.gridload cat files/quarters/2026-10.json`.
+- Prefs and files of the debug build: `adb shell run-as io.github.buerlino.gridload cat files/recorder/GL261003.CSV`.
   To test states without touching the device, edit the prefs with the app stopped:
   `adb shell "run-as io.github.buerlino.gridload sed -i -e 's/A/B/' shared_prefs/settings.xml"`
   (the whole command in one quoted string, or adb's shell splits it); a wrong address gives
   "not reachable". Put the user's values back afterwards.
-- Recorded quarters can be checked against the whatwatt's SD log (`/sdcard/YYYYMMDD.CSV`,
-  `EAP_T` at the boundaries), which needs no extra polling of the device. For a long test with
-  the app open, `adb shell svc power stayon usb` keeps the screen on; `svc power stayon false`
-  afterwards.
+- The recorder's lines can be checked against the whatwatt's CSV log (`/sdcard/YYYYMMDD.CSV`,
+  `EAP_T` at the boundaries); it's off since the validation, so turn it on first
+  (`services.sd.enable`) and off again afterwards. For a long test with the app open,
+  `adb shell svc power stayon usb` keeps the screen on; `svc power stayon false` afterwards.
 - Screenshots: `adb exec-out screencap -p > file.png`. For store screenshots, use SystemUI demo
   mode (`settings put global sysui_demo_allowed 1`, then `am broadcast -a
   com.android.systemui.demo -e command enter|clock|notifications|status|exit ...`) so the user's
@@ -133,15 +133,18 @@ Phase 4, the recorder on the whatwatt. Done 2026-10-03: script v2 (version marke
 no `print`) as a `:core` resource; `Recorder.kt` (day files, merge, gaps, `checkRecorder`, the
 local copies, install/start/remove over HTTP) with tests against a fake whatwatt; the app's own
 recording removed (user: no fallback, precise warnings instead); the Recorder row in Settings,
-the red lines in the peak window, the help, ⓘ texts, README and store text.
+the red lines in the peak window, the help, ⓘ texts, README and store text; the step-by-step
+whatwatt guide (`WhatwattGuide.kt`).
 Open, in order:
 1. ~~Validate overnight~~: done 2026-10-03, 32 quarters within 0.0012 kWh of the CSV log, only
    the two restart quarters missing (results in the research file); CSV log turned off. Still
    open: what `onreport` delivers when the meter isn't `OK`. The old CSV logs are deleted.
-2. **On the phone:** done 2026-10-03: the update v1 → v2 by the app, the waiting and gap lines,
-   the Remove dialog (cancelled), the auto-run warning → Fix, the R8 release build. Still open:
-   Install and Remove on a real device (remove and reinstall loses a quarter or two; tell the
-   user first) and the other warning states (e.g. `run=false` for Stopped).
+2. ~~On the phone~~: done 2026-10-03: the update v1 → v2 by the app, the waiting and gap lines,
+   the auto-run warning → Fix, the R8 release build; Stopped (`run=false`; the state is `IDLE`,
+   no longer shown in brackets) → Start, Remove (dialog, script deleted, auto-run off, day files
+   kept) and Install on the real whatwatt, all within one quarter hour (08:15 lost). Gaps count
+   only up to the last check, which is every 15 min while the recorder waits for its first
+   quarter, so a fresh gap can take that long to show.
 3. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
    file just has 100 lines; check it.
 4. **Release v0.8.0** when the user asks (changelog: the recorder, no more "seen only while open",
@@ -149,8 +152,8 @@ Open, in order:
 
 Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
 (user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
-in Test or the recorder check is a possible next step, ask the user); the other values of
-`execution_status.state` (shown verbatim).
+in Test or the recorder check is a possible next step, ask the user); the values of
+`execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

@@ -132,7 +132,7 @@ private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: (pickR
     Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
         TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
         Column(
-            // In peak load mode, clear of the top bar and the refresh button, and scrollable on small screens.
+            // With the peak window, clear of the top bar and the refresh button, and scrollable on small screens.
             Modifier.align(Alignment.Center)
                 .then(if (peak) Modifier.padding(top = 48.dp, bottom = 88.dp).verticalScroll(rememberScrollState()) else Modifier),
             horizontalAlignment = Alignment.CenterHorizontally,

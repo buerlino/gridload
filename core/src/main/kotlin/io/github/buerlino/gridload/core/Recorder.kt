@@ -138,27 +138,22 @@ fun checkRecorder(status: RecorderStatus, recording: Recording, now: Instant): R
         return RecorderCheck.Stopped(status.state)
     }
     if (status.autoRun != true) return RecorderCheck.NoAutoRun
-    val lastEnd = recording.lastEnd?.first
-    val lastStart = recording.starts.lastOrNull()
-    if (lastStart != null && (lastEnd == null || lastStart >= lastEnd)) {
-        // The script needs a boundary to begin its first quarter, which it saves at the next one.
-        val first = quarterStart(lastStart).plusSeconds(2 * QUARTER_SECONDS)
-        return if (now < first.plus(GRACE)) RecorderCheck.Waiting(first) else RecorderCheck.Silent(lastStart, started = true)
-    }
-    if (lastEnd != null && now >= lastEnd.plusSeconds(QUARTER_SECONDS).plus(GRACE)) return RecorderCheck.Silent(lastEnd, started = false)
-    return RecorderCheck.Ok
+    val due = nextLineDue(recording) ?: return RecorderCheck.Ok
+    val start = recording.pendingStart()
+    if (now < due.plus(GRACE)) return if (start != null) RecorderCheck.Waiting(due) else RecorderCheck.Ok
+    // Nothing came after the start, or after the last line (which ends a quarter before the due one).
+    return RecorderCheck.Silent(start ?: due.minusSeconds(QUARTER_SECONDS), started = start != null)
 }
 
+/** The script's last start when no line came after it: it's waiting for its first quarter. */
+private fun Recording.pendingStart(): Instant? =
+    starts.lastOrNull()?.takeIf { start -> lastEnd?.first.let { it == null || start >= it } }
+
 /** When the next line is due, so the app copies the day files then; null while nothing is expected. */
-fun nextLineDue(recording: Recording): Instant? {
-    val lastEnd = recording.lastEnd?.first
-    val lastStart = recording.starts.lastOrNull()
-    return when {
-        lastStart != null && (lastEnd == null || lastStart >= lastEnd) -> quarterStart(lastStart).plusSeconds(2 * QUARTER_SECONDS)
-        lastEnd != null -> lastEnd.plusSeconds(QUARTER_SECONDS)
-        else -> null
-    }
-}
+fun nextLineDue(recording: Recording): Instant? =
+    // The script needs a boundary to begin its first quarter, which it saves at the next one.
+    recording.pendingStart()?.let { quarterStart(it).plusSeconds(2 * QUARTER_SECONDS) }
+        ?: recording.lastEnd?.first?.plusSeconds(QUARTER_SECONDS)
 
 /**
  * The app's copy of the recorder's day files, under the same names. Past days don't change, so

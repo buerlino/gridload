@@ -117,3 +117,42 @@ Suggestions, not decisions; check them against the code first.
 - **5.4:** `gh` isn't installed, so check the current major versions of `actions/checkout` and
   `actions/setup-java` on GitHub (checkout may be past v5). Limit the test workflow to branch
   pushes and PRs, so tags don't run it twice next to `release.yml`.
+
+## Pass 2026-10-03
+
+Report (before v0.8.0): lint 0 issues, tests green, the only Gradle deprecation is still a
+plugin's. No unused code or dependencies. Migrations unchanged (F-Droid hasn't shipped yet).
+The user said go; all done, with 1.1 accepted as is (below).
+
+### Design
+- [x] 1.1 A fresh gap shows up to 15 min late: while the recorder waits for its first quarter,
+  `nextLineDue` points at that quarter's end, so the app syncs only every 15 min in between
+  (seen 2026-10-03: the 08:15 gap appeared at the 08:39 sync). Accept, or also sync 5 s after
+  the next boundary following a start.
+- [x] 1.2 Store screenshots are v0.7's: "highest seen", "Highest seen only while GridLoad is
+  open", no Recorder row. Retake for v0.8 (demo mode, see `SKILL.md`).
+
+### Code
+- [x] 2.1 `checkRecorder` computes "first quarter after a start" again; use `nextLineDue`.
+- [x] 2.2 `PeakWindow`: the recorder's `val line` shadows the peak `line`; rename it.
+- [x] 2.3 Stale wording in comments: "In peak load mode" (`MainActivity`), "last month's highest
+  seen" (`setGoalEnabled`).
+
+### Docs
+- [x] 4.1 `SKILL.md`, Working on the phone: the `files/quarters/2026-10.json` example and the
+  bullet on checking recorded quarters against the SD log are v0.7's; now `files/recorder/GL*.CSV`,
+  and the CSV log is off.
+- [x] 4.2 `research/whatwatt_berry_script.md` names `QuarterRecorder`, which is gone.
+- [x] 4.3 Optional: `CLAUDE.md` "Recording while away" keeps five struck-out options; shorten
+  to one line each (the reasons still stop them from being reopened).
+
+### Repo
+- [x] 5.1 200 loose objects (936 KiB): `git gc`.
+
+### Done (2026-10-03)
+
+- **1.1:** accepted as is. A sync at the next boundary wouldn't help: the missing quarter only
+  counts a minute after it ends (`GRACE`), so it would need a sync tuned to that for a few
+  minutes' gain.
+- **1.2:** retaken with v0.8.0 (main screen with the peak window, help, Settings with the Recorder row).
+- **2.1:** `pendingStart()` shared by `checkRecorder` and `nextLineDue`; behaviour unchanged (tests).

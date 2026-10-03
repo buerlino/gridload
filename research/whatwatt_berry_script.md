@@ -114,7 +114,7 @@ end
 ww.onreport('gl_report')
 ```
 
-(The test version also printed each quarter to the console.) Same rules as `QuarterRecorder`: a
+(The test version also printed each quarter to the console.) Same rules as v0.7's recording in the app: a
 quarter needs both boundaries, with readings at most 30 s apart; a register going backwards starts
 over; repeated readings are ignored. After a reboot, the quarter under way and the one in which the
 script starts (`run_delay` 60 s) are lost.
@@ -158,7 +158,8 @@ write is ignored silently (no `print`). Found on the device on 2026-10-03:
 - A day file that doesn't exist answers **500** (`text/plain`), not 404.
 - The listed `size` of a `GL*.CSV` was right at once (58 bytes after the second line); the CSV
   log's lagged because the firmware keeps it open.
-- `/api/v1/system` reports `services.berry.execution_status.state` (`"RUNNING"`) and `sd_card`
+- `/api/v1/system` reports `services.berry.execution_status.state` (`"RUNNING"`, `"IDLE"` after
+  `run=false` and after `DELETE`, seen 2026-10-03) and `sd_card`
   (`installed`, `type` `"SDHC/SDXC"`, `size` 488960, `speed`); no free space. The docs' OpenAPI
   file lists no other states.
 - `PUT /api/v1/berry` with no query answers `{"run":true}`.

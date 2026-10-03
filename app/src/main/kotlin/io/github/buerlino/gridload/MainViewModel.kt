@@ -198,7 +198,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(peakEnabled = enabled) }
     }
 
-    /** The goal switch; switched on for the first time, the goal starts at last month's highest seen. */
+    /** The goal switch; switched on for the first time, the goal starts at last month's highest. */
     fun setGoalEnabled(enabled: Boolean) {
         val first = _state.value.meter.lastMonthHighest?.takeIf { enabled && !prefs.contains(KEY_GOAL_KW) }?.let { roundKw(it.kw) }
         prefs.edit {

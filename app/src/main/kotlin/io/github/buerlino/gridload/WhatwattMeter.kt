@@ -308,7 +308,9 @@ fun recorderLine(check: RecorderCheck): String? = when (check) {
     RecorderCheck.Foreign -> "Another script runs on the whatwatt. GridLoad doesn't replace it, so it can't record."
     RecorderCheck.Outdated -> "An older recorder is installed. GridLoad updates it."
     is RecorderCheck.Starting -> "The whatwatt restarted. The recorder starts at ${shortTime(check.at)}."
-    is RecorderCheck.Stopped -> "The recorder is stopped" + (check.state?.let { " ($it)." } ?: ".")
+    // IDLE is the whatwatt's plain "stopped"; any other state is shown as a clue.
+    is RecorderCheck.Stopped ->
+        "The recorder is stopped" + (check.state?.takeIf { it != "IDLE" }?.let { " ($it)." } ?: ".")
     RecorderCheck.NoAutoRun -> "The recorder won't start again after the whatwatt restarts."
     is RecorderCheck.Silent ->
         if (check.started) "The recorder started at ${shortTime(check.since)}, but hasn't saved a quarter hour."

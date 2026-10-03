@@ -98,11 +98,11 @@ fun PeakWindow(state: UiState, onOpenSettings: () -> Unit) {
         }
         val meter = state.meter
         meter.recorder?.takeIf { meter.problem == null }?.let { check ->
-            val line = meter.recorderAction ?: recorderLine(check)
-            if (line != null && (isRecorderWarning(check) || meter.recorderAction != null)) {
-                Warning("$line ›", Modifier.clickable(onClick = onOpenSettings))
-            } else if (line != null) {
-                Note(line)
+            val text = meter.recorderAction ?: recorderLine(check)
+            if (text != null && (isRecorderWarning(check) || meter.recorderAction != null)) {
+                Warning("$text ›", Modifier.clickable(onClick = onOpenSettings))
+            } else if (text != null) {
+                Note(text)
             }
         }
         if (meter.missing.isNotEmpty()) {
