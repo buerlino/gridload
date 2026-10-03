@@ -186,7 +186,11 @@ after Measurement.
 
 History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-value (too thin to
 hit). The month's highest day red, today dark (only seen with today as the highest so far).
-Open: a full-screen view of the chart on tap (the user's idea; its content to be decided).
+Full screen on tap: built 2026-10-03 (`HistoryScreen` in `HistoryPanel.kt`; the user chose a
+day's quarter hours and last month, opened by tapping the chart, as its own screen; design in
+`CLAUDE.md` under History). Not seen on the phone yet: opening and back, ‹ › to last month (no
+limit line there), tapping days (the bars are ~10 dp wide, a tap picks the slot under the finger),
+a day with a gap, W.
 
 ### Appliances panel [released in v0.10.0, 2026-10-03]
 

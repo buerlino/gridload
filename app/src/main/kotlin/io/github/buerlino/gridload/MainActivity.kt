@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
                 val state by viewModel.state.collectAsStateWithLifecycle()
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
+                var showHistory by rememberSaveable { mutableStateOf(false) }
                 // Settings opened from the region in the top bar, with the region list open.
                 var pickRegion by remember { mutableStateOf(false) }
                 when {
@@ -120,12 +121,14 @@ class MainActivity : ComponentActivity() {
                         onOpenGuide = { showGuide = true },
                         onBack = { showSettings = false; pickRegion = false },
                     )
+                    showHistory -> HistoryScreen(state, onBack = { showHistory = false })
                     else -> Screen(
                         state, viewModel,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { region -> pickRegion = region; showSettings = true },
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
                         onToggleHistory = { viewModel.setHistoryOpen(!state.historyOpen) },
+                        onOpenHistory = { showHistory = true },
                     )
                 }
             }
@@ -194,6 +197,7 @@ private fun Screen(
     onOpenSettings: (pickRegion: Boolean) -> Unit,
     onTogglePeak: () -> Unit,
     onToggleHistory: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
@@ -230,7 +234,7 @@ private fun Screen(
                                 viewModel.setPreview(name)
                                 if (name != null) scope.launch { panelScroll.animateScrollTo(0) }
                             })
-                            HistoryPanel(state, onToggle = onToggleHistory)
+                            HistoryPanel(state, onToggle = onToggleHistory, onOpen = onOpenHistory)
                         }
                     }
                 } else {
@@ -451,6 +455,7 @@ fun HelpContent() {
         Text("The recorder saves every quarter hour on the whatwatt, also while GridLoad is closed. If it stops, a red line says why.")
         Text("Quarter hours it misses are missing from the month's highest. Open Recorder in Settings → Measurement to see them.")
         Text("The history shows each day's highest quarter hour this month.")
+        Text("Tap its chart to see a day's quarter hours, and last month.")
         Text("Tap a panel's top line to fold it.")
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
         Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")

@@ -1,35 +1,58 @@
 package io.github.buerlino.gridload
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.PowerUnit
+import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.Quarter
+import io.github.buerlino.gridload.core.Recording
+import io.github.buerlino.gridload.core.dailyHighest
+import java.time.Duration
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * The month so far, below the peak window: its header names the month's highest quarter hour
  * and when it was; open, one bar per day (that day's highest), with the limit across them, as in
  * the peak window. The day of the month's highest is red, today dark. Days before the recorder
- * started, or still to come, have no bar.
+ * started, or still to come, have no bar. Tapping the chart opens the [HistoryScreen].
  */
 @Composable
-fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
+fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
     val unit = state.powerUnit
     val highest = state.meter.highest
     // Never null while there is a highest: the limit is at least that.
@@ -50,34 +73,139 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
-        if (state.historyOpen && highest != null && line != null) DayBars(state.meter.days, highest, line, unit, state.region.zone)
+        if (state.historyOpen && highest != null && line != null) {
+            val zone = state.region.zone
+            DayBars(
+                state.meter.days, highest, line, line, unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
+                Modifier.clickable(onClickLabel = "Open the history", onClick = onOpen),
+            )
+        }
     }
 }
 
-/** One bar per day of this month: the month's highest in red, today dark, the rest grey; the limit at [line]. */
+/**
+ * The history on its own screen: this month's or last month's day bars, and below them the
+ * quarter hours of the day tapped (at first the day of the month's highest), so it shows when
+ * the load came. The limit is drawn for this month only, since its goal and floor are today's.
+ */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, line: Double, unit: PowerUnit, zone: ZoneId) {
-    val measurer = rememberTextMeasurer()
+fun HistoryScreen(state: UiState, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val unit = state.powerUnit
+    val zone = state.region.zone
     val today = LocalDate.now(zone)
-    val month = YearMonth.from(today)
-    Canvas(Modifier.fillMaxWidth().height(150.dp)) {
-        val bottom = size.height - 18.dp.toPx()
-        val axis = Axis(measurer, unit, line, 16.dp.toPx(), bottom, 6.dp.toPx())
-        val label = limitLabel(measurer, unit, line, 80.dp.roundToPx())
-        val labelX = size.width - label.size.width
-        val plotStart = axis.x + 6.dp.toPx()
-        val linesEnd = labelX - 8.dp.toPx()
-        val slot = (linesEnd - plotStart) / month.lengthOfMonth()
-        val barW = maxOf(slot - 2.dp.toPx(), 1f)
-        fun x(day: Int) = plotStart + (day - 1) * slot + (slot - barW) / 2
+    var lastMonth by rememberSaveable { mutableStateOf(false) }
+    val month = YearMonth.from(today).let { if (lastMonth) it.minusMonths(1) else it }
+    val quarters = state.meter.quarters
+    val days = remember(quarters, month, zone) { dailyHighest(Recording(quarters), month, zone) }
+    val highest = days.maxByOrNull { it.second.kwh }?.second
+    val line = if (lastMonth) null else state.peakLine
+    // Both charts share one scale, so a day's bars match its bar in the month.
+    val maxKw = maxOf(line ?: 0.0, highest?.kw ?: 0.0)
+    var selectedDay by rememberSaveable(month) { mutableStateOf<Long?>(null) }
+    val selected = (selectedDay?.let(LocalDate::ofEpochDay) ?: highest?.start?.atZone(zone)?.toLocalDate())
+        ?.takeIf { day -> days.any { it.first == day } }
 
-        axis.draw(this, linesEnd)
-        for (day in listOf(1, 8, 15, 22, 29).filter { it <= month.lengthOfMonth() }) {
+    Page {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("←", fontSize = 22.sp) }
+            Text("History", Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { lastMonth = true }, enabled = !lastMonth) { Text("‹", fontSize = 22.sp) }
+            Text(monthFormat.format(month), Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            TextButton(onClick = { lastMonth = false }, enabled = lastMonth) { Text("›", fontSize = 22.sp) }
+        }
+        if (highest == null) {
+            Text("No quarter hours recorded this month.", color = MUTED)
+        } else {
+            Text(
+                buildAnnotatedString {
+                    append("Highest ")
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(unit.format(highest.kw)) }
+                    append(" · ${dayTimeFormat.format(highest.start.atZone(ZoneId.systemDefault()))}")
+                },
+                color = INK,
+            )
+            DayBars(days, highest, line, maxKw, unit, month, today, selected, height = 200.dp, onDay = { selectedDay = it.toEpochDay() })
+            if (selected != null) {
+                val dayQuarters = quarters.filter { it.start.atZone(zone).toLocalDate() == selected }
+                val dayHighest = dayQuarters.maxBy { it.kwh }
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(dayFormat.format(selected)) }
+                        append(" · highest ")
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(unit.format(dayHighest.kw)) }
+                        append(" at ${timeFormat.format(dayHighest.start)}")
+                    },
+                    color = INK, fontSize = 18.sp,
+                )
+                QuarterBars(dayQuarters, selected, zone, highest, line, maxKw, unit)
+            }
+        }
+    }
+}
+
+private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+private val dayFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+
+/** Where a chart's plot is: right of the axis, and left of the limit's label when there is one. */
+private class Plot(val axis: Axis, val start: Float, val end: Float, val labelX: Float)
+
+private fun DrawScope.plot(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, line: Double?, bottom: Float): Pair<Plot, TextLayoutResult?> {
+    val axis = Axis(measurer, unit, maxKw, 16.dp.toPx(), bottom, 6.dp.toPx())
+    val label = line?.let { limitLabel(measurer, unit, it, 80.dp.roundToPx()) }
+    val labelX = size.width - (label?.size?.width ?: 0)
+    return Plot(axis, axis.x + 6.dp.toPx(), if (label != null) labelX - 8.dp.toPx() else size.width, labelX) to label
+}
+
+/**
+ * One bar per day of [month]: the month's [highest] in red, [today] dark, the rest grey; the
+ * limit at [line], the scale up to [maxKw]. [selected] is shaded; with [onDay], tapping picks the
+ * day under the finger, if it has a bar.
+ */
+@Composable
+private fun DayBars(
+    days: List<Pair<LocalDate, Quarter>>,
+    highest: Quarter,
+    line: Double?,
+    maxKw: Double,
+    unit: PowerUnit,
+    month: YearMonth,
+    today: LocalDate,
+    selected: LocalDate?,
+    height: Dp,
+    modifier: Modifier = Modifier,
+    onDay: ((LocalDate) -> Unit)? = null,
+) {
+    val measurer = rememberTextMeasurer()
+    val length = month.lengthOfMonth()
+    // The plot's ends in px, as last drawn, for mapping a tap to its day.
+    val span = remember { FloatArray(2) }
+    val tap = if (onDay == null) Modifier else Modifier.pointerInput(days) {
+        detectTapGestures { offset ->
+            val (start, end) = span
+            val day = ((offset.x - start) / ((end - start) / length)).toInt() + 1
+            days.firstOrNull { it.first.dayOfMonth == day.coerceIn(1, length) }?.let { onDay(it.first) }
+        }
+    }
+    Canvas(modifier.then(tap).fillMaxWidth().height(height)) {
+        val bottom = size.height - 18.dp.toPx()
+        val (plot, label) = plot(measurer, unit, maxKw, line, bottom)
+        span[0] = plot.start
+        span[1] = plot.end
+        val slot = (plot.end - plot.start) / length
+        val barW = maxOf(slot - 2.dp.toPx(), 1f)
+        fun x(day: Int) = plot.start + (day - 1) * slot + (slot - barW) / 2
+
+        if (selected != null) drawRect(SELECTED, Offset(plot.start + (selected.dayOfMonth - 1) * slot, 0f), Size(slot, bottom))
+        plot.axis.draw(this, plot.end)
+        for (day in listOf(1, 8, 15, 22, 29).filter { it <= length }) {
             val r = measurer.measure("$day", SMALL)
             drawText(r, topLeft = Offset(x(day) + (barW - r.size.width) / 2, bottom + 3.dp.toPx()))
         }
         for ((day, quarter) in days) {
-            val barTop = axis.y(quarter.kw)
+            val barTop = plot.axis.y(quarter.kw)
             val color = when {
                 quarter == highest -> RED
                 day == today -> BAR
@@ -85,6 +213,46 @@ private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, line
             }
             drawRect(color, Offset(x(day.dayOfMonth), barTop), Size(barW, bottom - barTop))
         }
-        drawLimit(axis, line, label, linesEnd, labelX)
+        if (line != null && label != null) drawLimit(plot.axis, line, label, plot.end, plot.labelX)
+    }
+}
+
+/** A light shade behind the day tapped. */
+private val SELECTED = Color(0xFFE3E7EA)
+
+/**
+ * The recorded quarter hours of [day] (96, or 92 and 100 on the DST nights), each at its time,
+ * so a missing one leaves a gap: the month's [highest] red, the day's own highest dark, the rest
+ * grey; the limit at [line] and hour labels every 6 hours, in [zone].
+ */
+@Composable
+private fun QuarterBars(quarters: List<Quarter>, day: LocalDate, zone: ZoneId, highest: Quarter, line: Double?, maxKw: Double, unit: PowerUnit) {
+    val measurer = rememberTextMeasurer()
+    val dayStart = day.atStartOfDay(zone).toInstant()
+    val slots = Duration.between(dayStart, day.plusDays(1).atStartOfDay(zone).toInstant()).seconds / QUARTER_SECONDS
+    val dayHighest = quarters.maxByOrNull { it.kwh }
+    Canvas(Modifier.fillMaxWidth().height(200.dp)) {
+        val bottom = size.height - 18.dp.toPx()
+        val (plot, label) = plot(measurer, unit, maxKw, line, bottom)
+        val slot = (plot.end - plot.start) / slots
+        val barW = maxOf(slot - 1.dp.toPx(), 1f)
+        fun x(index: Long) = plot.start + index * slot
+
+        plot.axis.draw(this, plot.end)
+        for (hour in listOf(0, 6, 12, 18)) {
+            val index = Duration.between(dayStart, day.atTime(hour, 0).atZone(zone).toInstant()).seconds / QUARTER_SECONDS
+            val r = measurer.measure("%02d".format(hour), SMALL)
+            drawText(r, topLeft = Offset(x(index), bottom + 3.dp.toPx()))
+        }
+        for (quarter in quarters) {
+            val barTop = plot.axis.y(quarter.kw)
+            val color = when (quarter) {
+                highest -> RED
+                dayHighest -> BAR
+                else -> PAST_BAR
+            }
+            drawRect(color, Offset(x(Duration.between(dayStart, quarter.start).seconds / QUARTER_SECONDS), barTop), Size(barW, bottom - barTop))
+        }
+        if (line != null && label != null) drawLimit(plot.axis, line, label, plot.end, plot.labelX)
     }
 }

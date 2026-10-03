@@ -553,7 +553,7 @@ private fun SwitchRow(label: String, info: Info?, checked: Boolean, onChange: (B
 
 /** Scrollable, padded column clear of the system bars. */
 @Composable
-private fun Page(content: @Composable ColumnScope.() -> Unit) {
+internal fun Page(content: @Composable ColumnScope.() -> Unit) {
     StatusBarIcons(dark = true)
     Surface(Modifier.fillMaxSize()) {
         Column(
