@@ -303,8 +303,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Start tapped: from now, with the draw now as the base for the jump. Needs a reading. */
     fun startMeasuring(appliance: Appliance) {
-        val kw = _state.value.meter.kw ?: return
-        saveMeasuring(Measuring(appliance, Instant.now().epochSecond, kw, kw))
+        val meter = _state.value.meter
+        val kw = meter.kw ?: return
+        saveMeasuring(Measuring(appliance, Instant.now().epochSecond, kw, meter.projection?.baseKw))
     }
 
     /** Done tapped: the result shows once the recorder has saved this quarter hour. */
@@ -331,6 +332,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The edit sheet's changes to the appliance that was called [name] (renaming too). */
     fun updateAppliance(name: String, appliance: Appliance) =
         saveAppliances(_state.value.appliances.map { if (it.name == name) appliance else it })
+
+    /** A variant derived from a measured appliance, e.g. another amount of water in the kettle. */
+    fun addAppliance(appliance: Appliance) = saveAppliances(_state.value.appliances + appliance)
 
     fun deleteAppliance(name: String) = saveAppliances(_state.value.appliances.filter { it.name != name })
 
@@ -413,14 +417,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
         meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled)
         warnIfClose()
-        // The jump: the highest draw seen while the appliance runs, until Done.
-        val measuring = _state.value.measuring
-        val kw = _state.value.meter.kw
-        if (measuring != null && measuring.done == null && kw != null && kw > measuring.highestKw) {
-            saveMeasuring(measuring.copy(highestKw = kw))
-        } else {
-            derive()
-        }
+        derive()
     }
 
     /** With peak load on, vibrates once per quarter hour when it comes close to the line. */

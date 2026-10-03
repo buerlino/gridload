@@ -22,6 +22,9 @@ class QuartersTest {
         assertEquals(at("16:00:00"), p.start)
         assertEquals(at("16:15:00"), p.end)
         assertFalse(p.estimated)
+        // The base for measuring: 0.25 kWh in the 5 min so far.
+        assertEquals(3.0, p.baseKw!!, 1e-9)
+        assertNull(projector.project(at("16:04:00"), 100.252, 3.0, start).baseKw)
         // A line from an earlier quarter doesn't count.
         assertTrue(projector.project(at("16:20:00"), 100.5, 1.0, start).estimated)
     }
@@ -35,6 +38,7 @@ class QuartersTest {
         val p = projector.project(at("16:10:00"), 100.100, 2.4, null)
         assertEquals(1.6, p.kw, 1e-9)
         assertTrue(p.estimated)
+        assertNull(p.baseKw)
         // A new quarter starts over from its own first reading.
         assertEquals(1.0, projector.project(at("16:15:30"), 100.300, 1.0, null).kw, 1e-9)
     }

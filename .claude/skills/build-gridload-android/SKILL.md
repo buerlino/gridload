@@ -180,7 +180,7 @@ History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-val
 hit). The month's highest day red, today dark (only seen with today as the highest so far).
 Open: a full-screen view of the chart on tap (the user's idea; its content to be decided).
 
-### Appliances panel [designed 2026-10-03; step 1 done, step 2 in progress]
+### Appliances panel [designed 2026-10-03; step 1 done, step 2 in progress, tested on the phone]
 
 Measured appliances with OK/WAIT per row. The design, the user's decisions and the open
 questions (all settled 2026-10-03) are in `research/appliances.md`. Measuring uses the recorder's quarter hours plus the live jump at the start; the
@@ -192,12 +192,23 @@ recorder script stays at v2 (frozen, see `CLAUDE.md`). In order:
    and in an R8 release build.
 3. Move the decided design into `CLAUDE.md`.
 
-Step 2, first cut built 2026-10-03 (not committed): `AppliancesPanel.kt` (panel, rows, the
+Step 2, first cut committed 2026-10-03 (`8ead5e0`): `AppliancesPanel.kt` (panel, rows, the
 measuring row, add/edit sheet, setup help), the view model's appliance state and actions,
 Settings → 🔌 Appliances (Export/Import), the help section; `MeterState.quarters` replaces
-`recent`. Seen on the Fairphone 6: the panel, the first-time help, the add sheet. Still to test
-on the phone: a kettle measurement end to end, the OK/WAIT rows, edit/rename/delete, export and
-import, then a real dishwasher run and an R8 release build; README and store text after that.
+`recent`. Measured on the Fairphone 6 on 2026-10-03 (not committed yet): "Cooking" (rice cooker,
+two plates, vent; 34 min · 0.89 kWh · 2.3 kW) and "Kettle 1 L" (3 min · 0.09 kWh · 1.8 kW). They
+led to two changes in `measure`: the run is spread up to Done instead of running the last quarter
+at the jump (which made cooking's tail a 15 s burst at 5 kW), and the base is the start's own
+quarter before Start (`Projection.baseKw`) when Start is 5+ min into it (a lunch quarter at
+0.58 kW before would have eaten the kettle). Also new: kettle variants ("Other amount of
+water", `waterShare`), run times rounded to the nearest minute, the help line "Tap Done as soon
+as it has finished." Tested on the phone: the measuring flow, OK and WAIT ("Sets a new peak at
+any start"), the collapsed summary, rename, delete, export (Downloads) and import (adds,
+replaces by name, rejects a non-appliance file). Still open: a WAIT with a time and a "Cheaper"
+row on the phone, the dishwasher run, the R8 release build, README and store text.
+To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
+pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
+the `&quot;` entities).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

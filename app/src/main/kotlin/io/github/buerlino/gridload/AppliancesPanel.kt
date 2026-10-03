@@ -38,6 +38,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,11 +47,14 @@ import io.github.buerlino.gridload.core.Appliance
 import io.github.buerlino.gridload.core.Measurement
 import io.github.buerlino.gridload.core.Piece
 import io.github.buerlino.gridload.core.PowerUnit
+import io.github.buerlino.gridload.core.parseKw
+import io.github.buerlino.gridload.core.scaled
+import io.github.buerlino.gridload.core.waterShare
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * The measured appliances, below the peak window: per appliance OK (fine to switch it on now) or
@@ -138,9 +142,9 @@ private fun startTime(at: Instant): String {
     return (if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow ") + timeFormat.format(local)
 }
 
-/** "3 min", "2 h", "1 h 55 min"; whole minutes, rounded up. */
+/** "3 min", "2 h", "1 h 55 min"; to the nearest minute. */
 private fun duration(minutes: Double): String {
-    val total = ceil(minutes - 1e-6).toInt().coerceAtLeast(1)
+    val total = minutes.roundToInt().coerceAtLeast(1)
     return listOfNotNull((total / 60).takeIf { it > 0 }?.let { "$it h" }, (total % 60).takeIf { it > 0 }?.let { "$it min" }).joinToString(" ")
 }
 
@@ -227,7 +231,7 @@ private fun MeasureHelp(onDismiss: () -> Unit) {
                     "Start at a quiet time, not while cooking.",
                     "Run the programme you always use, to its end.",
                     "Another programme is another appliance.",
-                    "When it has finished, open GridLoad and tap Done.",
+                    "Tap Done as soon as it has finished.",
                     "The result shows up to 15 minutes later.",
                     "Only appliances on the whatwatt's meter count.",
                 ).forEach { Text(it) }
@@ -248,6 +252,7 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
     var canWait by remember { mutableStateOf(initial.canWait) }
     var delay by remember { mutableIntStateOf(initial.delayMinutes) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var water by remember { mutableStateOf(false) }
     val trimmed = name.trim()
     val taken = trimmed != initial.name && (state.appliances.any { it.name == trimmed } || state.measuring?.appliance?.name == trimmed)
     val edited = initial.copy(name = trimmed, canWait = canWait, delayMinutes = delay)
@@ -263,6 +268,10 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
         if (!isNew) viewModel.updateAppliance(initial.name, edited)
         viewModel.startMeasuring(edited)
         onDismiss()
+    }
+    if (water) {
+        WaterDialog(initial, state, viewModel, onDismiss = { water = false; onDismiss() })
+        return
     }
     if (confirmDelete) {
         AlertDialog(
@@ -315,6 +324,7 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
                         TextButton(onClick = ::measure, enabled = blocked == null && trimmed.isNotEmpty() && !taken) { Text("Measure again") }
                         TextButton(onClick = { confirmDelete = true }) { Text("Delete", color = RED) }
                     }
+                    if (!initial.canWait) TextButton(onClick = { water = true }) { Text("Other amount of water") }
                 } else {
                     Text("Tap Start, then switch the appliance on.")
                 }
@@ -333,3 +343,57 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
 }
 
 private val DELAYS = listOf(0 to "None", 30 to "30 min", 60 to "1 h")
+
+/**
+ * A kettle variant: [measured]'s run scaled to another amount of water and temperature
+ * ([waterShare]), saved as an appliance of its own, e.g. "Kettle 1.5 L".
+ */
+@Composable
+private fun WaterDialog(measured: Appliance, state: UiState, viewModel: MainViewModel, onDismiss: () -> Unit) {
+    var measuredLitres by remember { mutableStateOf("1") }
+    var litres by remember { mutableStateOf("") }
+    var celsius by remember { mutableIntStateOf(100) }
+    val share = parseKw(measuredLitres)?.let { m -> parseKw(litres)?.let { waterShare(m, it, celsius) } }
+    // "Kettle 1 L" gives "Kettle 1.5 L", not "Kettle 1 L 1.5 L".
+    val name = "${measured.name.replace(LITRES, "")} ${litres.trim()} L" + if (celsius < 100) " · $celsius °C" else ""
+    val taken = state.appliances.any { it.name == name }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Other amount of water") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = measuredLitres,
+                    onValueChange = { measuredLitres = it },
+                    label = { Text("Measured with (L, to 100 °C)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+                OutlinedTextField(
+                    value = litres,
+                    onValueChange = { litres = it },
+                    label = { Text("Water (L)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+                Text("Temperature")
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    TEMPERATURES.forEachIndexed { i, t ->
+                        SegmentedButton(selected = celsius == t, onClick = { celsius = t }, shape = SegmentedButtonDefaults.itemShape(i, TEMPERATURES.size)) {
+                            Text("$t°")
+                        }
+                    }
+                }
+                share?.let { Text("$name: ${duration(measured.minutes * it)}", color = MUTED) }
+                if (taken) Text("That name is taken.", color = RED)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { viewModel.addAppliance(measured.scaled(name, share!!)); onDismiss() }, enabled = share != null && !taken) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+private val TEMPERATURES = listOf(100, 90, 80, 70)
+private val LITRES = Regex("""\s+[\d.,]+\s*L$""")

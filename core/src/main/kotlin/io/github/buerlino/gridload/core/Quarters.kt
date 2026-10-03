@@ -12,12 +12,19 @@ data class Quarter(val start: Instant, val kwh: Double) {
  * This quarter hour's average kW if the draw now holds until [end]. [estimated] when the
  * recorder has no line ending at the quarter's start, so its first minutes are estimated.
  */
-data class Projection(val kw: Double, val end: Instant, val estimated: Boolean) {
+/**
+ * [baseKw]: the average draw in this quarter hour so far, when it's exact and at least
+ * [BASE_MINUTES] in; the base for measuring an appliance switched on now.
+ */
+data class Projection(val kw: Double, val end: Instant, val estimated: Boolean, val baseKw: Double? = null) {
     val start: Instant get() = end.minusSeconds(QUARTER_SECONDS)
 }
 
 /** Warn when this quarter hour's projection reaches this share of the line: a 10% margin. */
 const val WARN_SHARE = 0.9
+
+/** A shorter stretch of a quarter hour says too little about the base draw (a fridge cycling). */
+private const val BASE_MINUTES = 5
 
 /**
  * The kW not to pass in this quarter hour: the higher of the goal and the month's highest
@@ -63,7 +70,9 @@ class QuarterProjector {
             val before = if (seen >= 1 / 60.0) (kwh - firstKwh) / seen else powerKw
             before * hours(qStart, firstTime) + kwh - firstKwh
         }
-        return Projection((used + powerKw * hours(time, end)) * 4, end, estimated = !exact)
+        val elapsed = hours(qStart, time)
+        val baseKw = if (exact && elapsed >= BASE_MINUTES / 60.0) used / elapsed else null
+        return Projection((used + powerKw * hours(time, end)) * 4, end, estimated = !exact, baseKw)
     }
 
     /** Forgets the readings, e.g. when the address now points to another device. */

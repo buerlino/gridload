@@ -59,22 +59,38 @@ class AppliancesTest {
     }
 
     @Test
-    fun aKettleIsItsEnergyOverItsJump() {
-        // 0.11 kWh above the base at a 2.2 kW jump: 3 minutes, from 10:07.
+    fun aKettleRunsFromStartToDone() {
+        // 0.11 kWh above the base from 10:07 to 10:10: 3 minutes at 2.2 kW.
         val q = quarters("09:45", "10:00", "10:00" to 0.11)
-        assertCurve(listOf(Piece(3.0, 2.2)), measure(at("10:07"), at("10:12"), 0.1, 2.3, q))
-        // Across a boundary: 2 minutes before 10:15 and 1 after, still 3 minutes at 2.2 kW.
+        assertCurve(listOf(Piece(3.0, 2.2)), measure(at("10:07"), at("10:10"), 0.1, null, q))
+        // Across a boundary: 2 minutes before 10:15 and 1 after.
         val across = quarters("09:45", "10:15", "10:00" to 2.2 * 2 / 60, "10:15" to 2.2 / 60)
-        assertCurve(listOf(Piece(2.0, 2.2), Piece(1.0, 2.2)), measure(at("10:13"), at("10:17"), 0.1, 2.3, across))
+        assertCurve(listOf(Piece(2.0, 2.2), Piece(1.0, 2.2)), measure(at("10:13"), at("10:16"), 0.1, null, across))
+        // Done tapped later: the same energy, spread up to Done.
+        assertCurve(listOf(Piece(5.0, 1.32)), measure(at("10:07"), at("10:12"), 0.1, null, q))
+    }
+
+    @Test
+    fun cookingWithSeveralAppliances() {
+        // Measured 2026-10-03: rice cooker, two plates and the vent from 11:47:23, Done at 12:20:31.
+        // The last quarter is the big plate at a low setting, not a burst at the highest jump.
+        val q = listOf(Quarter(at("11:30"), 0.0340), Quarter(at("11:45"), 0.5250), Quarter(at("12:00"), 0.4163), Quarter(at("12:15"), 0.0547))
+        val start = at("11:47:23")
+        val first = (15 * 60 - 143) / 60.0
+        val last = 331 / 60.0
+        assertCurve(
+            listOf(Piece(first, 0.491 * 60 / first), Piece(15.0, 0.3823 * 4), Piece(last, 0.0207 * 60 / last)),
+            measure(start, at("12:20:31"), 0.098, null, q),
+        )
     }
 
     @Test
     fun aLongRunIsSpreadWithinItsQuarters() {
-        // Started 19:07, Done 21:40. The last loud quarter (20:30) runs at the jump; the quiet ones after it are dropped.
+        // Started 19:07, Done 21:40. The quiet quarters after the last loud one (20:30) are dropped.
         val q = quarters("18:45", "21:30", "19:00" to 0.24, "19:15" to 0.3, "19:30" to 0.05, "19:45" to 0.0, "20:00" to 0.5, "20:15" to 0.1, "20:30" to 0.15, "20:45" to 0.005)
         assertCurve(
-            listOf(Piece(8.0, 1.8), Piece(15.0, 1.2), Piece(15.0, 0.2), Piece(15.0, 0.0), Piece(15.0, 2.0), Piece(15.0, 0.4), Piece(4.5, 2.0)),
-            measure(at("19:07"), at("21:40"), 0.08, 2.08, q),
+            listOf(Piece(8.0, 1.8), Piece(15.0, 1.2), Piece(15.0, 0.2), Piece(15.0, 0.0), Piece(15.0, 2.0), Piece(15.0, 0.4), Piece(15.0, 0.6)),
+            measure(at("19:07"), at("21:40"), 0.08, null, q),
         )
     }
 
@@ -82,34 +98,41 @@ class AppliancesTest {
     fun theBaseIsTheQuarterBeforeElseTheLiveDraw() {
         // The quarter before drew 0.1 kW (0.025 kWh): 0.135 − 0.025 = 0.11 extra, whatever the live draw said.
         val q = listOf(Quarter(at("09:45"), 0.025), Quarter(at("10:00"), 0.135))
-        assertCurve(listOf(Piece(3.0, 2.2)), measure(at("10:07"), at("10:12"), 0.5, 2.7, q))
-        // Without it, the live draw before the start: 0.135 − 0.2 / 4.
-        assertCurve(listOf(Piece(85.0 / 2200 * 60, 2.2)), measure(at("10:07"), at("10:12"), 0.2, 2.4, q.drop(1)))
-    }
-
-    @Test
-    fun withoutAJumpTheLastQuarterIsSpreadToo() {
-        val q = quarters("09:45", "10:00", "10:00" to 0.11)
-        assertCurve(listOf(Piece(8.0, 0.825)), measure(at("10:07"), at("10:12"), 0.1, 0.1, q))
+        assertCurve(listOf(Piece(3.0, 2.2)), measure(at("10:07"), at("10:10"), 0.5, null, q))
+        // Without it, the live draw before the start: 0.135 − 0.2 / 4 = 0.085 kWh in 3 minutes.
+        assertCurve(listOf(Piece(3.0, 1.7)), measure(at("10:07"), at("10:10"), 0.2, null, q.drop(1)))
+        // The start's quarter before it beats a busy quarter before (lunch at 0.58 kW): 0.2 kW from 10:00 to 10:07.
+        val busy = listOf(Quarter(at("09:45"), 0.145), Quarter(at("10:00"), 0.05 + 0.11))
+        assertCurve(listOf(Piece(3.0, 2.2)), measure(at("10:07"), at("10:10"), 0.5, 0.2, busy))
     }
 
     @Test
     fun waitsForTheLastQuarterAndNamesGapsAndQuietRuns() {
         val q = quarters("09:45", "10:00", "10:00" to 0.11)
         // Done at 10:20: the 10:15 quarter is due at 10:30.
-        assertEquals(Measurement.Pending(at("10:30")), measure(at("10:07"), at("10:20"), 0.1, 2.3, q))
+        assertEquals(Measurement.Pending(at("10:30")), measure(at("10:07"), at("10:20"), 0.1, null, q))
         // 10:15 missing, but 10:30 is there: it won't come any more.
-        assertEquals(Measurement.Gap, measure(at("10:07"), at("10:20"), 0.1, 2.3, q + Quarter(at("10:30"), 0.02)))
-        assertEquals(Measurement.NoDraw, measure(at("10:07"), at("10:12"), 0.1, 2.3, quarters("09:45", "10:00", "10:00" to 0.005)))
+        assertEquals(Measurement.Gap, measure(at("10:07"), at("10:20"), 0.1, null, q + Quarter(at("10:30"), 0.02)))
+        assertEquals(Measurement.NoDraw, measure(at("10:07"), at("10:12"), 0.1, null, quarters("09:45", "10:00", "10:00" to 0.005)))
     }
 
     @Test
     fun aMeasurementUnderWaySurvivesItsJsonAndGivesItsResultAfterDone() {
-        val running = Measuring(kettle.copy(curve = emptyList()), at("10:07").epochSecond, 0.1, 2.3)
+        val running = Measuring(kettle.copy(curve = emptyList()), at("10:07").epochSecond, 0.1)
         assertEquals(running, parseMeasuring(measuringJson(running)))
         val q = quarters("09:45", "10:00", "10:00" to 0.11)
         assertEquals(null, running.result(q))
-        assertCurve(listOf(Piece(3.0, 2.2)), running.copy(done = at("10:12").epochSecond).result(q)!!)
+        assertCurve(listOf(Piece(3.0, 2.2)), running.copy(done = at("10:10").epochSecond).result(q)!!)
+    }
+
+    @Test
+    fun otherAmountsOfWaterScaleTheRunTime() {
+        assertEquals(1.0, waterShare(1.0, 1.0, 100), 1e-9)
+        assertEquals(1.7, waterShare(1.0, 1.7, 100), 1e-9)
+        // Half a litre to 80 °C: half the water, 65 of the 85 degrees.
+        assertEquals(0.5 * 65 / 85, waterShare(1.0, 0.5, 80), 1e-9)
+        val variant = Appliance("Kettle", listOf(Piece(2.0, 2.2), Piece(1.0, 2.2)), canWait = false).scaled("Kettle 1.5 L", 1.5)
+        assertEquals(Appliance("Kettle 1.5 L", listOf(Piece(3.0, 2.2), Piece(1.5, 2.2)), canWait = false), variant)
     }
 
     @Test

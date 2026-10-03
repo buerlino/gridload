@@ -72,7 +72,7 @@ about 13 pieces. The name is the key (unique; import replaces by name):
 
 Prefs: `appliances_open` (the panel, like `peak_open`), `appliance_help_seen` (the setup help
 was shown once), and a running measurement (`measuring`: the appliance, the start time, the live
-draw before it and the highest seen since). Cloud backup is already off for everything.
+draw before it, for the jump shown while it runs, the base draw, and Done's time). Cloud backup is already off for everything.
 
 **Export and import** (user, 2026-10-03): measuring takes time, so the measured appliances must
 survive a reinstall, and be easy to move to another phone (e.g. a family member's). Settings → a
@@ -88,29 +88,33 @@ nothing and says so.
 From the recorder's quarter hours, which the app already copies (`RecorderFiles`), plus the live
 draw it reads every 5 s while open (user, 2026-10-03, decision B):
 
-- **The power:** the jump in the live draw when the appliance switches on: the highest reading
-  while measuring minus the reading just before the start. It's seen only while the app is open
-  at the start.
+- **The jump:** while the app is open, the measuring row shows the live draw minus the reading
+  just before the start ("+2.1 kW now"), so the user sees the appliance was caught. It isn't
+  part of the result (see the run's end).
 - **The base draw** (user, 2026-10-03: both): the jump uses the live reading just before the
-  start (an instant against an instant). The base subtracted from the quarters is the recorder's
-  quarter hour before the start's quarter, since an average is subtracted from averages; a fridge
-  on or off at the moment of the live reading would put it ±0.1 kW off, i.e. ±0.3 kWh over 3 h.
-  If that quarter is missing, the live reading.
+  start (an instant against an instant). The base subtracted from the quarters is an average,
+  since it's subtracted from averages; a fridge on or off at the moment of the live reading would
+  put it ±0.1 kW off, i.e. ±0.3 kWh over 3 h. It's the average in the start's own quarter hour
+  before Start (`Projection.baseKw`, exact from the register, saved at Start as `baseKw`) when
+  Start is at least 5 minutes into the quarter; else the recorder's quarter hour before; else
+  the live reading. (Changed 2026-10-03: the kettle test started at 13:11, after a 12:45 quarter
+  at 0.58 kW from lunch, while the house drew 0.29 kW from 13:00 to the start. The quarter before
+  would have eaten most of the kettle's 0.1 kWh.)
 - **The energy per quarter:** each recorded quarter during the run minus the base draw
   (`base kW × 0.25 h`); below 0 counts as 0.
-- **Spreading within quarters:** the start time is known, so each quarter's extra energy is
-  spread evenly over the part of the quarter the run covers: from the start in the first quarter,
-  the whole quarter after it. A run started at :07 then lines up correctly when it's projected
-  onto other start times.
-- **The run's end:** in the last quarter the appliance runs at its power from the quarter's
-  start, for that quarter's extra energy / its power, at most the minutes the quarter covers. For
-  a short run this is the user's rule: a quarter with 0.11 kWh extra at 2.2 kW is a 3-minute
-  kettle. A kettle switched on at :13 gives 2 minutes in one quarter and 1 in the next, and comes
-  out as 3 minutes again.
-- **A low or missing jump** (the app was left before a dishwasher's heater came on, or before
-  the jump showed): the cap above then spreads the last quarter evenly too, so the energy per
-  quarter stays right and only the shape inside the last quarter is coarser. No error state.
-  The power shown is the highest piece's kW.
+- **Spreading within quarters:** each quarter's extra energy is spread evenly over the part of
+  the quarter between Start and Done: from the start in the first quarter, up to Done in Done's
+  quarter, the whole quarter in between. A run started at :07 then lines up correctly when it's
+  projected onto other start times. A kettle from :07, Done at :10 when it clicks off, is
+  3 minutes at 2.2 kW; Done tapped later spreads the same energy further, which leaves each
+  quarter's energy (what the peak is billed on) unchanged. The power shown is the highest piece's
+  kW.
+- **Not the jump at the end** (changed 2026-10-03 after the first real measurement, cooking with
+  a rice cooker, two plates and the vent): the first cut ran the last quarter at the highest jump
+  of the whole run from the quarter's start. With several appliances that jump is all of them at
+  once, so the cooking's last quarter (21 Wh, the big plate on a low setting) became 15 seconds
+  at 5 kW: "28 min · 5.0 kW" for a 33-minute run that never averaged more than 2.3 kW in a
+  quarter. Spreading up to Done gives "34 min · 0.89 kWh · 2.3 kW".
 - **Quiet quarters at the end** (extra under 0.01 kWh, i.e. a 40 W average: a fridge cycle is
   about 0.008) are trimmed.
 - **The end** (user, 2026-10-03): the user taps **Done** once the appliance has finished (it
@@ -128,7 +132,7 @@ The heat pump and boiler are on the other meter, so they don't interfere.
 1. **+** → the setup help (by itself the first time) → a sheet with Name, Can wait and Start
    delay, and **Measure**.
 2. Measure: "Tap Start, then switch the appliance on." The app saves the start time and the live
-   draw just before it (`measuring`). While the app is open it shows the jump live ("+2.1 kW").
+   draw just before it (`measuring`). While the app is open it shows the jump live ("+2.1 kW now").
 3. You can leave the app once the jump shows. On return it still shows the running measurement.
 4. **End:** tap **Done** when the appliance has finished. Until Done's quarter is saved, the
    app says when the result shows ("Result at 21:30").
@@ -163,7 +167,7 @@ The text (user, 2026-10-03: as drafted), a dialog opened by **+**, by itself the
 > Start at a quiet time, not while cooking.
 > Run the programme you always use, to its end.
 > Another programme is another appliance.
-> When it has finished, open GridLoad and tap Done.
+> Tap Done as soon as it has finished.
 > The result shows up to 15 minutes later.
 > Only appliances on the whatwatt's meter count.
 
@@ -283,14 +287,38 @@ All settled with the user on 2026-10-03; the answers are in the sections above.
 
 New, open (2026-10-03, after the first cut):
 
-14. **Kettle variants** (the user: the kettle varies with the water volume and the end
-    temperature; a dropdown for volume and temperature, measured per combination?). Claude's
-    recommendation: no kettle-specific fields. A kettle's power is fixed by its element; only the
-    run time changes (≈ volume × temperature rise: 1 L from 15 to 100 °C is ~0.11 kWh, ~3 min at
-    2.2 kW; 1.7 L ~5 min). It can't wait, so only the peak counts, and the longest run is the
-    safe one: measure it once full to 100 °C, and if that fits, a smaller fill fits too. Anyone
-    who wants more adds a second appliance ("Kettle 1 L"), as for programmes. To settle with the
-    user.
+14. **Kettle variants** (settled with the user, 2026-10-03): measure the usual amount once
+    (1 L to 100 °C). A measured appliance with Can wait off has **Other amount of water** in its
+    edit sheet: Measured with (L, to 100 °C, default 1), Water (L), Temperature (100 · 90 · 80 ·
+    70 °C). It adds an ordinary appliance ("Kettle 1.5 L" from "Kettle 1 L"; rename it in its edit sheet)
+    whose curve is the measured one with each piece's minutes × `waterShare` = litres / measured
+    litres × (T − 15 °C) / 85, at the same kW: heating water takes energy in proportion to the
+    amount and the temperature rise, and the element's power is fixed. Tap water is taken as
+    15 °C; the kettle's own heat-up is ignored, so very small amounts come out a little short.
+    Nothing new is stored, and export and import carry the variants like any appliance.
+
+15. **Start times** (user, 2026-10-03): candidates stay **now, then :00, :15, :30, :45**; no
+    minute-level starts. Cleaner code and plainer advice.
+16. **Variants instead of categories** (Claude's proposal 2026-10-03, the user's goal: scalable,
+    not hardcoded, robust; build next): the user listed fixed appliances, linear dynamic ones
+    (kettle), non-linear dynamic ones, composite actions (cooking) and dynamic actions. The
+    engine only needs a curve per row, so they differ only in how the curve is made:
+    - Fixed (dishwasher programme) and composite actions (cooking): measured once, as a whole.
+    - Dynamic, linear or not (kettle, oven 30 vs 60 min, a longer simmer, a bigger meal): a
+      **variant** of a measured appliance with another **run time**: the curve's start stays
+      as measured, its **last phase** is stretched or cut. For an oven the preheat stays and the
+      cycling grows; a kettle is one phase at fixed power, so this is the linear rule.
+    - UI: the edit sheet of every measured appliance gets **Add a variant** (replacing "Other
+      amount of water"): Run time (min), plus an optional helper "From water" (litres,
+      temperature, `waterShare`) that fills the run time in. No category field, nothing tied to
+      names.
+    - Variants are saved as plain curves (baked), not links: renaming or deleting the original
+      can't break them, export and import stay as they are; re-measuring the original means
+      adding its variants again (rare).
+    - Core: one function, a curve with a new total run time (extend the last piece, or cut
+      pieces from the end), replacing `Appliance.scaled`. `advise` and the peak fit don't change.
+    - Left out until needed: power levels (hob 4.5/9: measure the action as cooked) and
+      combining appliances ("Kettle + Toaster").
 
 The household's dishwasher (user, 2026-10-03): only the short hot programme is used, about
 1.5 h, up to 65 °C. So one appliance, e.g. "Dishwasher 65°".

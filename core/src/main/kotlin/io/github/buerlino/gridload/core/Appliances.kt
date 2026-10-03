@@ -32,6 +32,20 @@ data class Appliance(
     val kw: Double get() = curve.maxOf { it.kw }
 }
 
+/** Tap water's temperature, for [waterShare]. */
+private const val TAP_CELSIUS = 15.0
+
+/**
+ * How much of a kettle's measured run (with [measuredLitres] heated to 100 °C) another amount
+ * takes: [litres] heated to [celsius]. Heating water takes energy in proportion to the amount and
+ * the temperature rise, at the element's fixed power, so only the run time changes.
+ */
+fun waterShare(measuredLitres: Double, litres: Double, celsius: Int): Double =
+    litres / measuredLitres * (celsius - TAP_CELSIUS) / (100 - TAP_CELSIUS)
+
+/** This appliance's run shortened (or lengthened) to [share] of it, at the same power. */
+fun Appliance.scaled(name: String, share: Double) = copy(name = name, curve = curve.map { it.copy(min = it.min * share) })
+
 /** Parses `appliances.json`, or an exported copy; throws on anything else. */
 fun parseAppliances(text: String): List<Appliance> = json.decodeFromString<List<Appliance>>(text).onEach { a ->
     require(a.name.isNotBlank() && a.curve.isNotEmpty() && a.curve.all { it.min > 0 && it.kw >= 0 }) { "Not an appliance: ${a.name}" }
@@ -81,20 +95,21 @@ sealed interface Measurement {
 /**
  * A measurement under way, kept in the prefs until it's saved or discarded. [appliance] is what
  * the user entered (with its old curve when measured again). Times in epoch seconds: [start] when
- * Start was tapped, [done] when Done was; [beforeKw] the live draw just before the start,
- * [highestKw] the highest seen since, until Done.
+ * Start was tapped, [done] when Done was; [beforeKw] the live draw just before the start, for the
+ * jump shown while it runs; [baseKw] the average draw in the start's quarter hour before it
+ * ([Projection.baseKw]).
  */
 @Serializable
 data class Measuring(
     val appliance: Appliance,
     val start: Long,
     val beforeKw: Double,
-    val highestKw: Double,
+    val baseKw: Double? = null,
     val done: Long? = null,
 ) {
     /** The result from the recorder's [quarters]; null until Done. */
     fun result(quarters: List<Quarter>): Measurement? =
-        done?.let { measure(Instant.ofEpochSecond(start), Instant.ofEpochSecond(it), beforeKw, highestKw, quarters) }
+        done?.let { measure(Instant.ofEpochSecond(start), Instant.ofEpochSecond(it), beforeKw, baseKw, quarters) }
 }
 
 fun parseMeasuring(text: String): Measuring = json.decodeFromString(text)
@@ -106,13 +121,11 @@ private const val QUIET_KWH = 0.01
 
 /**
  * The curve of a run from Start ([start]) to Done ([done]), from the recorder's [quarters]. The
- * base draw is the quarter hour before the start's, else [beforeKw], the live draw just before the
- * start. Each quarter's extra energy is spread evenly over the part the run covers; in the last
- * one the appliance runs at its jump in the live draw ([highestKw] − [beforeKw]) from the
- * quarter's start, at most to its end, so a 3-minute kettle stays 3 minutes. Quiet quarters at the
- * end are dropped.
+ * base draw is [baseKw], the average in the start's quarter hour before it, else the quarter hour
+ * before, else [beforeKw], the live draw just before the start. Each quarter's extra energy is spread evenly over the part of it between Start and Done.
+ * Quiet quarters at the end are dropped.
  */
-internal fun measure(start: Instant, done: Instant, beforeKw: Double, highestKw: Double, quarters: List<Quarter>): Measurement {
+internal fun measure(start: Instant, done: Instant, beforeKw: Double, baseKw: Double?, quarters: List<Quarter>): Measurement {
     val byStart = quarters.associateBy { it.start }
     val first = quarterStart(start)
     val last = quarterStart(done)
@@ -121,13 +134,12 @@ internal fun measure(start: Instant, done: Instant, beforeKw: Double, highestKw:
     if (missing != null) {
         return if (quarters.any { it.start > missing }) Measurement.Gap else Measurement.Pending(last.plusSeconds(QUARTER_SECONDS))
     }
-    val base = byStart[first.minusSeconds(QUARTER_SECONDS)]?.kw ?: beforeKw
+    val base = baseKw ?: byStart[first.minusSeconds(QUARTER_SECONDS)]?.kw ?: beforeKw
     val extra = starts.map { (byStart.getValue(it).kwh - base / 4).coerceAtLeast(0.0) }.dropLastWhile { it < QUIET_KWH }
     if (extra.isEmpty()) return Measurement.NoDraw
-    val jump = highestKw - beforeKw
     return Measurement.Result(extra.mapIndexed { i, kwh ->
-        val covered = if (i == 0) minutes(start, first.plusSeconds(QUARTER_SECONDS)) else 15.0
-        val min = if (i == extra.lastIndex && jump > 0) minOf(covered, kwh * 60 / jump) else covered
+        val q = starts[i]
+        val min = minutes(maxOf(start, q), minOf(done, q.plusSeconds(QUARTER_SECONDS)))
         Piece(min, kwh * 60 / min)
     })
 }
