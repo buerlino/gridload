@@ -149,7 +149,7 @@ Open, in order:
 
 Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
 (user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
-in Test or the recorder check is a possible next step, ask the user); whether the card must be FAT32; the other values of
+in Test or the recorder check is a possible next step, ask the user); the other values of
 `execution_status.state` (shown verbatim).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]

@@ -46,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -62,7 +61,7 @@ import io.github.buerlino.gridload.core.parseKw
 import java.util.Locale
 
 /** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
-private class Info(val title: String, val text: String, val link: Pair<String, String>? = null)
+private class Info(val title: String, val text: String)
 
 private val REGION_INFO = Info(
     "Region",
@@ -70,11 +69,8 @@ private val REGION_INFO = Info(
 )
 private val WHATWATT_INFO = Info(
     "whatwatt",
-    "A whatwatt Go reads your smart meter over your home Wi-Fi. GridLoad then shows what you use right now and what it costs, " +
-        "and can watch your monthly peak. It needs the adapter for your meter, the whatwatt Plus licence and your meter's key " +
-        "from your utility, and works only while your phone is on your home Wi-Fi. Reserve the device's address in your " +
-        "router so it stays the same.",
-    "whatwatt Go Reference Manual" to "https://whatwatt.ch/doc/whatwatt_Go_Reference_Manual_v1.0.pdf",
+    "A whatwatt Go reads your smart meter. GridLoad then shows what you use right now and what it costs, and can watch " +
+        "your monthly peak. It works while your phone is on your home Wi-Fi.",
 )
 private val PEAK_INFO = Info(
     "Peak load",
@@ -198,8 +194,9 @@ private val SECTION = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
 /**
  * The whatwatt's address with Test beside it and the last result below. Once connected it
  * collapses to one row with an expand button. Editing the address keeps it open until a Test
- * succeeds. Android 17 (API 37) needs the local network permission for the device; it's asked
- * for on the first test.
+ * succeeds. Until connected, a button opens the setup guide for a new whatwatt in place of the
+ * field. Android 17 (API 37) needs the local network permission for the device; it's asked for
+ * on the first test.
  */
 @Composable
 private fun Connection(state: UiState, viewModel: MainViewModel) {
@@ -208,6 +205,7 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
         if (granted) viewModel.testWhatwattConnection() else viewModel.whatwattPermissionDenied()
     }
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var guide by rememberSaveable { mutableStateOf(false) }
     if (state.meter.connected && !expanded) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("${state.whatwattAddress} · connected", Modifier.weight(1f))
@@ -215,6 +213,11 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
         }
         return
     }
+    if (guide) {
+        WhatwattGuide(onClose = { guide = false })
+        return
+    }
+    if (!state.meter.connected) TextButton(onClick = { guide = true }) { Text("New whatwatt? Set it up step by step ›") }
     var text by rememberSaveable { mutableStateOf(state.whatwattAddress.orEmpty()) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -333,27 +336,11 @@ private fun InfoLabel(text: String, info: Info, modifier: Modifier = Modifier, s
 
 @Composable
 private fun InfoDialog(info: Info, onDismiss: () -> Unit) {
-    val uriHandler = LocalUriHandler.current
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
         title = { Text(info.title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(info.text)
-                info.link?.let { (label, url) ->
-                    TextButton(
-                        onClick = {
-                            try {
-                                uriHandler.openUri(url)
-                            } catch (_: IllegalArgumentException) {
-                                // No app on the phone opens web links.
-                            }
-                        },
-                    ) { Text(label) }
-                }
-            }
-        },
+        text = { Text(info.text) },
     )
 }
 
