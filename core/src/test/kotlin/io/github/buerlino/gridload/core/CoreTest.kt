@@ -103,14 +103,15 @@ class CoreTest {
 
     @Test
     fun fetchesTomorrowOnceItIsPublished() {
-        val noon = CKW.tomorrowFrom
-        assertTrue(wantsFetch(emptyList(), sep29("09:00"), noon))
-        assertFalse(wantsFetch(sep29, sep29("11:59"), noon))
-        assertTrue(wantsFetch(sep29, sep29("12:00"), noon))
-        assertFalse(wantsFetch(twoDays, sep29("12:00"), noon))
-        assertTrue(wantsFetch(sep29, OffsetDateTime.parse("2026-09-30T00:00+02:00").toInstant(), noon))
+        assertTrue(wantsFetch(emptyList(), sep29("09:00"), CKW))
+        assertFalse(wantsFetch(sep29, sep29("11:59"), CKW))
+        assertTrue(wantsFetch(sep29, sep29("12:00"), CKW))
+        assertFalse(wantsFetch(twoDays, sep29("12:00"), CKW))
+        assertTrue(wantsFetch(sep29, OffsetDateTime.parse("2026-09-30T00:00+02:00").toInstant(), CKW))
         // A region that publishes later waits for its own time.
-        assertFalse(wantsFetch(sep29, sep29("17:59"), java.time.LocalTime.of(18, 0)))
+        assertFalse(wantsFetch(sep29, sep29("17:59"), CKW.copy(tomorrowFrom = java.time.LocalTime.of(18, 0))))
+        // Its time is in its own zone: 12:00 in Zurich is only 11:00 in London.
+        assertFalse(wantsFetch(sep29, sep29("12:00"), CKW.copy(zone = java.time.ZoneId.of("Europe/London"))))
     }
 
     @Test
@@ -145,6 +146,9 @@ class CoreTest {
         val url = pricesRequestUrl(CKW, OffsetDateTime.parse("2026-10-24T15:00+02:00").toInstant())
         assertTrue(url.startsWith(CKW.pricesUrl + "&"))
         assertTrue(url.endsWith("&start_timestamp=2026-10-23T22:00:00Z&end_timestamp=2026-10-25T23:00:00Z"), url)
+        // Another zone's midnights.
+        val london = pricesRequestUrl(CKW.copy(zone = java.time.ZoneId.of("Europe/London")), OffsetDateTime.parse("2026-10-24T15:00+02:00").toInstant())
+        assertTrue(london.endsWith("&start_timestamp=2026-10-23T23:00:00Z&end_timestamp=2026-10-26T00:00:00Z"), london)
     }
 
     @Test
@@ -154,6 +158,7 @@ class CoreTest {
         assertEquals(REGIONS.sortedBy { it.name }, REGIONS)
         assertTrue(CKW in REGIONS)
         assertTrue(REGIONS.all { it.country in COUNTRIES })
+        assertTrue(REGIONS.all { it.zone == it.country.zone })
     }
 
     @Test

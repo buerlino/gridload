@@ -3,12 +3,15 @@ package io.github.buerlino.gridload.core
 import java.time.LocalTime
 import java.time.ZoneId
 
-/** A country with at least one region; [code] is ISO 3166-1 alpha-2, as the phone reports it. */
-data class Country(val code: String, val name: String, val flag: String) {
+/**
+ * A country with at least one region; [code] is ISO 3166-1 alpha-2, as the phone reports it.
+ * [zone] is where its tariff days run from midnight to midnight; a region can have its own.
+ */
+data class Country(val code: String, val name: String, val flag: String, val zone: ZoneId) {
     val label: String get() = "$flag $name"
 }
 
-val SWITZERLAND = Country("CH", "Switzerland", "🇨🇭")
+val SWITZERLAND = Country("CH", "Switzerland", "🇨🇭", ZoneId.of("Europe/Zurich"))
 
 /** The countries the user picks from before the region, so each list stays short. */
 val COUNTRIES: List<Country> = listOf(SWITZERLAND)
@@ -21,6 +24,7 @@ fun countryOf(vararg codes: String?): Country? =
  * A supply region, served by one utility's dynamic-price API. All utilities so far follow the
  * VSE/AES standard (the CKW schema in CLAUDE.md). [pricesUrl] already has a query string.
  * [tomorrowFrom] is when tomorrow's prices are out (local time, rounded up from observations).
+ * [zone] is the country's unless the country spans several (e.g. Spain with the Canaries).
  */
 data class Region(
     val id: String,
@@ -29,6 +33,7 @@ data class Region(
     val country: Country,
     val pricesUrl: String,
     val tomorrowFrom: LocalTime,
+    val zone: ZoneId = country.zone,
 ) {
     /** How the app lists it: "Central Switzerland (CKW)". */
     val label: String get() = "$name ($utility)"
@@ -66,6 +71,3 @@ val REGIONS: List<Region> = listOf(
     Region("primeo_avag", "Olten area", "AVAG", SWITZERLAND, PRIMEO_URL + "NetzDynamischAVAG", LocalTime.of(18, 0)),
     Region("primeo_elag", "Gretzenbach", "ELAG", SWITZERLAND, PRIMEO_URL + "NetzDynamischELAG", LocalTime.of(18, 0)),
 ).sortedBy { it.name }
-
-/** All regions are Swiss so far: the tariff day runs from local midnight to midnight. */
-val TARIFF_ZONE: ZoneId = ZoneId.of("Europe/Zurich")

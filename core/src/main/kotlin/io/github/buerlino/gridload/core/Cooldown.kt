@@ -5,7 +5,6 @@ import java.net.NoRouteToHostException
 import java.net.UnknownHostException
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalTime
 
 /**
  * The API allows 4 requests per ~1000 s window. Waiting 5 minutes between attempts keeps us
@@ -38,11 +37,11 @@ fun reachedServer(e: Exception) = e !is UnknownHostException && e !is ConnectExc
 
 /**
  * Whether to fetch without the user asking: no cached slot covers [now], or tomorrow's prices
- * should be out (from the region's [tomorrowFrom]) but the cache ends today.
+ * should be out (from the [region]'s [Region.tomorrowFrom], in its zone) but the cache ends today.
  */
-fun wantsFetch(slots: List<PriceSlot>, now: Instant, tomorrowFrom: LocalTime): Boolean {
+fun wantsFetch(slots: List<PriceSlot>, now: Instant, region: Region): Boolean {
     if (slots.none { it.covers(now) }) return true
-    val local = now.atZone(TARIFF_ZONE)
-    val tomorrow = local.toLocalDate().plusDays(1).atStartOfDay(TARIFF_ZONE).toInstant()
-    return !local.toLocalTime().isBefore(tomorrowFrom) && slots.maxOf { it.end.toInstant() } <= tomorrow
+    val local = now.atZone(region.zone)
+    val tomorrow = local.toLocalDate().plusDays(1).atStartOfDay(region.zone).toInstant()
+    return !local.toLocalTime().isBefore(region.tomorrowFrom) && slots.maxOf { it.end.toInstant() } <= tomorrow
 }

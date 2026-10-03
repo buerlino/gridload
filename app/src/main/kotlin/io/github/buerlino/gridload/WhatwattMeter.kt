@@ -9,7 +9,6 @@ import io.github.buerlino.gridload.core.QuarterProjector
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.RecorderFiles
 import io.github.buerlino.gridload.core.Recording
-import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.checkRecorder
 import io.github.buerlino.gridload.core.dailyHighest
 import io.github.buerlino.gridload.core.downloadDayFile
@@ -76,9 +75,9 @@ private val TYPING = Duration.ofSeconds(10)
  * Reads the whatwatt and, with peak load on, copies the quarter hours its recorder saved (into
  * [recorderDir], one file per day as on its SD card), checks the recorder and projects this
  * quarter hour; also runs the Test and the recorder's Install, Start and Remove in Settings.
- * Owned by [MainViewModel] and called on the main thread; each change goes to [publish].
+ * Months and days are in [zone], the selected region's. Owned by [MainViewModel] and called on the main thread; each change goes to [publish].
  */
-class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit) {
+class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private val publish: (MeterState) -> Unit) {
     private val projector = QuarterProjector()
     private val files = RecorderFiles(recorderDir)
     private var recording = Recording()
@@ -168,7 +167,7 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
     /** Checks the recorder and copies its new lines; updates an older GridLoad recorder by itself. */
     private suspend fun sync(address: String) {
         val generation = generation
-        val today = LocalDate.now(TARIFF_ZONE)
+        val today = LocalDate.now(zone())
         val from = YearMonth.from(today).minusMonths(1).atDay(1)
         val result = withContext(Dispatchers.IO) {
             try {
@@ -264,7 +263,7 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
 
     /** Shows the copied quarter hours on start and when a month begins, before anything is fetched. */
     private suspend fun loadMonth() {
-        val now = YearMonth.now(TARIFF_ZONE)
+        val now = YearMonth.now(zone())
         if (now == month) return
         month = now
         val loaded = withContext(Dispatchers.IO) {
@@ -283,21 +282,22 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
      */
     private fun showRecording(loaded: Recording, checkedAt: Instant?) {
         recording = loaded
-        val now = YearMonth.now(TARIFF_ZONE)
-        fun inMonth(q: Quarter, month: YearMonth) = YearMonth.from(q.start.atZone(TARIFF_ZONE)) == month
-        val missing = checkedAt?.let { missingQuarters(loaded, now, it) } ?: state.missing
+        val zone = zone()
+        val now = YearMonth.now(zone)
+        fun inMonth(q: Quarter, month: YearMonth) = YearMonth.from(q.start.atZone(zone)) == month
+        val missing = checkedAt?.let { missingQuarters(loaded, now, it, zone) } ?: state.missing
         val lastGap = missing.lastOrNull()
         set {
             it.copy(
                 highest = loaded.quarters.filter { q -> inMonth(q, now) }.maxByOrNull { q -> q.kwh },
                 lastMonthHighest = loaded.quarters.filter { q -> inMonth(q, now.minusMonths(1)) }.maxByOrNull { q -> q.kwh },
                 quarters = loaded.quarters,
-                days = dailyHighest(loaded, now),
+                days = dailyHighest(loaded, now, zone),
                 missing = missing,
                 restartAfterGap = lastGap?.let { gap ->
                     loaded.starts.lastOrNull { s -> s >= gap && s < gap.plusSeconds(2 * QUARTER_SECONDS) }
                 },
-                recordedSince = recordedSince(loaded, now),
+                recordedSince = recordedSince(loaded, now, zone),
             )
         }
     }

@@ -6,6 +6,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 
 /*
  * The GridLoad recorder: a Berry script the app installs in the whatwatt's one script slot. It
@@ -70,29 +71,30 @@ fun parseRecording(files: List<String>): Recording {
 /** How long after a quarter hour ends its line may take to arrive before it counts as missing. */
 private val GRACE = Duration.ofSeconds(60)
 
-private fun YearMonth.start(): Instant = atDay(1).atStartOfDay(TARIFF_ZONE).toInstant()
+private fun YearMonth.start(zone: ZoneId): Instant = atDay(1).atStartOfDay(zone).toInstant()
 
 /**
  * The quarter hours of [month] the recorder should have saved by [until] but didn't: from the
- * month's start, or from its first quarter if it started recording later in the month.
+ * month's start, or from its first quarter if it started recording later in the month. Months
+ * and days in [zone], the region's: its month is the billed one.
  */
-fun missingQuarters(recording: Recording, month: YearMonth, until: Instant): List<Instant> {
+fun missingQuarters(recording: Recording, month: YearMonth, until: Instant, zone: ZoneId): List<Instant> {
     val first = recording.quarters.firstOrNull()?.start ?: return emptyList()
     val have = recording.quarters.mapTo(HashSet()) { it.start }
-    val lastDueEnd = minOf(quarterStart(until.minus(GRACE)), month.plusMonths(1).start())
-    return generateSequence(maxOf(first, month.start())) { it.plusSeconds(QUARTER_SECONDS) }
+    val lastDueEnd = minOf(quarterStart(until.minus(GRACE)), month.plusMonths(1).start(zone))
+    return generateSequence(maxOf(first, month.start(zone))) { it.plusSeconds(QUARTER_SECONDS) }
         .takeWhile { !it.plusSeconds(QUARTER_SECONDS).isAfter(lastDueEnd) }
         .filter { it !in have }
         .toList()
 }
 
 /** The recorder's first quarter when it started recording during [month], so the month's start is unknown. */
-fun recordedSince(recording: Recording, month: YearMonth): Instant? =
-    recording.quarters.firstOrNull()?.start?.takeIf { it > month.start() && YearMonth.from(it.atZone(TARIFF_ZONE)) == month }
+fun recordedSince(recording: Recording, month: YearMonth, zone: ZoneId): Instant? =
+    recording.quarters.firstOrNull()?.start?.takeIf { it > month.start(zone) && YearMonth.from(it.atZone(zone)) == month }
 
 /** Each day of [month] with a recorded quarter, and that day's highest quarter, in order. */
-fun dailyHighest(recording: Recording, month: YearMonth): List<Pair<LocalDate, Quarter>> =
-    recording.quarters.groupBy { it.start.atZone(TARIFF_ZONE).toLocalDate() }
+fun dailyHighest(recording: Recording, month: YearMonth, zone: ZoneId): List<Pair<LocalDate, Quarter>> =
+    recording.quarters.groupBy { it.start.atZone(zone).toLocalDate() }
         .filterKeys { YearMonth.from(it) == month }
         .map { (day, quarters) -> day to quarters.maxBy { it.kwh } }
         .sortedBy { it.first }

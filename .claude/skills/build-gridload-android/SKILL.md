@@ -91,8 +91,9 @@ Work phase by phase and update the status in brackets.
 - **v0.3:** today + tomorrow and the 24-hour window with the next good time; seven regions from
   four utilities (all VSE/AES). To analyse prices again, a request of up to 31 days (past days
   work) gives plenty of data in one call; mind CKW's rate limit of 4 per window. A new region:
-  test the URL with the app's request, add it to `REGIONS`, the table in `CLAUDE.md`,
-  `README.md` and the store description.
+  test the URL with the app's request, add it to `REGIONS` with its `Country`, the table in
+  `CLAUDE.md`, `README.md` and the store description. A region gets its country's time zone;
+  pass `zone` only if it differs (e.g. the Canaries in Spain).
 - **v0.4 / v0.5:** peak load with manual appliances and a CKW Excel import, dropped in v0.6.0
   (commit `71f954f`; reasons in `CLAUDE.md`).
 - **v0.6:** back to the lean core.
@@ -228,6 +229,30 @@ this month, so only after a `pm clear` or on a fresh phone; checked in the code:
 To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
 the `&quot;` entities).
+
+### Countries and time zones [built 2026-10-03, not released]
+
+Country before region shipped in v0.9.0 (`Country`, `COUNTRIES`, the Country dropdown in the
+setup guide and Settings, preselected from the SIM, then the locale). On 2026-10-03 the single
+`TARIFF_ZONE` (`Europe/Zurich`) was replaced by a zone per country, so a country in another
+zone works (user: "make it scalable"):
+- `Country(code, name, flag, zone)`; `Region(..., zone = country.zone)`, overridden only where a
+  country spans several zones.
+- The selected region's zone sets the tariff day: `fetchPeriod(now, zone)` (the request's
+  midnights) and `wantsFetch(slots, now, region)` (`tomorrowFrom` in the region's local time).
+- It also sets the peak's month and days, since the utility bills by its own calendar month:
+  `missingQuarters`, `recordedSince` and `dailyHighest` take a `zone`; `WhatwattMeter` gets
+  `{ region.zone }` from `MainViewModel`; `HistoryPanel`'s "today" uses `state.region.zone`.
+- Times shown on screen ("Updated 14:02", "● tomorrow 10:00") stay in the phone's zone.
+- Tests: London's midnights across the October DST change in the request, `tomorrowFrom` in the
+  region's zone, every current region on its country's zone.
+- For Switzerland nothing changes. Not tested on the phone; ship it with the next release.
+
+A new country: add a `Country` (ISO code as the phone reports it, name, flag emoji, zone) to
+`COUNTRIES` and its regions to `REGIONS`; the dropdowns need no change. Then the steps for a
+new region above. A country whose utilities don't follow VSE/AES needs its own parser, and a
+non-CHF currency needs the price and cost-line texts changed (see
+`research/neighbouring_countries.md`).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

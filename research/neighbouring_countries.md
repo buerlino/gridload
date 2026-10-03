@@ -146,7 +146,7 @@ before implementing.
      with the same `fetchPeriod` instants (ISO `Z` works).
    - Add a parser `parseEnergyCharts(body)` that zips `unix_seconds` and `price` into
      `PriceSlot`s. `end` is the next start; the last slot gets the same length as the one before
-     it. Use `Instant` → `OffsetDateTime` in `TARIFF_ZONE`. Convert EUR/MWh to per kWh (÷1000)
+     it. Use `Instant` → `OffsetDateTime` in the region's `zone`. Convert EUR/MWh to per kWh (÷1000)
      so the numbers are in the same range as the Swiss ones.
    - Keep the existing "drop slots starting at or after `end`" filter, and check whether
      Energy-Charts includes the slot at `end`.
@@ -162,8 +162,8 @@ before implementing.
    Settings. It needs no tariff data (the line is the month's highest quarter hour), so it can
    stay available everywhere; whether to hide it for regions without a peak tariff is a question
    for the user.
-5. **`TARIFF_ZONE`** (`Europe/Zurich`) can stay: DE, AT, LI, LU, FR and IT have the same offsets
-   and DST dates. Rename it or make it per region only if a region outside CET is ever added.
+5. **Time zone:** each `Country` has a `zone` (a region can override it), done 2026-10-03. Give
+   DE, AT, LI, LU, FR and IT their own (`Europe/Berlin`, `Europe/Vienna`, …).
 6. **Regions.** Add `Region("de", "Germany", …, zone "DE-LU", 13:15)`, `"at"` Austria (`AT`),
    and `"li"` Liechtenstein (`CH`, hourly, `tomorrowFrom` 13:15). Maybe "Luxembourg" (`DE-LU`).
    The flat dropdown sorted by name still works with ~10 entries. The `utility` field could read

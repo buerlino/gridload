@@ -178,7 +178,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private val meter = WhatwattMeter(File(app.filesDir, "recorder")) { meter -> _state.update { it.copy(meter = meter) } }
+    private val meter = WhatwattMeter(File(app.filesDir, "recorder"), { _state.value.region.zone }) { meter -> _state.update { it.copy(meter = meter) } }
 
     /**
      * On app start/resume and every minute: recompute from the cache, and fetch when [wantsFetch]
@@ -189,7 +189,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         loadCache()
         recompute()
         val now = Instant.now()
-        if (wantsFetch(slots, now, _state.value.region.tomorrowFrom) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
+        if (wantsFetch(slots, now, _state.value.region) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
     }
 
     /** Once per start: the last saved prices, if they are this region's and still cover now. */

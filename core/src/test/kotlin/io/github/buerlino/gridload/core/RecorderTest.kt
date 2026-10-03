@@ -14,6 +14,7 @@ import kotlin.test.assertTrue
 
 class RecorderTest {
     private fun at(time: String) = Instant.parse("2026-10-02T${time}Z")
+    private val zurich = SWITZERLAND.zone
     private fun line(start: String, kwh: Double, register: Double) = "${at(start).epochSecond},%.4f,%.4f".format(java.util.Locale.ROOT, kwh, register)
     private fun startLine(time: String) = "${at(time).epochSecond},start"
 
@@ -54,15 +55,15 @@ class RecorderTest {
         val recording = parseRecording(listOf(listOf("21:00:00", "21:15:00", "21:45:00").joinToString("\n") { line(it, 0.1, 1.0) }))
         val october = YearMonth.of(2026, 10)
         // 21:30 is missing; 22:00 ends at 22:15 and isn't due until a minute later.
-        assertEquals(listOf(at("21:30:00")), missingQuarters(recording, october, at("22:15:30")))
-        assertEquals(listOf(at("21:30:00"), at("22:00:00")), missingQuarters(recording, october, at("22:16:00")))
+        assertEquals(listOf(at("21:30:00")), missingQuarters(recording, october, at("22:15:30"), zurich))
+        assertEquals(listOf(at("21:30:00"), at("22:00:00")), missingQuarters(recording, october, at("22:16:00"), zurich))
         // It started recording in October, so the time before isn't counted, and is unknown.
-        assertEquals(at("21:00:00"), recordedSince(recording, october))
-        assertEquals(emptyList(), missingQuarters(Recording(), october, at("22:16:00")))
+        assertEquals(at("21:00:00"), recordedSince(recording, october, zurich))
+        assertEquals(emptyList(), missingQuarters(Recording(), october, at("22:16:00"), zurich))
         // Recording since September: October counts from its first quarter, 30 Sep 22:00 UTC.
         val sinceSeptember = parseRecording(listOf(line("21:00:00", 0.1, 1.0), "${Instant.parse("2026-09-30T21:45:00Z").epochSecond},0.1,1.0"))
-        assertNull(recordedSince(sinceSeptember, october))
-        assertEquals(Instant.parse("2026-09-30T22:00:00Z"), missingQuarters(sinceSeptember, october, at("22:16:00")).first())
+        assertNull(recordedSince(sinceSeptember, october, zurich))
+        assertEquals(Instant.parse("2026-09-30T22:00:00Z"), missingQuarters(sinceSeptember, october, at("22:16:00"), zurich).first())
     }
 
     @Test
@@ -71,9 +72,9 @@ class RecorderTest {
         val recording = parseRecording(listOf(listOf(line("21:00:00", 0.1, 1.0), line("21:45:00", 0.3, 1.3), line("22:00:00", 0.2, 1.5)).joinToString("\n")))
         assertEquals(
             listOf(LocalDate.of(2026, 10, 2) to Quarter(at("21:45:00"), 0.3), LocalDate.of(2026, 10, 3) to Quarter(at("22:00:00"), 0.2)),
-            dailyHighest(recording, YearMonth.of(2026, 10)),
+            dailyHighest(recording, YearMonth.of(2026, 10), zurich),
         )
-        assertEquals(emptyList(), dailyHighest(recording, YearMonth.of(2026, 9)))
+        assertEquals(emptyList(), dailyHighest(recording, YearMonth.of(2026, 9), zurich))
     }
 
     private val running = RecorderStatus(RECORDER_SCRIPT, "RUNNING", autoRun = true, runDelaySeconds = 60, sdCard = true, secondsSinceBoot = 9000)

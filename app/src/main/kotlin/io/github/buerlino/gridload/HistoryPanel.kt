@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.Quarter
-import io.github.buerlino.gridload.core.TARIFF_ZONE
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -49,15 +48,15 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
-        if (state.historyOpen && highest != null) DayBars(state.meter.days, highest, state.activeGoalKw, unit)
+        if (state.historyOpen && highest != null) DayBars(state.meter.days, highest, state.activeGoalKw, unit, state.region.zone)
     }
 }
 
 /** One bar per day of this month: the month's highest in red (its line labelled), today dark, the rest grey. */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal: Double?, unit: PowerUnit) {
+private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal: Double?, unit: PowerUnit, zone: ZoneId) {
     val measurer = rememberTextMeasurer()
-    val today = LocalDate.now(TARIFF_ZONE)
+    val today = LocalDate.now(zone)
     val month = YearMonth.from(today)
     Canvas(Modifier.fillMaxWidth().height(150.dp)) {
         val bottom = size.height - 18.dp.toPx()
