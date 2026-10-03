@@ -154,7 +154,7 @@ Unknowns to check when they matter: whether Berry needs the Plus licence; the mi
 in Test or the recorder check is a possible next step, ask the user); the values of
 `execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
 
-### Panels and history [built and tested 2026-10-03, committed; release next]
+### Panels and history [released in v0.9.0, 2026-10-03]
 
 Making room for the history on the main screen (user, 2026-10-03; the design is in `CLAUDE.md`
 under UI, "Power unit" and "History"). In order:

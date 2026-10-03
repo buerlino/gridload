@@ -222,7 +222,7 @@ Raw responses are in `private/` (gitignored; they contain the meter's id): `what
 
 ## Current state
 
-Released: **v0.8.0** (tag `v0.8.0`, versionCode 10, 2026-10-03: the recorder on the whatwatt, the whatwatt guide); before it v0.7.0 (versionCode 9, 2026-10-02: the whatwatt, peak load and the UI rework) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review, with the recipe at v0.6.0 (user, 2026-10-02); auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) picks up v0.7.0 and later tags once merged. iOS is out of scope for now. The user gives further instructions step by step; the roadmap and each phase's status are in the skill.
+Released: **v0.9.0** (tag `v0.9.0`, versionCode 11, 2026-10-03: the panels and the history, country before region, kW | W, pull to refresh); before it v0.8.0 (versionCode 10, 2026-10-03: the recorder on the whatwatt, the whatwatt guide) on GitHub Releases/Obtainium. F-Droid: merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, in review, with the recipe at v0.6.0 (user, 2026-10-02); auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) picks up v0.7.0 and later tags once merged. iOS is out of scope for now. The user gives further instructions step by step; the roadmap and each phase's status are in the skill.
 
 ## Conventions
 
