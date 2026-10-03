@@ -29,13 +29,14 @@ import io.github.buerlino.gridload.core.advise
 import io.github.buerlino.gridload.core.appliancesJson
 import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.cooldownEnd
+import io.github.buerlino.gridload.core.doneAt
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.measuringJson
 import io.github.buerlino.gridload.core.mergeAppliances
 import io.github.buerlino.gridload.core.parseAppliances
-import io.github.buerlino.gridload.core.parseKw
+import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
 import io.github.buerlino.gridload.core.peakLine
 import io.github.buerlino.gridload.core.reachedServer
@@ -67,11 +68,11 @@ data class UiState(
     val goalKw: Double? = null,
     /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
-    /** Whether the peak window and the history panel are expanded. */
+    /** Whether the peak window, the appliances and the history are expanded. */
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
     val appliancesOpen: Boolean = true,
-    /** The measured appliances, and for each (by name) whether to start it now; no advice without a reading. */
+    /** The measured appliances, and for each (by name) whether to start it now; no advice without a reading, nor for one that can wait without prices. */
     val appliances: List<Appliance> = emptyList(),
     val advice: Map<String, Advice> = emptyMap(),
     /** Whether the measurement setup help was shown once; afterwards it opens from ⓘ. */
@@ -97,7 +98,7 @@ data class UiState(
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
     }
-    /** Whether the main screen shows the peak window and the history. */
+    /** Whether the main screen shows the panels: the peak window, the appliances and the history. */
     val showPeak: Boolean get() = peakEnabled && whatwattEnabled
 }
 
@@ -111,7 +112,8 @@ data class UiState(
  * Nothing is fetched until the first start has picked a region; installs from before that fall
  * back to CKW. The whatwatt is read by [WhatwattMeter]; with peak load on, the phone vibrates
  * once per quarter hour when it comes close to a new peak; the quarter hours come from the
- * recorder on the whatwatt.
+ * recorder on the whatwatt. The appliances are kept in `appliances.json` and advised with each
+ * reading and each minute; a measurement under way is kept in the prefs.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -148,7 +150,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             powerUnit = PowerUnit.of(prefs.getString(KEY_POWER_UNIT, null)),
             peakEnabled = prefs.getBoolean(KEY_PEAK_ENABLED, false),
             goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
-            goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parseKw),
+            goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parsePositive),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
@@ -160,6 +162,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<UiState> = _state
 
     private val applianceFile = ApplianceFile(File(app.filesDir, "appliances.json"))
+    /** One write at a time, since each goes through the same temporary file. */
+    private val fileWrites = Dispatchers.IO.limitedParallelism(1)
 
     init {
         viewModelScope.launch {
@@ -216,7 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val kw = s.meter.kw
             val peak = if (projection != null && kw != null) PeakNow(projection, kw, s.peakLine) else null
             s.copy(
-                advice = peak?.let { s.appliances.associate { a -> a.name to advise(a, now, it, slots) } }.orEmpty(),
+                advice = peak?.let { s.appliances.mapNotNull { a -> advise(a, now, it, slots)?.let { a.name to it } }.toMap() }.orEmpty(),
                 measurement = s.measuring?.result(s.meter.quarters),
             )
         }
@@ -308,9 +312,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         saveMeasuring(Measuring(appliance, Instant.now().epochSecond, kw, meter.projection?.baseKw))
     }
 
-    /** Done tapped: the result shows once the recorder has saved this quarter hour. */
+    /** Done tapped: with the energy so far in this quarter hour, the result shows once the recorder has saved the ones before. */
     fun finishMeasuring() {
-        _state.value.measuring?.let { saveMeasuring(it.copy(done = Instant.now().epochSecond)) }
+        val measuring = _state.value.measuring ?: return
+        val (done, kwh) = doneAt(Instant.ofEpochSecond(Instant.now().epochSecond), _state.value.meter.projection)
+        saveMeasuring(measuring.copy(done = done.epochSecond, doneKwh = kwh))
     }
 
     /** Saves the measured curve; an appliance of the same name (measured again) is replaced. */
@@ -341,10 +347,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun saveAppliances(appliances: List<Appliance>) {
         _state.update { it.copy(appliances = appliances) }
         derive()
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(fileWrites) {
             try {
                 applianceFile.save(appliances)
-            } catch (_: IOException) {
+            } catch (_: Exception) {
                 // Shown again from memory until the app restarts; nothing else to do.
             }
         }
@@ -359,8 +365,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(appliancesJson(appliances).toByteArray()) }
                 }.isSuccess
             }
-            val count = appliances.size
-            _state.update { it.copy(applianceFileResult = if (ok) "Exported $count ${if (count == 1) "appliance" else "appliances"}." else "Couldn't write the file.") }
+            _state.update { it.copy(applianceFileResult = if (ok) "Exported ${appliancesCount(appliances.size)}." else "Couldn't write the file.") }
         }
     }
 
@@ -373,9 +378,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }.getOrNull()
             }
             if (imported != null) saveAppliances(mergeAppliances(_state.value.appliances, imported))
-            val count = imported?.size ?: 0
             _state.update {
-                it.copy(applianceFileResult = if (imported == null) "This file has no appliances GridLoad can read." else "Imported $count ${if (count == 1) "appliance" else "appliances"}.")
+                it.copy(applianceFileResult = if (imported == null) "This file has no appliances GridLoad can read." else "Imported ${appliancesCount(imported.size)}.")
             }
         }
     }
@@ -479,6 +483,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 }
+
+/** "1 appliance", "3 appliances". */
+private fun appliancesCount(n: Int) = if (n == 1) "1 appliance" else "$n appliances"
 
 /** A failed price fetch in words, instead of the exception's text. */
 private fun priceError(e: Exception) = when {

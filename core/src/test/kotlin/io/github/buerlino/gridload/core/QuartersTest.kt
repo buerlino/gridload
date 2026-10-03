@@ -56,13 +56,15 @@ class QuartersTest {
     }
 
     @Test
-    fun parsesTypedKw() {
-        assertEquals(3.5, parseKw(" 3.5 "))
-        assertEquals(3.5, parseKw("3,5"))
-        assertNull(parseKw(""))
-        assertNull(parseKw("0"))
-        assertNull(parseKw("-1"))
-        assertNull(parseKw("3.5 kW"))
+    fun parsesTypedNumbers() {
+        assertEquals(3.5, parsePositive(" 3.5 "))
+        assertEquals(3.5, parsePositive("3,5"))
+        assertNull(parsePositive(""))
+        assertNull(parsePositive("0"))
+        assertNull(parsePositive("-1"))
+        assertNull(parsePositive("3.5 kW"))
+        assertNull(parsePositive("Infinity"))
+        assertNull(parsePositive("NaN"))
     }
 
     @Test

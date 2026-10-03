@@ -123,6 +123,12 @@ private data class Look(val background: Color, val content: Color, val headline:
 
 internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
+/** A time still to come: "14:15", or "tomorrow 10:00" when it isn't today. */
+internal fun comingTime(at: Instant): String {
+    val local = at.atZone(ZoneId.systemDefault())
+    return (if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow ") + timeFormat.format(local)
+}
+
 /**
  * The colour, the headline, the price, the next good time, and when the prices were updated;
  * pulling down refreshes. With peak load on, this part is fixed at the top with smaller text,
@@ -244,14 +250,12 @@ private fun TopBar(state: UiState, content: Color, onOpenSettings: (pickRegion: 
     }
 }
 
-/** The next good time as a green dot and "11:00", with "tomorrow" when it isn't today. */
+/** The next good time as a green dot and "11:00" or "tomorrow 11:00". */
 @Composable
 private fun NextGoodTime(start: OffsetDateTime, content: Color, fontSize: TextUnit) {
-    val local = start.atZoneSameInstant(ZoneId.systemDefault())
-    val day = if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow "
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         GreenDot(content)
-        Text("$day${timeFormat.format(local)}", color = content, fontSize = fontSize)
+        Text(comingTime(start.toInstant()), color = content, fontSize = fontSize)
     }
 }
 

@@ -23,7 +23,7 @@ enum class PowerUnit(val id: String) {
     fun round(kw: Double): Double = number(kw, Locale.ROOT).toDouble() / if (this == W) 1000 else 1
 
     /** A value typed in this unit, in kW; null unless it's a number above 0. */
-    fun parse(text: String): Double? = parseKw(text)?.let { if (this == W) it / 1000 else it }
+    fun parse(text: String): Double? = parsePositive(text)?.let { if (this == W) it / 1000 else it }
 
     /** [kw] as the goal field shows it, ready to edit. */
     fun field(kw: Double): String = number(kw, Locale.ROOT)

@@ -6,7 +6,7 @@ import java.time.Duration
 import java.time.Instant
 
 /*
- * The appliances panel (design in research/appliances.md): each appliance is measured once, from
+ * The appliances panel (design in CLAUDE.md, "Appliances"): each appliance is measured once, from
  * the recorder's quarter hours plus the jump in the live draw at its start. For each, the app says
  * whether starting it now sets a new monthly peak or a later start is clearly cheaper.
  */
@@ -26,11 +26,12 @@ data class Appliance(
     val curve: List<Piece>,
     val canWait: Boolean = true,
     val delayMinutes: Int = 0,
-) {
-    val minutes: Double get() = curve.sumOf { it.min }
-    val kwh: Double get() = curve.sumOf { it.min * it.kw } / 60
-    val kw: Double get() = curve.maxOf { it.kw }
-}
+)
+
+/** A curve's run time, its energy and its power (the highest piece). */
+val List<Piece>.minutes: Double get() = sumOf { it.min }
+val List<Piece>.kwh: Double get() = sumOf { it.min * it.kw } / 60
+val List<Piece>.kw: Double get() = maxOf { it.kw }
 
 /** Tap water's temperature, for [waterShare]. */
 private const val TAP_CELSIUS = 15.0
@@ -60,9 +61,16 @@ fun List<Piece>.withRunTime(minutes: Double): List<Piece> {
     return if (t < minutes) kept.dropLast(1) + last().copy(min = last().min + minutes - t) else kept
 }
 
-/** Parses `appliances.json`, or an exported copy; throws on anything else. */
-fun parseAppliances(text: String): List<Appliance> = json.decodeFromString<List<Appliance>>(text).onEach { a ->
-    require(a.name.isNotBlank() && a.curve.isNotEmpty() && a.curve.all { it.min > 0 && it.kw >= 0 }) { "Not an appliance: ${a.name}" }
+/**
+ * Parses `appliances.json`, or an exported copy; throws on anything else. Names are the key, so
+ * each comes once; the last piece draws something, so a variant has something to stretch.
+ */
+fun parseAppliances(text: String): List<Appliance> = json.decodeFromString<List<Appliance>>(text).also { list ->
+    for (a in list) {
+        require(a.name.isNotBlank() && a.curve.isNotEmpty() && a.curve.last().kw > 0) { "Not an appliance: ${a.name}" }
+        require(a.curve.all { it.min > 0 && it.kw >= 0 && it.min.isFinite() && it.kw.isFinite() }) { "Not a curve: ${a.name}" }
+    }
+    require(list.distinctBy { it.name }.size == list.size) { "A name comes twice" }
 }
 
 fun appliancesJson(appliances: List<Appliance>): String = json.encodeToString(appliances)
@@ -92,12 +100,12 @@ internal fun List<Piece>.kwhBetween(from: Double, to: Double): Double {
     return kwh
 }
 
-private fun minutes(from: Instant, to: Instant) = Duration.between(from, to).toMillis() / 60_000.0
+private fun minutesBetween(from: Instant, to: Instant) = Duration.between(from, to).toMillis() / 60_000.0
 
-private fun Appliance.endIfStarted(start: Instant): Instant = start.plusMillis((minutes * 60_000).toLong())
+private fun Appliance.endIfStarted(start: Instant): Instant = start.plusMillis((curve.minutes * 60_000).toLong())
 
 sealed interface Measurement {
-    /** The recorder hasn't saved the last quarter hour of the run yet; it's due at [at]. */
+    /** The recorder hasn't saved the quarter hours of the run yet; the last is due at [at]. */
     data class Pending(val at: Instant) : Measurement
     /** A quarter hour of the run is missing from the recording: measure again. */
     data object Gap : Measurement
@@ -109,9 +117,10 @@ sealed interface Measurement {
 /**
  * A measurement under way, kept in the prefs until it's saved or discarded. [appliance] is what
  * the user entered (with its old curve when measured again). Times in epoch seconds: [start] when
- * Start was tapped, [done] when Done was; [beforeKw] the live draw just before the start, for the
- * jump shown while it runs; [baseKw] the average draw in the start's quarter hour before it
- * ([Projection.baseKw]).
+ * Start was tapped, [done] when Done was ([doneAt]); [beforeKw] the live draw just before the
+ * start, for the jump shown while it runs; [baseKw] the average draw in the start's quarter hour
+ * before it ([Projection.baseKw]); [doneKwh] the energy in Done's quarter hour up to Done
+ * ([Projection.usedKwh]), so the draw after Done doesn't count.
  */
 @Serializable
 data class Measuring(
@@ -120,15 +129,34 @@ data class Measuring(
     val beforeKw: Double,
     val baseKw: Double? = null,
     val done: Long? = null,
+    val doneKwh: Double? = null,
 ) {
     /** The result from the recorder's [quarters]; null until Done. */
     fun result(quarters: List<Quarter>): Measurement? =
-        done?.let { measure(Instant.ofEpochSecond(start), Instant.ofEpochSecond(it), beforeKw, baseKw, quarters) }
+        done?.let { measure(Instant.ofEpochSecond(start), Instant.ofEpochSecond(it), beforeKw, baseKw, doneKwh, quarters) }
 }
 
 fun parseMeasuring(text: String): Measuring = json.decodeFromString(text)
 
 fun measuringJson(measuring: Measuring): String = json.encodeToString(measuring)
+
+/** A reading older than this (the app was in the background) says nothing about Done. */
+private val FRESH = Duration.ofSeconds(15)
+
+/**
+ * Done tapped at [now]: when the run ended, and the energy used in that quarter hour up to then
+ * ([Measuring.doneKwh]), from the last [projection] when it's fresh and exact. A fresh reading
+ * from just before a boundary (Done in a quarter's first seconds) puts Done at the boundary, so
+ * the recorder's quarter covers the run up to it.
+ */
+fun doneAt(now: Instant, projection: Projection?): Pair<Instant, Double?> {
+    val p = projection?.takeIf { Duration.between(it.time, now) < FRESH } ?: return now to null
+    return when {
+        p.end <= now -> p.end to null
+        p.start == quarterStart(now.minusSeconds(1)) -> now to p.usedKwh
+        else -> now to null
+    }
+}
 
 /** A quarter hour's extra energy below this is quiet: a 40 W average (a fridge cycle is ~0.008 kWh). */
 private const val QUIET_KWH = 0.01
@@ -136,26 +164,28 @@ private const val QUIET_KWH = 0.01
 /**
  * The curve of a run from Start ([start]) to Done ([done]), from the recorder's [quarters]. The
  * base draw is [baseKw], the average in the start's quarter hour before it, else the quarter hour
- * before, else [beforeKw], the live draw just before the start. Each quarter's extra energy is spread evenly over the part of it between Start and Done.
- * Quiet quarters at the end are dropped.
+ * before, else [beforeKw], the live draw just before the start. Done's quarter hour is the one
+ * Done ends (a Done on a boundary ends the quarter before); with [doneKwh] its energy up to Done
+ * is known, so it needs no line from the recorder. Each quarter's extra energy is spread evenly
+ * over the part of it between Start and Done. Quiet quarters at the end are dropped.
  */
-internal fun measure(start: Instant, done: Instant, beforeKw: Double, baseKw: Double?, quarters: List<Quarter>): Measurement {
+internal fun measure(start: Instant, done: Instant, beforeKw: Double, baseKw: Double?, doneKwh: Double?, quarters: List<Quarter>): Measurement {
     val byStart = quarters.associateBy { it.start }
     val first = quarterStart(start)
-    val last = quarterStart(done)
+    val last = quarterStart(done.minusSeconds(1))
     val starts = generateSequence(first) { it.plusSeconds(QUARTER_SECONDS) }.takeWhile { it <= last }.toList()
-    val missing = starts.firstOrNull { it !in byStart }
+    val recorded = if (doneKwh != null) starts - last else starts
+    val missing = recorded.firstOrNull { it !in byStart }
     if (missing != null) {
-        return if (quarters.any { it.start > missing }) Measurement.Gap else Measurement.Pending(last.plusSeconds(QUARTER_SECONDS))
+        return if (quarters.any { it.start > missing }) Measurement.Gap else Measurement.Pending(recorded.last().plusSeconds(QUARTER_SECONDS))
     }
     val base = baseKw ?: byStart[first.minusSeconds(QUARTER_SECONDS)]?.kw ?: beforeKw
-    val extra = starts.map { (byStart.getValue(it).kwh - base / 4).coerceAtLeast(0.0) }.dropLastWhile { it < QUIET_KWH }
+    val extra = starts.map { q ->
+        val kwh = if (q == last && doneKwh != null) doneKwh - base * minutesBetween(q, done) / 60 else byStart.getValue(q).kwh - base / 4
+        minutesBetween(maxOf(start, q), minOf(done, q.plusSeconds(QUARTER_SECONDS))) to kwh.coerceAtLeast(0.0)
+    }.filter { (min, _) -> min > 0 }.dropLastWhile { (_, kwh) -> kwh < QUIET_KWH }
     if (extra.isEmpty()) return Measurement.NoDraw
-    return Measurement.Result(extra.mapIndexed { i, kwh ->
-        val q = starts[i]
-        val min = minutes(maxOf(start, q), minOf(done, q.plusSeconds(QUARTER_SECONDS)))
-        Piece(min, kwh * 60 / min)
-    })
+    return Measurement.Result(extra.map { (min, kwh) -> Piece(min, kwh * 60 / min) })
 }
 
 /** What the peak check needs now. */
@@ -174,7 +204,7 @@ internal fun Appliance.fitsPeak(start: Instant, peak: PeakNow): Boolean {
     val end = endIfStarted(start)
     return generateSequence(quarterStart(start)) { it.plusSeconds(QUARTER_SECONDS) }.takeWhile { it < end }.all { q ->
         val house = if (q == peak.projection.start) peak.projection.kw else peak.drawKw
-        val added = curve.kwhBetween(minutes(start, q), minutes(start, q.plusSeconds(QUARTER_SECONDS))) * 4
+        val added = curve.kwhBetween(minutesBetween(start, q), minutesBetween(start, q.plusSeconds(QUARTER_SECONDS))) * 4
         !isPeakWarning(house + added, line)
     }
 }
@@ -182,8 +212,8 @@ internal fun Appliance.fitsPeak(start: Instant, peak: PeakNow): Boolean {
 /** The run's price for a start at [start], weighted by its kWh; null unless the whole run lies within [slots]. */
 internal fun Appliance.runPrice(start: Instant, slots: List<PriceSlot>): Double? {
     if (slots.isEmpty() || start < slots.first().start.toInstant() || endIfStarted(start) > slots.last().end.toInstant()) return null
-    val cost = slots.sumOf { curve.kwhBetween(minutes(start, it.start.toInstant()), minutes(start, it.end.toInstant())) * it.price }
-    return cost / kwh
+    val cost = slots.sumOf { curve.kwhBetween(minutesBetween(start, it.start.toInstant()), minutesBetween(start, it.end.toInstant())) * it.price }
+    return cost / curve.kwh
 }
 
 /** Now, then each quarter hour, or each step of the start delay, within the [WINDOW]. */
@@ -197,8 +227,8 @@ internal fun Appliance.candidateStarts(now: Instant): List<Instant> {
 }
 
 sealed interface Advice {
-    /** Fine to start now. [pricesEnd]: the known prices end there, before the run would, so only the peak was judged. */
-    data class Ok(val pricesEnd: Instant? = null) : Advice
+    /** Fine to start now. [pricesMissing]: the known prices end before the run would, so only the peak was judged. */
+    data class Ok(val pricesMissing: Boolean = false) : Advice
     /** Starting now sets a new monthly peak; [at] is the first start that's fine, null if none is within the window. */
     data class NewPeak(val at: Instant?) : Advice
     /** A later start is clearly cheaper; [at] is the first that's fine. */
@@ -210,9 +240,10 @@ sealed interface Advice {
  * peak window's warning and, if it can wait, its run price is in the cheapest third of all
  * candidate starts' (the main colour's thirds). Only runs within the known prices compete; when
  * even starting now runs past them, the price isn't judged. When every cheaper start sets a new
- * peak, now is the best that fits.
+ * peak, now is the best that fits. With no prices at all, one that can wait gets no advice (null),
+ * unless starting now sets a new peak.
  */
-fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceSlot>): Advice {
+fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceSlot>): Advice? {
     val starts = appliance.candidateStarts(now)
     val prices = if (appliance.canWait) starts.associateWith { appliance.runPrice(it, slots) } else emptyMap()
     val known = prices.values.filterNotNull()
@@ -222,7 +253,7 @@ fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceS
     fun fine(start: Instant) = (!judgePrice || prices.getValue(start).let { it != null && it <= cheapest }) && appliance.fitsPeak(start, peak)
     val first = starts.firstOrNull(::fine)
     return when {
-        first == now -> Advice.Ok(pricesEnd = slots.lastOrNull()?.end?.toInstant()?.takeIf { appliance.canWait && !judgePrice })
+        first == now -> if (appliance.canWait && slots.isEmpty()) null else Advice.Ok(pricesMissing = appliance.canWait && !judgePrice)
         !appliance.fitsPeak(now, peak) -> Advice.NewPeak(first)
         first != null -> Advice.Cheaper(first)
         else -> Advice.Ok()

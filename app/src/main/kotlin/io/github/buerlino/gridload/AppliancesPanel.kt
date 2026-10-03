@@ -46,14 +46,15 @@ import io.github.buerlino.gridload.core.Advice
 import io.github.buerlino.gridload.core.Appliance
 import io.github.buerlino.gridload.core.Measurement
 import io.github.buerlino.gridload.core.Piece
+import io.github.buerlino.gridload.core.kw
+import io.github.buerlino.gridload.core.kwh
+import io.github.buerlino.gridload.core.minutes
 import io.github.buerlino.gridload.core.PowerUnit
-import io.github.buerlino.gridload.core.parseKw
+import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.waterShare
 import io.github.buerlino.gridload.core.withRunTime
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /**
@@ -119,9 +120,9 @@ private fun ApplianceRow(appliance: Appliance, advice: Advice?, onClick: () -> U
     val now = Instant.now()
     val (chip, line) = when (advice) {
         null -> null to null
-        is Advice.Ok -> "OK" to advice.pricesEnd?.let { "Prices after ${startTime(it)} not out yet" }
+        is Advice.Ok -> "OK" to "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
         is Advice.NewPeak -> "WAIT" to (advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak at any start")
-        is Advice.Cheaper -> "WAIT" to "Cheaper ${whenToStart(appliance, advice.at, now)}"
+        is Advice.Cheaper -> "WAIT" to whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
     }
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -132,15 +133,9 @@ private fun ApplianceRow(appliance: Appliance, advice: Advice?, onClick: () -> U
     }
 }
 
-/** "OK at 14:15", or with a start delay "· Delay 3 h", the number to set on the appliance. */
+/** "at 14:15", or with a start delay "Delay 3 h", the number to set on the appliance. */
 private fun whenToStart(appliance: Appliance, at: Instant, now: Instant) =
-    if (appliance.delayMinutes > 0) "· Delay ${duration(Duration.between(now, at).toMinutes().toDouble())}" else "at ${startTime(at)}"
-
-/** "14:15", or "tomorrow 10:00". */
-private fun startTime(at: Instant): String {
-    val local = at.atZone(ZoneId.systemDefault())
-    return (if (local.toLocalDate() == LocalDate.now()) "" else "tomorrow ") + timeFormat.format(local)
-}
+    if (appliance.delayMinutes > 0) "Delay ${duration(Duration.between(now, at).toMillis() / 60_000.0)}" else "at ${comingTime(at)}"
 
 /** "3 min", "2 h", "1 h 55 min"; to the nearest minute. */
 private fun duration(minutes: Double): String {
@@ -164,6 +159,16 @@ private fun Chip(text: String, color: Color) {
 private fun MeasuringRow(state: UiState, viewModel: MainViewModel) {
     val measuring = state.measuring ?: return
     val unit = state.powerUnit
+    var confirmDiscard by remember { mutableStateOf(false) }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text("Discard this measurement?") },
+            text = { Text("Its result is lost. To get one, measure it again.") },
+            confirmButton = { TextButton(onClick = { confirmDiscard = false; viewModel.discardMeasurement() }) { Text("Discard") } },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Cancel") } },
+        )
+    }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(measuring.appliance.name, Modifier.weight(1f), color = INK, fontSize = 16.sp)
@@ -182,7 +187,7 @@ private fun MeasuringRow(state: UiState, viewModel: MainViewModel) {
         line?.let { Text(it, color = MUTED, fontSize = 13.sp) }
         if (result is Measurement.Result) Curve(result.curve)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = viewModel::discardMeasurement) { Text("Discard") }
+            TextButton(onClick = { confirmDiscard = true }) { Text("Discard") }
             when {
                 measuring.done == null -> Button(onClick = viewModel::finishMeasuring) { Text("Done") }
                 result is Measurement.Result -> Button(onClick = viewModel::saveMeasurement) { Text("Save") }
@@ -192,16 +197,14 @@ private fun MeasuringRow(state: UiState, viewModel: MainViewModel) {
 }
 
 /** "1 h 55 min · 1.42 kWh · 2.1 kW". */
-private fun runSummary(curve: List<Piece>, unit: PowerUnit): String {
-    val a = Appliance("", curve)
-    return "${duration(a.minutes)} · %.2f kWh · ${unit.format(a.kw)}".format(a.kwh)
-}
+private fun runSummary(curve: List<Piece>, unit: PowerUnit) =
+    "${duration(curve.minutes)} · %.2f kWh · ${unit.format(curve.kw)}".format(curve.kwh)
 
 /** The measured extra draw over the run, as steps. */
 @Composable
 private fun Curve(curve: List<Piece>) {
-    val total = curve.sumOf { it.min }
-    val max = curve.maxOf { it.kw }.coerceAtLeast(0.01)
+    val total = curve.minutes
+    val max = curve.kw.coerceAtLeast(0.01)
     Canvas(Modifier.fillMaxWidth().height(56.dp)) {
         var x = 0f
         for (piece in curve) {
@@ -359,22 +362,22 @@ private fun VariantDialog(measured: Appliance, state: UiState, viewModel: MainVi
     // Suggested from the run time or the water until the user types a name.
     var typedName by remember { mutableStateOf<String?>(null) }
     var suggested by remember { mutableStateOf("") }
-    val minutes = parseKw(runTime)
+    val minutes = parsePositive(runTime)
     val curve = minutes?.let { measured.curve.withRunTime(it) }
     val name = (typedName ?: suggested).trim()
     val taken = state.appliances.any { it.name == name } || state.measuring?.appliance?.name == name
-    // "Kettle 1 L" gives "Kettle 1.5 L", "Cooking 34 min" gives "Cooking 60 min".
+    // "Kettle 1 L" gives "Kettle 1.5 L", "Cooking 34 min" "Cooking 60 min"; a variant's "· 80 °C" goes too.
     val base = measured.name.replace(AMOUNT, "")
     fun setRunTime(text: String) {
         runTime = text
-        suggested = if (parseKw(text) != null) "$base ${text.trim()} min" else ""
+        suggested = if (parsePositive(text) != null) "$base ${text.trim()} min" else ""
     }
     fun water(measuredText: String = measuredLitres, litresText: String = litres, t: Int = celsius) {
         measuredLitres = measuredText
         litres = litresText
         celsius = t
-        val share = parseKw(measuredText)?.let { m -> parseKw(litresText)?.let { waterShare(m, it, t) } } ?: return
-        runTime = "%.1f".format(measured.minutes * share)
+        val share = parsePositive(measuredText)?.let { m -> parsePositive(litresText)?.let { waterShare(m, it, t) } } ?: return
+        runTime = "%.1f".format(measured.curve.minutes * share)
         suggested = "$base ${litresText.trim()} L" + if (t < 100) " · $t °C" else ""
     }
     AlertDialog(
@@ -386,7 +389,7 @@ private fun VariantDialog(measured: Appliance, state: UiState, viewModel: MainVi
                     value = runTime,
                     onValueChange = ::setRunTime,
                     label = { Text("Run time (min)") },
-                    placeholder = { Text("%.0f".format(measured.minutes)) },
+                    placeholder = { Text("%.0f".format(measured.curve.minutes)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
@@ -442,4 +445,4 @@ private fun VariantDialog(measured: Appliance, state: UiState, viewModel: MainVi
 }
 
 private val TEMPERATURES = listOf(100, 90, 80, 70)
-private val AMOUNT = Regex("""\s+[\d.,]+\s*(L|min)$""")
+private val AMOUNT = Regex("""\s+[\d.,]+\s*(L|min)(\s*·\s*\d+\s*°C)?$""")

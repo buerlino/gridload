@@ -175,3 +175,85 @@ deprecation is still a plugin's. No leftovers of the dropped scale switch or `ro
   folded into `Axis`. The history's highest line is now 2.5 dp like the peak window's (was 2).
 - Accepted: `peak_scale_without_reading` stays in existing prefs, unread (removing it would need
   migration code for nothing).
+
+## Pass 2026-10-03 (after the appliances)
+
+Report: 59 tests green, lint 0, the only Gradle deprecation is still the plugin's
+`Configuration.setVisible`. The user decided each item (below).
+
+### Design and bugs
+- [x] 1.1 Done's quarter squeezes the whole quarter's household draw into the run's last piece.
+  (a): save the energy used so far in Done's quarter at Done, exact from the register, like
+  `baseKw` at Start; the extra is that minus base × (Done − quarter start), spread from
+  max(Start, quarter start) to Done. The result then needs only the quarters before Done's
+  (Pending, "Result at"). Nullable: older measurements and estimated projections fall back.
+- [x] 1.2 Crash on Save: Done on a boundary or in Start's second gives a 0-minute piece at
+  Infinity kW. Done's quarter is `quarterStart(done − 1 s)`, skip zero-length pieces, catch
+  `Exception` when saving.
+- [x] 1.3 "Delay 2 h 59 min": round to the nearest minute.
+- [x] 1.4 "Sets a new peak · · Delay 1 h": one separator.
+- [x] 1.5 "Prices after tomorrow 00:00 not out yet" → "Tomorrow's prices aren't out yet."
+- [x] 1.6 Can wait with no prices at all shows a plain OK (low): propose the smallest fix, ask
+  before adding UI text.
+- [x] 1.7 `appliances.json` saves one at a time (`Dispatchers.IO.limitedParallelism(1)`).
+- [x] 1.8 Import: unique names and a last piece above 0 kW.
+- [x] 1.9 Variant name of a variant: also strip "· 80 °C". A cut-then-stretched variant losing
+  its shape follows from plain curves: leave it.
+- [x] 1.10 Confirm before Discard, like Delete.
+
+### Tests (core)
+- [x] measure: Done on a boundary and in Start's second; Done seconds into a quarter with
+  household draw; Start and Done in one quarter; across midnight and a month end from day
+  files (GL260930, GL261001) through the parser; the DST night (01:50–03:20, 25 Oct 2026).
+- [x] advise: the DST night's 100 slots; a start delay when the prices end early; no prices at
+  all; Can wait with no line.
+- [x] parseAppliances/mergeAppliances: duplicate names, a last piece at 0 kW.
+- [x] withRunTime: cut, then stretched again.
+
+### Code
+- [x] 2.1 `parseKw` → `parsePositive` (kW, W, minutes, litres).
+- [x] 2.2 `minutes`, `kwh`, `kw` on the curve (`List<Piece>`).
+- [x] 2.3 One "14:15 / tomorrow 10:00" formatter; one "N appliance(s)" helper.
+- [x] 2.4 No file split (user).
+- [x] 2.5 Stale comments: `Projection`'s two doc comments, "OK at 14:15" on `whenToStart`, the
+  `MainViewModel` class comment, `UiState` naming two panels.
+
+### Docs
+- [x] 3 `CLAUDE.md` "## Appliances" matches the code after the fixes.
+- [x] 4.1 Trim `research/appliances.md` to about 120 lines.
+- [x] 4.2 The skill's appliances section: status, open items, the prefs tip; fix its
+  architecture line.
+- [x] 4.3 `CLAUDE.md` "## Appliances": drop quoted UI text that carries no decision.
+- [x] 4.4 `research/feature_ideas.md`: the "planned appliance calculator" points to `CLAUDE.md`.
+
+### Repo
+- [x] 5.2 `git gc` (243 loose objects).
+- [x] 5.3 `changelogs/12.txt` isn't written: the user decides on a release (noted in `SKILL.md`).
+
+### Done (2026-10-03)
+
+All done; verified with 69 tests (10 new), lint 0, debug and R8 release builds, and the R8 build
+on the Fairphone 6 (installed over v0.9.0's data: the four appliances load and advise). Where
+the work differed from the checklist:
+- **1.1:** `Projection` now carries the reading's `time` and `usedKwh` (exact energy so far);
+  `estimated` and `baseKw` are derived from them. `doneAt` uses it only from a fresh reading
+  (under 15 s: on return from the background the last projection can be minutes old, and its
+  energy would miss the rest of the run). A fresh reading from before the boundary (Done in a
+  quarter's first seconds) puts Done at the boundary, so that case doesn't fall back to the
+  squeeze either. The result is now usually there right after Done.
+- **1.2:** also `parsePositive` rejects "Infinity" and "NaN" (they parse as doubles), and
+  `parseAppliances` non-finite values.
+- **1.5:** `Advice.Ok.pricesEnd` (an `Instant`) became `pricesMissing` (a `Boolean`).
+- **1.6:** the user's choice: with no prices at all, a Can-wait appliance shows "–" (no chip,
+  like without a reading; `advise` returns null), unless starting now sets a new peak, which
+  still shows WAIT with its time. No new text.
+- **1.9:** as decided; the test pins a cut-then-stretched variant.
+- **1.10:** "Discard this measurement?" / "Its result is lost. To get one, measure it again." /
+  Cancel, Discard. Seen on the phone: Cancel keeps the measurement, Discard removes it.
+- **2.2:** `minutes`/`kwh`/`kw` moved from `Appliance` to `List<Piece>` (no copies left); the
+  private `minutes(from, to)` is now `minutesBetween`.
+- **2.3:** `comingTime` in `MainActivity.kt`.
+- **5.2:** 287 loose objects by then; 0 after `git gc`.
+- **Phone:** 1.3, 1.4 and 1.5 couldn't be seen at 15:00 (no WAIT with a time on an appliance
+  with a start delay; tomorrow's prices out). 1.4 and 1.5 are plain strings; 1.3 rounds in the
+  app, untested by core.

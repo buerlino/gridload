@@ -18,9 +18,11 @@ in git.
   Kotlin/Compose is the easiest for F-Droid to build and review. iOS is deferred; if it comes,
   the default is a small native SwiftUI rewrite. Don't build for it now.
 - **Architecture:** single Activity. `:core` (plain Kotlin/JVM, no Android) holds the logic, all
-  unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm),
-  `WhatwattMeter` (reading, recording, the Test) and the screens: main (`MainActivity.kt`,
-  `PeakWindow.kt`, `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), Settings and the setup guide (`SettingsScreen.kt`).
+  unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm, the appliances and
+  their measuring), `WhatwattMeter` (reading, the recorder's sync, checks and actions, the Test)
+  and the screens: main (`MainActivity.kt`, `PeakWindow.kt`, `AppliancesPanel.kt`,
+  `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), Settings and the
+  setup guide (`SettingsScreen.kt`, `WhatwattGuide.kt`).
 - **No background work** and no accounts, cloud or optimization engine.
 
 ## Working on the phone
@@ -180,38 +182,21 @@ History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-val
 hit). The month's highest day red, today dark (only seen with today as the highest so far).
 Open: a full-screen view of the chart on tap (the user's idea; its content to be decided).
 
-### Appliances panel [designed 2026-10-03; steps 1 and 3 done, step 2 nearly done; not released]
+### Appliances panel [built 2026-10-03; not released]
 
-Measured appliances with OK/WAIT per row. The design, the user's decisions and the open
-questions (all settled 2026-10-03) are in `research/appliances.md`. Measuring uses the recorder's quarter hours plus the live jump at the start; the
-recorder script stays at v2 (frozen, see `CLAUDE.md`). In order:
-1. ~~`:core`~~ (done 2026-10-03): `Appliances.kt` with unit tests (model and JSON, the curve from the quarters, the
-   peak fit, the run price, OK/WAIT). Unused until step 2, so both ship in one release.
-2. `:app`: the panel, the add/edit sheet, the setup help, the measuring flow, `appliances.json`,
-   export and import in Settings (file picker), help, ⓘ, README and store text. Test on the phone with a kettle, then a real dishwasher run,
-   and in an R8 release build.
-3. ~~Move the decided design into `CLAUDE.md`~~ (done 2026-10-03, section "Appliances").
+The design is in `CLAUDE.md` under "Appliances", the reasoning in `research/appliances.md`; the
+recorder stays at v2. Built and tested on the Fairphone 6 (2026-10-03): the measuring flow
+("Cooking", "Kettle 1 L"), OK and WAIT ("Sets a new peak at any start"), the collapsed summary,
+rename, delete, variants ("Cooking 60 min", "Kettle 1.5 L"), export and import, and an R8 release
+build (a measurement survives a force-stop). Declutter pass afterwards: see
+[declutter.md](declutter.md).
 
-Step 2, first cut committed 2026-10-03 (`8ead5e0`): `AppliancesPanel.kt` (panel, rows, the
-measuring row, add/edit sheet, setup help), the view model's appliance state and actions,
-Settings → 🔌 Appliances (Export/Import), the help section; `MeterState.quarters` replaces
-`recent`. Measured on the Fairphone 6 on 2026-10-03 (not committed yet): "Cooking" (rice cooker,
-two plates, vent; 34 min · 0.89 kWh · 2.3 kW) and "Kettle 1 L" (3 min · 0.09 kWh · 1.8 kW). They
-led to two changes in `measure`: the run is spread up to Done instead of running the last quarter
-at the jump (which made cooking's tail a 15 s burst at 5 kW), and the base is the start's own
-quarter before Start (`Projection.baseKw`) when Start is 5+ min into it (a lunch quarter at
-0.58 kW before would have eaten the kettle). Also new: variants (Add a variant in the edit sheet: another run time,
-the last phase stretched or cut, `withRunTime`; From water fills it in with `waterShare`; tested
-on the phone 2026-10-03 with "Cooking 60 min" and "Kettle 1.5 L"), run times rounded to the nearest minute, the help line "Tap Done as soon
-as it has finished." Tested on the phone: the measuring flow, OK and WAIT ("Sets a new peak at
-any start"), the collapsed summary, rename, delete, export (Downloads) and import (adds,
-replaces by name, rejects a non-appliance file). Also done 2026-10-03: the R8 release build (the
-appliances load, a measurement survives a force-stop, the variant dialog), README, help and store
-text. A boundary kettle run (14:15) showed every row "Sets a new peak at any start" while the
-kettle drew 2.1 kW, since later quarters assume the draw now; the time ("· at 14:30") needs a heavy
-quarter with a low draw now, e.g. after the hob is switched off mid-quarter. Still open: that WAIT
-with a time and a "Cheaper" row on the phone (evening prices), the dishwasher run ("Dishwasher
-65°", ~1.5 h, Can wait on).
+Open:
+1. On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now, e.g.
+   after the hob is switched off mid-quarter) and a "Cheaper" row (evening prices).
+2. The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
+3. Release: `changelogs/12.txt` isn't written; the user decides.
+
 To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
 the `&quot;` entities).

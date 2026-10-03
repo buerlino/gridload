@@ -9,15 +9,16 @@ data class Quarter(val start: Instant, val kwh: Double) {
 }
 
 /**
- * This quarter hour's average kW if the draw now holds until [end]. [estimated] when the
- * recorder has no line ending at the quarter's start, so its first minutes are estimated.
+ * This quarter hour's average kW if the draw now holds until [end], from a reading at [time].
+ * [usedKwh]: the energy since the quarter began, when it's exact (the recorder has a line ending
+ * at the quarter's start); without it the quarter's first minutes are [estimated].
  */
-/**
- * [baseKw]: the average draw in this quarter hour so far, when it's exact and at least
- * [BASE_MINUTES] in; the base for measuring an appliance switched on now.
- */
-data class Projection(val kw: Double, val end: Instant, val estimated: Boolean, val baseKw: Double? = null) {
+data class Projection(val kw: Double, val end: Instant, val time: Instant, val usedKwh: Double? = null) {
     val start: Instant get() = end.minusSeconds(QUARTER_SECONDS)
+    val estimated: Boolean get() = usedKwh == null
+
+    /** The average draw in this quarter hour so far, when it's exact and [BASE_MINUTES] in: the base for measuring an appliance switched on now. */
+    val baseKw: Double? get() = usedKwh?.let { used -> hours(start, time).takeIf { it >= BASE_MINUTES / 60.0 }?.let { used / it } }
 }
 
 /** Warn when this quarter hour's projection reaches this share of the line: a 10% margin. */
@@ -34,8 +35,8 @@ fun peakLine(goalKw: Double?, highest: Quarter?): Double? = listOfNotNull(goalKw
 
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= WARN_SHARE * line
 
-/** A typed kW value, with a decimal point or comma; null unless it's a number above 0. */
-fun parseKw(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 }
+/** A typed number (kW, W, minutes, litres), with a decimal point or comma; null unless it's above 0. */
+fun parsePositive(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }
 
 const val QUARTER_SECONDS = 900L
 
@@ -70,9 +71,7 @@ class QuarterProjector {
             val before = if (seen >= 1 / 60.0) (kwh - firstKwh) / seen else powerKw
             before * hours(qStart, firstTime) + kwh - firstKwh
         }
-        val elapsed = hours(qStart, time)
-        val baseKw = if (exact && elapsed >= BASE_MINUTES / 60.0) used / elapsed else null
-        return Projection((used + powerKw * hours(time, end)) * 4, end, estimated = !exact, baseKw)
+        return Projection((used + powerKw * hours(time, end)) * 4, end, time, used.takeIf { exact })
     }
 
     /** Forgets the readings, e.g. when the address now points to another device. */

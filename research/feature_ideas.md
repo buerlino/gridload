@@ -3,9 +3,9 @@
 Ideas for new panels, tools and settings, found by reading the code, the docs, the whatwatt's raw
 API responses and the household meter's September 2026 quarter-hour export. Nothing here is
 decided. Each idea lists the questions to settle with the user before building it (see the
-"Simplest approach that works" convention in `CLAUDE.md`). Phase 5 (a background alarm) and the
-appliance calculator are already on the roadmap. They come up below only where an idea touches
-them.
+"Simplest approach that works" convention in `CLAUDE.md`). Phase 5 (a background alarm) is
+already on the roadmap, and the appliances panel is built (`CLAUDE.md`, "Appliances"). They come
+up below only where an idea touches them.
 
 ## What the data says
 
@@ -33,7 +33,7 @@ meter), 2788 quarter hours:
 1. [The price curve panel](#1-price-curve-for-the-next-24-hours): helps every user, not only
    those with a whatwatt.
 2. [The delay-start helper](#1-delay-start-helper): turns the colour into the number you type
-   on the appliance. Now part of the [appliances panel](appliances.md).
+   on the appliance. Now part of the appliances panel (`CLAUDE.md`, "Appliances").
 3. [The home-screen widget](#3-home-screen-widget): the colour without opening the app.
 
 ## Panels for the main screen
@@ -106,10 +106,9 @@ with a whatwatt.
 
 ## Tools
 
-**Update 2026-10-03:** the user chose the appliances panel ([appliances.md](appliances.md)). It
-takes in tools 1 to 3 below, per appliance and with measured load curves, measured from the
-recorder's quarter hours plus the live jump at the start (the recorder script stays at v2). They
-stay here as background.
+**Update 2026-10-03:** the user chose the appliances panel, now built (`CLAUDE.md`,
+"Appliances"; the reasoning in [appliances.md](appliances.md)). It takes in tools 1 to 3 below,
+per appliance and with measured load curves. They stay here as background.
 
 ### 1. Delay-start helper
 
@@ -136,15 +135,14 @@ the delay, the time span and its colour mix. If the cheapest start is now, say "
 draw now as a baseline, you switch the appliance on, and it shows the jump: "+2.2 kW". It
 updates live with each reading (about every 4.2 s).
 
-**Why:** it fits "the meter measures everything", and it would give the planned appliance
-calculator real values instead of typed guesses. Many appliances don't run at their label
+**Why:** it fits "the meter measures everything", and it would give an appliance list real values instead of typed guesses. Many appliances don't run at their label
 power (heating phases, eco programmes).
 
 **Data:** `report.instantaneous_power.active.positive.total`, 0.001 kW resolution, already read
 every 5 s by `WhatwattMeter`. Other loads switching on or off meanwhile (fridge, router)
 add noise of maybe ±0.1 kW. The heat pump is on the other meter, so it doesn't interfere.
 
-**Open question:** only useful together with the appliance calculator? Then design both at once.
+**Taken in** by the appliances panel: it's how the panel measures (`CLAUDE.md`, "Appliances").
 
 ### 3. "One at a time" in the valley
 
@@ -153,8 +151,7 @@ could say something like "Good time, but one appliance at a time."
 
 **Why:** the September data shows the peak is set at noon, in the green valley.
 
-**Open question:** maybe it's enough that "kW free" already shows. It could fold into the
-appliance calculator's design.
+**Taken in** by the appliances panel's OK/WAIT per row (`CLAUDE.md`, "Appliances").
 
 ## Outside the main screen
 
