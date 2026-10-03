@@ -153,6 +153,14 @@ class CoreTest {
         assertEquals(true, REGIONS.all { it.pricesUrl.startsWith("https://") && "?" in it.pricesUrl })
         assertEquals(REGIONS.sortedBy { it.name }, REGIONS)
         assertTrue(CKW in REGIONS)
+        assertTrue(REGIONS.all { it.country in COUNTRIES })
+    }
+
+    @Test
+    fun countryIsTheFirstKnownCode() {
+        assertEquals(SWITZERLAND, countryOf("ch"))
+        assertEquals(SWITZERLAND, countryOf("", "US", "CH"))
+        assertNull(countryOf(null, "DE"))
     }
 
     @Test
@@ -162,6 +170,9 @@ class CoreTest {
         assertEquals(false, mayFetch(last, at("12:04:59"), hasCurrentData = true))
         assertEquals(true, mayFetch(last, at("12:05"), hasCurrentData = true))
         assertEquals(true, mayFetch(last, at("12:10"), hasCurrentData = true))
+        assertEquals(at("12:05"), cooldownEnd(last, at("12:04:59"), hasCurrentData = true))
+        assertEquals(at("12:00:30"), cooldownEnd(last, at("12:00:10"), hasCurrentData = false))
+        assertNull(cooldownEnd(last, at("12:05"), hasCurrentData = true))
     }
 
     @Test

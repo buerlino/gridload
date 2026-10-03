@@ -12,10 +12,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.ui.draw.alpha
+import java.time.Duration
+import java.time.Instant
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,8 +30,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -102,6 +105,8 @@ class MainActivity : ComponentActivity() {
                         state,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { region -> pickRegion = region; showSettings = true },
+                        onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
+                        onToggleHistory = { viewModel.setHistoryOpen(!state.historyOpen) },
                     )
                 }
             }
@@ -119,57 +124,91 @@ private data class Look(val background: Color, val content: Color, val headline:
 internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 
 /**
- * The colour, the headline, the price, the next good time and refresh. With peak load on, the
- * peak window goes below the price and the text gets smaller.
+ * The colour, the headline, the price, the next good time, and when the prices were updated;
+ * pulling down refreshes. With peak load on, this part is fixed at the top with smaller text,
+ * and the peak window and the history scroll below it.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Screen(state: UiState, onRefresh: () -> Unit, onOpenSettings: (pickRegion: Boolean) -> Unit) {
+private fun Screen(
+    state: UiState,
+    onRefresh: () -> Unit,
+    onOpenSettings: (pickRegion: Boolean) -> Unit,
+    onTogglePeak: () -> Unit,
+    onToggleHistory: () -> Unit,
+) {
     val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
     if (showHelp) HelpDialog(onDismiss = { showHelp = false })
-    val peak = state.showPeak
-    Box(Modifier.fillMaxSize().background(background).safeDrawingPadding().padding(24.dp)) {
-        TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
-        Column(
-            // With the peak window, clear of the top bar and the refresh button, and scrollable on small screens.
-            Modifier.align(Alignment.Center)
-                .then(if (peak) Modifier.padding(top = 48.dp, bottom = 88.dp).verticalScroll(rememberScrollState()) else Modifier),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (peak) 6.dp else 12.dp),
-        ) {
-            Text(
-                label, color = content, fontSize = if (peak) 32.sp else 44.sp, lineHeight = if (peak) 38.sp else 52.sp,
-                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-            )
-            val textSize = if (peak) 16.sp else 20.sp
-            state.status?.let { status ->
-                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
-                state.meter.kw?.let { kw ->
-                    Text("%.1f kW now · %.2f CHF/h".format(kw, kw * status.slot.price), color = content, fontSize = textSize)
+    Box(Modifier.fillMaxSize().background(background)) {
+        PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
+                TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
+                // Each part scrolls, so that pulling down anywhere refreshes.
+                if (state.showPeak) {
+                    Spot(state, label, content, small = true, Modifier.verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 16.dp))
+                    Column(
+                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        PeakWindow(state, onToggle = onTogglePeak, onOpenSettings = { onOpenSettings(false) })
+                        HistoryPanel(state, onToggle = onToggleHistory)
+                    }
+                } else {
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                        Spot(state, label, content, small = false, Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight))
+                    }
                 }
-                status.nextGreen?.let { NextGoodTime(it.start, content, if (peak) 16.sp else 18.sp) }
-            }
-            state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
-            if (peak) {
-                Spacer(Modifier.height(6.dp))
-                PeakWindow(state, onOpenSettings = { onOpenSettings(false) })
-            } else {
-                state.meter.problem?.let { Text(it, color = content) }
+                Updated(state, content)
             }
         }
-        Column(
-            Modifier.align(Alignment.BottomCenter),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            state.notice?.let { Text(it, color = content) }
-            state.fetchedAt?.let { Text("Updated ${timeFormat.format(it)}", color = content) }
-            Button(
-                onClick = onRefresh,
-                enabled = !state.loading,
-                colors = ButtonDefaults.buttonColors(containerColor = content, contentColor = background),
-            ) { Text("Refresh") }
+    }
+}
+
+/** The headline, the price, the cost now and the next good time; [small] above the panels. */
+@Composable
+private fun Spot(state: UiState, label: String, content: Color, small: Boolean, modifier: Modifier) {
+    Column(
+        modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(if (small) 6.dp else 12.dp, Alignment.CenterVertically),
+    ) {
+        Text(
+            label, color = content, fontSize = if (small) 32.sp else 44.sp, lineHeight = if (small) 38.sp else 52.sp,
+            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+        )
+        val textSize = if (small) 16.sp else 20.sp
+        state.status?.let { status ->
+            Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
+            state.meter.kw?.let { kw ->
+                Text("${state.powerUnit.format(kw)} now · %.2f CHF/h".format(kw * status.slot.price), color = content, fontSize = textSize)
+            }
+            status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
+        }
+        state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
+        if (!small) state.meter.problem?.let { Text(it, color = content) }
+    }
+}
+
+/** "Updated 14:02 ↻" (or a blocked refresh's notice); the ↻ is dimmed while a refresh would be blocked. */
+@Composable
+private fun Updated(state: UiState, content: Color) {
+    var coolingDown by remember { mutableStateOf(false) }
+    LaunchedEffect(state.cooldownEnd) {
+        val left = state.cooldownEnd?.let { Duration.between(Instant.now(), it).toMillis() } ?: 0
+        coolingDown = left > 0
+        if (left > 0) {
+            delay(left)
+            coolingDown = false
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        state.notice?.let { Text(it, color = content) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(state.fetchedAt?.let { "Updated ${timeFormat.format(it)}" } ?: "Pull down to refresh", color = content)
+            Text("↻", Modifier.alpha(if (coolingDown || state.loading) 0.35f else 1f), color = content, fontSize = 18.sp)
         }
     }
 }
@@ -245,12 +284,15 @@ fun HelpContent() {
             Text("The next good time.")
         }
         Text("With a whatwatt on your meter, it also shows what you use right now and what that costs per hour.")
+        Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
         Text("📊 Peak load", fontWeight = FontWeight.Bold)
         Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
         Text("Below the price, a scale shows this quarter hour, the two before and the month's highest. \"kW free\" is how much more you can switch on now.")
         Text("Close to a new peak, the bar turns red and the phone vibrates.")
+        Text("Below the scale, the history shows each day's highest quarter hour this month. Tap a panel's top line to fold it.")
         Text("Needs a whatwatt with an SD card. Switch on the whatwatt and peak load in Settings, and install the recorder there.")
         Text("The recorder runs on the whatwatt and saves every quarter hour, also while GridLoad is closed. If it stops, a red line says why.")
+        Text("Quarter hours it misses, e.g. while the whatwatt restarts, are missing from the month's highest. Settings lists them under Recorder.")
     }
 }
 

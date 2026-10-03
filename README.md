@@ -20,7 +20,7 @@ One field showing a single traffic-light status:
 
 The price now is compared with the next 24 hours (until tomorrow's prices come out, between noon and 18:00 depending on the utility, with today), and the screen shows when the next good time starts.
 
-The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so the app has a **region switcher** at the top of the screen.
+The colour depends on the dynamic tariff of the electricity utility that supplies your grid, so you pick your country (only Switzerland so far) and then your region; tap the region at the top of the screen to change it. Pull down to refresh.
 
 | Region | Utility | Data source |
 |--------|---------|-------------|
@@ -38,9 +38,9 @@ All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves
 
 With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in Settings under Measurement, the screen also shows what the home draws right now and what that costs per hour.
 
-**Peak load** (a switch under Measurement, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a scale shows this quarter hour's projected draw, the two before, the month's highest and an optional goal, and how many kW are still free. Close to a new monthly peak the bar turns red and the phone vibrates.
+**Peak load** (a switch under Measurement, needs the whatwatt): some tariffs also charge for the month's highest 15-minute average draw (CKW Home dynamic: 1.00 CHF per kW and month). Below the price, a panel shows how many kW are still free and a scale with this quarter hour's projected draw, the two before, the month's highest and an optional goal. Close to a new monthly peak the bar turns red and the phone vibrates. A second panel shows the month so far, one bar per day (its highest quarter hour). Both panels fold to their top line. Power shows in kW or W (Settings).
 
-The quarter hours come from the **GridLoad recorder**, a small Berry script that the app installs on the whatwatt (Settings → Peak load → Recorder → Install). It records every quarter hour on the whatwatt's SD card around the clock, also while the app is closed or the phone is away, and the app copies the new ones when it opens. There is no fallback: if the recorder stops or misses quarter hours, the app says exactly what is wrong (no SD card, not installed, another script in the slot, stopped, nothing saved since a time, quarter hours missing this month).
+The quarter hours come from the **GridLoad recorder**, a small Berry script that the app installs on the whatwatt (Settings → Peak load → Recorder → Install). It records every quarter hour on the whatwatt's SD card around the clock, also while the app is closed or the phone is away, and the app copies the new ones when it opens. There is no fallback: if the recorder stops, the app says exactly what is wrong (no SD card, not installed, another script in the slot, stopped, nothing saved since a time). Quarter hours it missed (e.g. while the whatwatt restarted) are listed in Settings under Recorder → Details.
 
 ### What you need
 

@@ -20,10 +20,13 @@ val RETRY_COOLDOWN: Duration = Duration.ofSeconds(30)
  * Whether a fetch is allowed now. [lastAttempt] is the start of the last fetch, successful or
  * not. [hasCurrentData] is true when a cached slot still covers [now].
  */
-fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Boolean {
-    if (lastAttempt == null) return true
-    val cooldown = if (hasCurrentData) FETCH_COOLDOWN else RETRY_COOLDOWN
-    return Duration.between(lastAttempt, now) >= cooldown
+fun mayFetch(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Boolean =
+    cooldownEnd(lastAttempt, now, hasCurrentData) == null
+
+/** When the cooldown after [lastAttempt] ends, or null when [mayFetch] already allows a fetch. */
+fun cooldownEnd(lastAttempt: Instant?, now: Instant, hasCurrentData: Boolean): Instant? {
+    val end = lastAttempt?.plus(if (hasCurrentData) FETCH_COOLDOWN else RETRY_COOLDOWN) ?: return null
+    return end.takeIf { it > now }
 }
 
 /**

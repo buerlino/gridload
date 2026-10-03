@@ -65,6 +65,17 @@ class RecorderTest {
         assertEquals(Instant.parse("2026-09-30T22:00:00Z"), missingQuarters(sinceSeptember, october, at("22:16:00")).first())
     }
 
+    @Test
+    fun findsEachDaysHighest() {
+        // 21:45 UTC on 2 Oct is 23:45 in Zurich, 22:00 UTC already 3 Oct.
+        val recording = parseRecording(listOf(listOf(line("21:00:00", 0.1, 1.0), line("21:45:00", 0.3, 1.3), line("22:00:00", 0.2, 1.5)).joinToString("\n")))
+        assertEquals(
+            listOf(LocalDate.of(2026, 10, 2) to Quarter(at("21:45:00"), 0.3), LocalDate.of(2026, 10, 3) to Quarter(at("22:00:00"), 0.2)),
+            dailyHighest(recording, YearMonth.of(2026, 10)),
+        )
+        assertEquals(emptyList(), dailyHighest(recording, YearMonth.of(2026, 9)))
+    }
+
     private val running = RecorderStatus(RECORDER_SCRIPT, "RUNNING", autoRun = true, runDelaySeconds = 60, sdCard = true, secondsSinceBoot = 9000)
     private val recorded = parseRecording(listOf(line("21:30:00", 0.1, 1.0)))
 

@@ -12,12 +12,14 @@ import androidx.lifecycle.viewModelScope
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.CachedPrices
 import io.github.buerlino.gridload.core.HttpException
+import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.PriceCache
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
 import io.github.buerlino.gridload.core.classify
+import io.github.buerlino.gridload.core.cooldownEnd
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
@@ -42,22 +44,27 @@ data class UiState(
     val whatwattEnabled: Boolean = false,
     /** The saved whatwatt device address, or null when none is set. */
     val whatwattAddress: String? = null,
+    /** How the whatwatt's values are shown: kW or W. */
+    val powerUnit: PowerUnit = PowerUnit.KW,
     val meter: MeterState = MeterState(),
     /** The peak load switch; it counts only while the whatwatt is on. */
     val peakEnabled: Boolean = false,
     /** The goal switch and its value in kW; with it off, or blank, the line is the month's highest. */
     val goalEnabled: Boolean = false,
     val goalKw: Double? = null,
-    /** Peak load without a reading: keep the scale (true) or hide it. */
-    val scaleWithoutReading: Boolean = true,
-    /** Show "New quarter hour in N min" under the scale. */
+    /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
+    /** Whether the peak window and the history panel are expanded. */
+    val peakOpen: Boolean = true,
+    val historyOpen: Boolean = true,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
     val fetchedAt: Instant? = null,
     /** Shown when a refresh was skipped because of the cooldown; cleared by the next recompute. */
     val notice: String? = null,
+    /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
+    val cooldownEnd: Instant? = null,
 ) {
     val activeGoalKw: Double? get() = goalKw?.takeIf { goalEnabled }
     val peakLine: Double? get() = peakLine(activeGoalKw, meter.highest)
@@ -66,8 +73,8 @@ data class UiState(
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
     }
-    /** Whether the main screen shows the peak window. */
-    val showPeak: Boolean get() = peakEnabled && whatwattEnabled && (meter.projection != null || scaleWithoutReading)
+    /** Whether the main screen shows the peak window and the history. */
+    val showPeak: Boolean get() = peakEnabled && whatwattEnabled
 }
 
 /**
@@ -114,11 +121,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             firstStartDone = prefs.getBoolean(KEY_FIRST_START_DONE, false),
             whatwattEnabled = prefs.getBoolean(KEY_WHATWATT_ENABLED, false),
             whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
+            powerUnit = PowerUnit.of(prefs.getString(KEY_POWER_UNIT, null)),
             peakEnabled = prefs.getBoolean(KEY_PEAK_ENABLED, false),
             goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parseKw),
-            scaleWithoutReading = prefs.getBoolean(KEY_SCALE_WITHOUT_READING, true),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
+            peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
+            historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
         ),
     )
     val state: StateFlow<UiState> = _state
@@ -156,8 +165,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun recompute() {
-        val status = classify(slots, Instant.now())
-        _state.update { it.copy(status = status, notice = null) }
+        val now = Instant.now()
+        val status = classify(slots, now)
+        _state.update { it.copy(status = status, notice = null, cooldownEnd = cooldownEnd(lastAttempt, now, status != null)) }
     }
 
     /** Switching region drops the cached slots, since they belong to the old region's tariff. */
@@ -169,7 +179,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         slots = emptyList()
         lastAttempt = null
-        _state.update { it.copy(region = region, status = null, loading = false, error = null, fetchedAt = null, notice = null) }
+        _state.update { it.copy(region = region, status = null, loading = false, error = null, fetchedAt = null, notice = null, cooldownEnd = null) }
         refresh()
     }
 
@@ -200,7 +210,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The goal switch; switched on for the first time, the goal starts at last month's highest. */
     fun setGoalEnabled(enabled: Boolean) {
-        val first = _state.value.meter.lastMonthHighest?.takeIf { enabled && !prefs.contains(KEY_GOAL_KW) }?.let { roundKw(it.kw) }
+        val first = _state.value.meter.lastMonthHighest?.takeIf { enabled && !prefs.contains(KEY_GOAL_KW) }?.let { _state.value.powerUnit.round(it.kw) }
         prefs.edit {
             putBoolean(KEY_GOAL_ENABLED, enabled)
             first?.let { putString(KEY_GOAL_KW, it.toString()) }
@@ -214,9 +224,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(goalKw = kw) }
     }
 
-    fun setScaleWithoutReading(show: Boolean) {
-        prefs.edit { putBoolean(KEY_SCALE_WITHOUT_READING, show) }
-        _state.update { it.copy(scaleWithoutReading = show) }
+    fun setPowerUnit(unit: PowerUnit) {
+        prefs.edit { putString(KEY_POWER_UNIT, unit.id) }
+        _state.update { it.copy(powerUnit = unit) }
+    }
+
+    fun setPeakOpen(open: Boolean) {
+        prefs.edit { putBoolean(KEY_PEAK_OPEN, open) }
+        _state.update { it.copy(peakOpen = open) }
+    }
+
+    fun setHistoryOpen(open: Boolean) {
+        prefs.edit { putBoolean(KEY_HISTORY_OPEN, open) }
+        _state.update { it.copy(historyOpen = open) }
     }
 
     fun setCountdown(show: Boolean) {
@@ -235,7 +255,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testWhatwattConnection() {
         val address = _state.value.whatwattAddress ?: return
-        viewModelScope.launch { meter.test(address) }
+        viewModelScope.launch { meter.test(address, _state.value.powerUnit) }
     }
 
     fun whatwattPermissionDenied() = meter.permissionDenied()
@@ -337,5 +357,7 @@ private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"
 private const val KEY_PEAK_ENABLED = "peak_enabled"
 private const val KEY_GOAL_ENABLED = "peak_goal_enabled"
 private const val KEY_GOAL_KW = "peak_goal_kw"
-private const val KEY_SCALE_WITHOUT_READING = "peak_scale_without_reading"
+private const val KEY_POWER_UNIT = "power_unit"
 private const val KEY_COUNTDOWN = "peak_countdown"
+private const val KEY_PEAK_OPEN = "peak_open"
+private const val KEY_HISTORY_OPEN = "history_open"

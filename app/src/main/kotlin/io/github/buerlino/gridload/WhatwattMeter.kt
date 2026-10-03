@@ -1,6 +1,7 @@
 package io.github.buerlino.gridload
 
 import io.github.buerlino.gridload.core.HttpException
+import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.Quarter
@@ -10,6 +11,7 @@ import io.github.buerlino.gridload.core.RecorderFiles
 import io.github.buerlino.gridload.core.Recording
 import io.github.buerlino.gridload.core.TARIFF_ZONE
 import io.github.buerlino.gridload.core.checkRecorder
+import io.github.buerlino.gridload.core.dailyHighest
 import io.github.buerlino.gridload.core.downloadDayFile
 import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchRecorderStatus
@@ -49,6 +51,8 @@ data class MeterState(
     val lastMonthHighest: Quarter? = null,
     /** The last few recorded quarters, for the bars before the current one. */
     val recent: List<Quarter> = emptyList(),
+    /** This month's days with a recorded quarter, and each day's highest, for the history. */
+    val days: List<Pair<LocalDate, Quarter>> = emptyList(),
     /** The result of the last Test, shown under the address field. */
     val testResult: String? = null,
     /** The recorder's state at the last check; null before one, or while the whatwatt can't be read. */
@@ -224,14 +228,14 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
     }
 
     /** A one-off reading from [address], to check it before relying on it. */
-    suspend fun test(address: String) {
+    suspend fun test(address: String, unit: PowerUnit) {
         val generation = generation
         set { it.copy(connected = false, testResult = "Testing…") }
         val (connected, result) = withContext(Dispatchers.IO) {
             try {
                 val reading = fetchMeterReading(address)
                 reading.ok to when {
-                    reading.ok -> "Connected. %.1f kW now.".format(reading.powerKw ?: 0.0)
+                    reading.ok -> "Connected. ${unit.format(reading.powerKw ?: 0.0)} now."
                     reading.meterStatus == "KEY REQUIRED" -> "Connected, but the meter needs its key. Ask your utility for it and enter it in the whatwatt web UI."
                     reading.meterStatus != null -> "Connected, but the meter says: ${reading.meterStatus}"
                     else -> "Connected, but got no reading."
@@ -288,6 +292,7 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
                 highest = loaded.quarters.filter { q -> inMonth(q, now) }.maxByOrNull { q -> q.kwh },
                 lastMonthHighest = loaded.quarters.filter { q -> inMonth(q, now.minusMonths(1)) }.maxByOrNull { q -> q.kwh },
                 recent = loaded.quarters.takeLast(PAST_BARS),
+                days = dailyHighest(loaded, now),
                 missing = missing,
                 restartAfterGap = lastGap?.let { gap ->
                     loaded.starts.lastOrNull { s -> s >= gap && s < gap.plusSeconds(2 * QUARTER_SECONDS) }
@@ -329,4 +334,4 @@ fun shortTime(time: Instant): String {
     return if (local.toLocalDate() == LocalDate.now()) timeFormat.format(local) else dayTimeFormat.format(local)
 }
 
-private val dayTimeFormat = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.ENGLISH)
+internal val dayTimeFormat = DateTimeFormatter.ofPattern("d MMM HH:mm", Locale.ENGLISH)

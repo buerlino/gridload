@@ -1,6 +1,7 @@
 package io.github.buerlino.gridload.core
 
 import java.time.Instant
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -58,5 +59,22 @@ class QuartersTest {
         assertNull(parseKw("0"))
         assertNull(parseKw("-1"))
         assertNull(parseKw("3.5 kW"))
+    }
+
+    @Test
+    fun powerUnitsRoundAsShown() {
+        assertEquals("1.3", PowerUnit.KW.number(1.26, Locale.ROOT))
+        assertEquals("1260", PowerUnit.W.number(1.2649, Locale.ROOT))
+        assertEquals("1,3", PowerUnit.KW.number(1.26, Locale.GERMANY))
+        assertEquals(0.9, PowerUnit.KW.round(0.94))
+        assertEquals(0.94, PowerUnit.W.round(0.9449))
+        // "0.9" line and "0.8" bar give "0.1 free", whatever the exact values.
+        assertEquals("0.1", PowerUnit.KW.number(PowerUnit.KW.round(0.94) - PowerUnit.KW.round(0.76), Locale.ROOT))
+        assertEquals("130", PowerUnit.W.number(PowerUnit.W.round(0.94) - PowerUnit.W.round(0.81), Locale.ROOT))
+        assertEquals(3.5, PowerUnit.W.parse("3500"))
+        assertEquals(3.5, PowerUnit.KW.parse("3,5"))
+        assertEquals("3500", PowerUnit.W.field(3.5))
+        assertEquals(PowerUnit.W, PowerUnit.of("W"))
+        assertEquals(PowerUnit.KW, PowerUnit.of(null))
     }
 }

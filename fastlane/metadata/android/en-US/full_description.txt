@@ -12,6 +12,6 @@ The price now is compared with the next 24 hours, so red means a cheaper time is
 
 <b>whatwatt:</b> with a whatwatt Go smart meter reader on your home Wi-Fi (with its Plus licence), GridLoad also shows what your home draws right now and what that costs per hour.
 
-<b>Peak load:</b> some tariffs also charge for the month's highest 15-minute average (for example CKW's Home dynamic). With a whatwatt, GridLoad shows this quarter hour's projected draw against the month's highest and how many kW are still free, and warns with a red bar and a vibration before a new monthly peak. A small recorder script that GridLoad installs on the whatwatt saves every quarter hour on its SD card, also while the app is closed, and the app tells you exactly when it stops.
+<b>Peak load:</b> some tariffs also charge for the month's highest 15-minute average (for example CKW's Home dynamic). With a whatwatt, GridLoad shows this quarter hour's projected draw against the month's highest and how many kW are still free, and warns with a red bar and a vibration before a new monthly peak. A history shows each day's highest quarter hour this month. A small recorder script that GridLoad installs on the whatwatt saves every quarter hour on its SD card, also while the app is closed, and the app tells you exactly when it stops.
 
 <b>Privacy:</b> no account, no ads, no tracking. Internet access loads today's and tomorrow's prices from the utility. On Android 17 and later, the local network permission lets the app read your whatwatt; it's asked for only if you connect one.

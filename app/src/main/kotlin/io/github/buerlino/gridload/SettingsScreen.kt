@@ -1,8 +1,10 @@
 package io.github.buerlino.gridload
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.telephony.TelephonyManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,12 +34,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,10 +61,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.buerlino.gridload.core.COUNTRIES
+import io.github.buerlino.gridload.core.Country
+import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.Region
-import io.github.buerlino.gridload.core.parseKw
+import io.github.buerlino.gridload.core.countryOf
 import java.util.Locale
 
 /** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
@@ -86,23 +96,20 @@ private val RECORDER_INFO = Info(
 )
 private val GOAL_INFO = Info(
     "Goal",
-    "Off: the line not to pass is this month's highest quarter hour. On: your own value in kW. The line is then the higher " +
+    "Off: the line not to pass is this month's highest quarter hour. On: your own value. The line is then the higher " +
         "of the two, since everything up to the month's highest is billed anyway.",
-)
-private val SCALE_INFO = Info(
-    "Show the scale without a reading",
-    "When the whatwatt can't be read, e.g. away from home: on keeps the scale with the recorded quarter hours, off hides it.",
 )
 private val COUNTDOWN_INFO = Info(
     "Quarter-hour countdown",
-    "Shows the minutes until the next quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
+    "Shows the minutes left in this quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
         "out of the current one.",
 )
 
 /**
- * The setup guide: on first start the help, then Next; then the region and the measurement
- * (the whatwatt, and peak load once connected). Done switches the whatwatt on, Skip switches it
- * and peak load off. From Settings ([onClose] set) it starts at the region and can be left with back.
+ * The setup guide: on first start the help, then Next; then the country (preselected with the
+ * phone's) and its regions, and the measurement (the whatwatt, and peak load once connected).
+ * Done switches the whatwatt on, Skip switches it and peak load off. From Settings ([onClose]
+ * set) it starts at the region and can be left with back.
  */
 @Composable
 fun SetupGuide(
@@ -114,37 +121,43 @@ fun SetupGuide(
     val firstStep = if (onClose == null) 0 else 1
     var step by rememberSaveable { mutableIntStateOf(firstStep) }
     var chosenRegion by rememberSaveable { mutableStateOf(state.region.id) }
+    val context = LocalContext.current
+    var country by rememberSaveable { mutableStateOf(if (onClose != null) state.region.country.code else phoneCountry(context)?.code) }
     BackHandler(enabled = step > firstStep || onClose != null) { if (step > firstStep) step-- else onClose?.invoke() }
-    Page {
-        when (step) {
-            0 -> {
-                Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                HelpContent()
-                Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
-            }
-            1 -> {
-                Title("⚡ Region", onClose, REGION_INFO)
-                REGIONS.forEach { r ->
-                    OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 2 }) {
-                        Text(r.name, fontWeight = FontWeight.Bold)
-                        Text(r.utility)
+    // Each step starts at its top, not where the one before was scrolled to.
+    key(step) {
+        Page {
+            when (step) {
+                0 -> {
+                    Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    HelpContent()
+                    Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
+                }
+                1 -> {
+                    Title("⚡ Region", onClose, REGION_INFO)
+                    Picker(COUNTRIES.find { it.code == country }?.label ?: "Choose your country", COUNTRIES, Country::label, { country = it.code })
+                    REGIONS.filter { it.country.code == country }.forEach { r ->
+                        OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 2 }) {
+                            Text(r.name, fontWeight = FontWeight.Bold)
+                            Text(r.utility)
+                        }
                     }
                 }
-            }
-            else -> {
-                val skip = state.whatwattAddress.isNullOrBlank()
-                Title("Measurement", onClose)
-                InfoLabel("📟 whatwatt", WHATWATT_INFO)
-                Connection(state, viewModel)
-                if (state.meter.connected) SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
-                Button(
-                    onClick = {
-                        viewModel.setWhatwattEnabled(!skip)
-                        if (skip) viewModel.setPeakEnabled(false)
-                        onDone(REGIONS.first { it.id == chosenRegion })
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                ) { Text(if (skip) "Skip" else "Done") }
+                else -> {
+                    val skip = state.whatwattAddress.isNullOrBlank()
+                    Title("📟 Measurement", onClose)
+                    InfoLabel("whatwatt", WHATWATT_INFO)
+                    Connection(state, viewModel)
+                    if (state.meter.connected) SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
+                    Button(
+                        onClick = {
+                            viewModel.setWhatwattEnabled(!skip)
+                            if (skip) viewModel.setPeakEnabled(false)
+                            onDone(REGIONS.first { it.id == chosenRegion })
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                    ) { Text(if (skip) "Skip" else "Done") }
+                }
             }
         }
     }
@@ -170,18 +183,27 @@ fun SettingsScreen(
             OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") }
         }
         InfoLabel("⚡ Region", REGION_INFO, style = SECTION)
-        RegionPicker(state.region, viewModel::selectRegion, pickRegion)
-        Text("Measurement", style = SECTION)
-        SwitchRow("📟 whatwatt", WHATWATT_INFO, state.whatwattEnabled, viewModel::setWhatwattEnabled)
+        // Only the region is saved; another country shows its regions until one is picked.
+        var country by rememberSaveable { mutableStateOf(state.region.country.code) }
+        Picker(COUNTRIES.first { it.code == country }.label, COUNTRIES, Country::label, { country = it.code })
+        Picker(
+            state.region.takeIf { it.country.code == country }?.label ?: "Choose your region",
+            REGIONS.filter { it.country.code == country },
+            Region::label,
+            viewModel::selectRegion,
+            initiallyOpen = pickRegion,
+        )
+        Text("📟 Measurement", style = SECTION)
+        SwitchRow("whatwatt", WHATWATT_INFO, state.whatwattEnabled, viewModel::setWhatwattEnabled)
         if (state.whatwattEnabled) {
             Connection(state, viewModel)
+            UnitRow(state.powerUnit, viewModel::setPowerUnit)
             SwitchRow("📊 Peak load", PEAK_INFO, state.peakEnabled, viewModel::setPeakEnabled)
             if (state.peakEnabled) {
                 Column(Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Recorder(state, viewModel)
                     SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                     if (state.goalEnabled) GoalField(state, viewModel::setGoal)
-                    SwitchRow("Show the scale without a reading", SCALE_INFO, state.scaleWithoutReading, viewModel::setScaleWithoutReading)
                     SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 }
             }
@@ -247,8 +269,9 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
 }
 
 /**
- * GridLoad's recorder on the whatwatt: Install, Start or Fix when needed, Remove (after a
- * confirmation) when it's there, and its state as one line, red when nothing is being recorded.
+ * GridLoad's recorder on the whatwatt: Install, Start or Fix when needed, and its state as one
+ * line, red when nothing is being recorded. Details, collapsed, has when it started recording,
+ * this month's gaps and Remove (after a confirmation), so Remove isn't tapped by accident.
  */
 @Composable
 private fun Recorder(state: UiState, viewModel: MainViewModel) {
@@ -278,7 +301,6 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
             check == RecorderCheck.NotInstalled -> Button(onClick = viewModel::installRecorder) { Text("Install") }
             check is RecorderCheck.Stopped -> Button(onClick = viewModel::startRecorder) { Text("Start") }
             check == RecorderCheck.NoAutoRun -> Button(onClick = viewModel::startRecorder) { Text("Fix") }
-            meter.recorderInstalled -> TextButton(onClick = { confirmRemove = true }) { Text("Remove") }
         }
     }
     val line = when {
@@ -290,27 +312,57 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
     }
     val warning = meter.recorderAction?.startsWith("Couldn't") == true || (meter.recorderAction == null && check != null && isRecorderWarning(check))
     line?.let { Text(it, color = if (warning) RED else Color.Unspecified) }
+    val removable = meter.recorderInstalled && meter.recorderAction == null && check != null
+    if (!removable && meter.recordedSince == null && meter.missing.isEmpty()) return
+    var details by rememberSaveable { mutableStateOf(false) }
+    TextButton(onClick = { details = !details }, contentPadding = PaddingValues(0.dp)) { Text(if (details) "Details ▴" else "Details ▾") }
+    if (!details) return
+    meter.recordedSince?.let { Text("Recorded since ${shortTime(it)}.") }
+    if (meter.missing.isNotEmpty()) {
+        val count = meter.missing.size
+        val restart = meter.restartAfterGap?.let { " (restart at ${shortTime(it)})" }.orEmpty()
+        Text("$count quarter ${if (count == 1) "hour" else "hours"} missing this month, the last ${shortTime(meter.missing.last())}$restart.")
+    }
+    if (removable) OutlinedButton(onClick = { confirmRemove = true }) { Text("Remove the recorder") }
 }
 
-/** The goal in kW, first filled with last month's highest. Blank leaves only the month's highest. */
+/** kW or W, for everything the whatwatt shows. */
+@Composable
+private fun UnitRow(unit: PowerUnit, onUnit: (PowerUnit) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Power unit", Modifier.weight(1f))
+        SingleChoiceSegmentedButtonRow {
+            PowerUnit.entries.forEachIndexed { i, u ->
+                SegmentedButton(
+                    selected = u == unit,
+                    onClick = { onUnit(u) },
+                    shape = SegmentedButtonDefaults.itemShape(i, PowerUnit.entries.size),
+                ) { Text(u.id) }
+            }
+        }
+    }
+}
+
+/** The goal in the power unit, first filled with last month's highest. Blank leaves only the month's highest. */
 @Composable
 private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
-    var text by rememberSaveable { mutableStateOf(state.goalKw?.let { "%.1f".format(Locale.ROOT, it) }.orEmpty()) }
-    val invalid = text.isNotBlank() && parseKw(text) == null
+    val unit = state.powerUnit
+    var text by rememberSaveable(unit) { mutableStateOf(state.goalKw?.let(unit::field).orEmpty()) }
+    val invalid = text.isNotBlank() && unit.parse(text) == null
     val lastMonth = state.meter.lastMonthHighest
     val hint = when {
-        invalid -> "Enter a number of kW, e.g. 3.5"
-        lastMonth != null -> "Last month's highest: %.1f kW".format(lastMonth.kw)
+        invalid -> "Enter a number of ${unit.id}, e.g. ${unit.field(3.5)}"
+        lastMonth != null -> "Last month's highest: ${unit.format(lastMonth.kw)}"
         else -> null
     }
     OutlinedTextField(
         value = text,
         onValueChange = {
             text = it
-            val kw = parseKw(it)
+            val kw = unit.parse(it)
             if (it.isBlank() || kw != null) onGoal(kw)
         },
-        label = { Text("Goal, kW") },
+        label = { Text("Goal, ${unit.id}") },
         supportingText = hint?.let { { Text(it) } },
         isError = invalid,
         singleLine = true,
@@ -386,25 +438,29 @@ private fun OptionCard(selected: Boolean, onClick: () -> Unit, content: @Composa
     }
 }
 
-/** The selected region; tapping it, or [initiallyOpen], opens the list. */
+/** A dropdown showing [selected]; tapping it, or [initiallyOpen], opens the list of [options]. */
 @Composable
-private fun RegionPicker(region: Region, onSelect: (Region) -> Unit, initiallyOpen: Boolean) {
+private fun <T> Picker(selected: String, options: List<T>, label: (T) -> String, onSelect: (T) -> Unit, initiallyOpen: Boolean = false) {
     var open by remember { mutableStateOf(initiallyOpen) }
     Box {
         OutlinedCard(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp)) {
-                Text(region.label)
+                Text(selected)
                 Spacer(Modifier.weight(1f))
                 Text("▾")
             }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            REGIONS.forEach { r ->
+            options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(r.label) },
-                    onClick = { open = false; onSelect(r) },
+                    text = { Text(label(option)) },
+                    onClick = { open = false; onSelect(option) },
                 )
             }
         }
     }
 }
+
+/** The phone's country, from its SIM and else its language settings, if GridLoad has regions there. */
+private fun phoneCountry(context: Context): Country? =
+    countryOf(context.getSystemService(TelephonyManager::class.java)?.simCountryIso, Locale.getDefault().country)

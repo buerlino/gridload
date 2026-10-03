@@ -156,3 +156,19 @@ The user said go; all done, with 1.1 accepted as is (below).
   minutes' gain.
 - **1.2:** retaken with v0.8.0 (main screen with the peak window, help, Settings with the Recorder row).
 - **2.1:** `pendingStart()` shared by `checkRecorder` and `nextLineDue`; behaviour unchanged (tests).
+
+## Pass 2026-10-03 (after the panels)
+
+Quick check of the uncommitted panels work: lint 0 issues, tests green, the only Gradle
+deprecation is still a plugin's. No leftovers of the dropped scale switch or `roundKw`.
+- [x] 1.1 `Note` was made `internal` without need; private again.
+- [x] 1.2 `CLAUDE.md` UI text: the file list was missing `HistoryPanel.kt` and `WhatwattGuide.kt`.
+- [ ] 2.1 `Scale` (`PeakWindow.kt`) and `DayBars` (`HistoryPanel.kt`) repeat the y axis (maxKw
+  and step, ticks, unit label, axis lines) and the "0.9 highest" / "goal" labels, ~25 lines.
+  Extract a shared `drawAxis` and `lineLabel` while the history chart is reworked; the shared
+  panel pieces (`Panel`, colours, `tickLabel`, `drawLabels`) could then move from
+  `PeakWindow.kt` to a small `Charts.kt`.
+- [ ] 2.2 Store screenshots show the Refresh button and the old peak window: retake before the
+  next release.
+- Accepted: `peak_scale_without_reading` stays in existing prefs, unread (removing it would need
+  migration code for nothing).

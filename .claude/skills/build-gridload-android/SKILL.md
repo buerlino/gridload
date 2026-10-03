@@ -20,7 +20,7 @@ in git.
 - **Architecture:** single Activity. `:core` (plain Kotlin/JVM, no Android) holds the logic, all
   unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm),
   `WhatwattMeter` (reading, recording, the Test) and the screens: main (`MainActivity.kt`,
-  `PeakWindow.kt`), Settings and the setup guide (`SettingsScreen.kt`).
+  `PeakWindow.kt`, `HistoryPanel.kt`), Settings and the setup guide (`SettingsScreen.kt`).
 - **No background work** and no accounts, cloud or optimization engine.
 
 ## Working on the phone
@@ -126,8 +126,8 @@ The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak
 whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
 download measurements are in `research/whatwatt_berry_script.md`. The whatwatt runs on meter
 power: poll it gently (every 5 s while visible), and never download big SD files at full speed
-(it rebooted twice; ≤ 8 KB/s held). Also open: the history tile (design it with the user first)
-and the Measurement/whatwatt categorization (ask before touching it).
+(it rebooted twice; ≤ 8 KB/s held). Also open: the Measurement/whatwatt categorization (ask
+before touching it).
 
 Phase 4, the recorder on the whatwatt. Done 2026-10-03: script v2 (version marker, start lines,
 no `print`) as a `:core` resource; `Recorder.kt` (day files, merge, gaps, `checkRecorder`, the
@@ -153,6 +153,29 @@ Unknowns to check when they matter: whether Berry needs the Plus licence; the mi
 (user, 2026-10-03: 2.0.0 does not run Berry, 2.8.2 does; a firmware check from `/api/v1/system`
 in Test or the recorder check is a possible next step, ask the user); the values of
 `execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
+
+### Panels and history [steps 1 to 4 built 2026-10-03, not committed; step 5 docs done]
+
+Making room for the history on the main screen (user, 2026-10-03; the design is in `CLAUDE.md`
+under UI, "Power unit" and "History"). In order:
+1. Settings: drop "Show the scale without a reading"; 📟 on the Measurement title; Country then
+   region (setup guide and Settings, preselected from the phone); the power unit (kW | W).
+2. Main screen: the spot part fixed at the top, the panels scrolling below; pull down to refresh
+   with the "Updated 14:02 ↻" line, ↻ dimmed during the cooldown.
+3. Peak window: collapsible with the "kW free" header and the countdown in it; values above the
+   bars; the current bar 1.6× as wide; "Recorded since", the gaps and Remove into Settings →
+   Recorder → Details.
+4. History panel, first version (bars per day). Test on the phone: scrolling with both panels
+   open, both collapsed, and without a reading.
+5. Help, ⓘ texts, README and store text; then the user decides on a release.
+
+Tested on the Fairphone 6 (2026-10-03): collapse, scrolling with both open (`adb shell wm size
+1116x1500` to force it, `wm size reset` after), pull to refresh and the blocked pull, ↻ dimmed,
+W, recorder details, first start with the SIM's country. Not yet seen on the phone: the
+peak window without a reading, the red header near a peak, the guide starting each step at its
+top (fixed after the test).
+
+Later: the appliance calculator (design with the user first, see `CLAUDE.md`).
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

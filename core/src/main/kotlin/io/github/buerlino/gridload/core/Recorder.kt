@@ -90,6 +90,13 @@ fun missingQuarters(recording: Recording, month: YearMonth, until: Instant): Lis
 fun recordedSince(recording: Recording, month: YearMonth): Instant? =
     recording.quarters.firstOrNull()?.start?.takeIf { it > month.start() && YearMonth.from(it.atZone(TARIFF_ZONE)) == month }
 
+/** Each day of [month] with a recorded quarter, and that day's highest quarter, in order. */
+fun dailyHighest(recording: Recording, month: YearMonth): List<Pair<LocalDate, Quarter>> =
+    recording.quarters.groupBy { it.start.atZone(TARIFF_ZONE).toLocalDate() }
+        .filterKeys { YearMonth.from(it) == month }
+        .map { (day, quarters) -> day to quarters.maxBy { it.kwh } }
+        .sortedBy { it.first }
+
 /** What the whatwatt says about the recorder; null where it didn't say. */
 data class RecorderStatus(
     /** The script in the whatwatt's one slot; null when the slot is empty. */
