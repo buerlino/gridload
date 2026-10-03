@@ -26,11 +26,13 @@ private const val BASE_MINUTES = 5
 
 /**
  * The limit, the kW not to pass in this quarter hour: the highest of the goal, the floor
- * ([peakFloor]) and the month's highest quarter hour. Anything up to the month's highest is
- * billed anyway, and the biggest appliance sets a peak up to the floor by itself, so only
- * stacking passes it. Null with none of them.
+ * ([peakFloor]), the tariff's minimum ([Region.minimumKw]) and the month's highest quarter hour.
+ * Anything up to the month's highest or the minimum is billed anyway, and the biggest appliance
+ * sets a peak up to the floor by itself, so only stacking passes it. A minimum of 0 is no line.
+ * Null with none of them.
  */
-fun peakLine(goalKw: Double?, floorKw: Double?, highest: Quarter?): Double? = listOfNotNull(goalKw, floorKw, highest?.kw).maxOrNull()
+fun peakLine(goalKw: Double?, floorKw: Double?, minimumKw: Double?, highest: Quarter?): Double? =
+    listOfNotNull(goalKw, floorKw, minimumKw?.takeIf { it > 0 }, highest?.kw).maxOrNull()
 
 /** Red at the limit: the bar, the vibration and an appliance's WAIT. */
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= line

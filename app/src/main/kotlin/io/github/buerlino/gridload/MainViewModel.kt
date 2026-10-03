@@ -110,8 +110,9 @@ data class UiState(
     /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
     val cooldownEnd: Instant? = null,
 ) {
-    /** The limit: the goal (when on), the floor from the appliances (while their panel shows) or the month's highest, whichever is highest. */
-    val peakLine: Double? get() = peakLine(goalKw?.takeIf { goalEnabled }, peakFloor(appliances).takeIf { appliancesEnabled }, meter.highest)
+    /** The limit: the goal (when on), the floor from the appliances (while their panel shows), the region's minimum or the month's highest, whichever is highest. */
+    val peakLine: Double? get() =
+        peakLine(goalKw?.takeIf { goalEnabled }, peakFloor(appliances).takeIf { appliancesEnabled }, region.minimumKw, meter.highest)
     /** Whether this quarter hour's projection reaches the limit: the bar turns red. */
     val peakWarning: Boolean get() {
         val projection = meter.projection ?: return false

@@ -44,15 +44,26 @@ class QuartersTest {
     }
 
     @Test
-    fun theLineIsTheHighestOfGoalFloorAndMonthsHighest() {
+    fun theLineIsTheHighestOfGoalFloorMinimumAndMonthsHighest() {
         val highest = Quarter(at("17:15:00"), 0.95)
         assertEquals(3.8, highest.kw, 1e-9)
-        assertEquals(3.8, peakLine(3.0, 2.6, highest)!!, 1e-9)
-        assertEquals(4.5, peakLine(4.5, 2.6, highest)!!, 1e-9)
-        assertEquals(4.2, peakLine(3.0, 4.2, highest)!!, 1e-9)
-        assertEquals(3.0, peakLine(3.0, null, null)!!, 1e-9)
-        assertEquals(2.6, peakLine(null, 2.6, null)!!, 1e-9)
-        assertNull(peakLine(null, null, null))
+        assertEquals(3.8, peakLine(3.0, 2.6, 2.0, highest)!!, 1e-9)
+        assertEquals(4.5, peakLine(4.5, 2.6, 2.0, highest)!!, 1e-9)
+        assertEquals(4.2, peakLine(3.0, 4.2, 2.0, highest)!!, 1e-9)
+        assertEquals(5.0, peakLine(3.0, 2.6, 5.0, highest)!!, 1e-9)
+        // Each one alone.
+        assertEquals(3.0, peakLine(3.0, null, null, null)!!, 1e-9)
+        assertEquals(2.6, peakLine(null, 2.6, null, null)!!, 1e-9)
+        assertEquals(2.5, peakLine(null, null, 2.5, null)!!, 1e-9)
+        assertEquals(3.8, peakLine(null, null, null, highest)!!, 1e-9)
+        assertNull(peakLine(null, null, null, null))
+        // The minimum against each of the others: it counts only where it's higher.
+        assertEquals(2.5, peakLine(2.0, null, 2.5, null)!!, 1e-9)
+        assertEquals(2.65, peakLine(null, 2.65, 2.5, null)!!, 1e-9)
+        assertEquals(2.5, peakLine(null, null, 2.5, Quarter(at("17:15:00"), 0.525))!!, 1e-9)
+        // A minimum of 0 (billed, but with no minimum) is no line.
+        assertNull(peakLine(null, null, 0.0, null))
+        assertEquals(2.6, peakLine(null, 2.6, 0.0, null)!!, 1e-9)
         // Red at the line itself.
         assertFalse(isPeakWarning(3.79, 3.8))
         assertTrue(isPeakWarning(3.8, 3.8))

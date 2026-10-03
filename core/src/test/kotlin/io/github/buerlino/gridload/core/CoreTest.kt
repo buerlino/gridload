@@ -207,6 +207,16 @@ class CoreTest {
     }
 
     @Test
+    fun onlyCkwBillsAPeakInSwitzerland() {
+        assertEquals(0.0, CKW.minimumKw)
+        assertEquals(
+            mapOf("ekz" to null, "ekz_einsiedeln" to null, "groupe_e" to null, "primeo" to null, "primeo_avag" to null, "primeo_elag" to null),
+            REGIONS.filter { it.country == SWITZERLAND && it != CKW }.associate { it.id to it.minimumKw },
+        )
+        assertTrue(REGIONS.all { (it.minimumKw ?: 0.0) >= 0 })
+    }
+
+    @Test
     fun countryIsTheFirstKnownCode() {
         assertEquals(SWITZERLAND, countryOf("ch"))
         assertEquals(SWITZERLAND, countryOf("", "US", "CH"))

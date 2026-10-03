@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 3 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 4 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -416,8 +416,19 @@ command above.
    - Tests: the formula (negative spot, VAT 0 and blank), the default VAT per country.
    - Phone: an AT region (temporarily, while CKW's peak stays recorded) without and with an
      add-on; the link lands on the fields; the cost line with the whatwatt.
-4. **The minimum billed peak** (user, 2026-10-03: "floor" keeps its meaning, the biggest
-   appliance × 1.2; the tariff's value is the "minimum").
+4. ~~**The minimum billed peak**~~: done 2026-10-03, waiting for the user's look before step 5.
+   `Region.minimumKw` (CKW 0.0, the other six null), `peakLine(goal, floor, minimum, highest)`
+   (a minimum of 0 is no line, else CKW with nothing recorded would draw a 0 limit),
+   `PeakLoadSwitch` in `SettingsScreen.kt`, one sentence in the Mode ⓘ. Tests: `peakLine` with
+   each one alone, the minimum against each of the others, 0 as no line; each Swiss region's
+   minimum. Seen on the Fairphone 6 (debug build, 23:47–23:50) with a temporary, uncommitted
+   copy of CKW at 3.0 (user's choice; the limit was 2.6 from the floor, the month's highest
+   2.6): "3.0 limit" and "2.1 kW free" at 0.9 kW in the peak window, "3.0 limit" in the history;
+   EKZ: "Your region doesn't bill a peak." under the switch in Settings → Mode and in the setup
+   guide's Mode card (none for CKW), and the Mode ⓘ. Back on CKW afterwards ("2.6 limit", prefs
+   and appliances as before, recorded quarters intact).
+   - Terms (user, 2026-10-03): "floor" keeps its meaning, the biggest appliance × 1.2; the
+     tariff's value is the "minimum".
    - `Region.minimumKw: Double?`: null = no peak billing, 0.0 = billed with no minimum (CKW),
      2.0 Austria, 2.5 Flanders. The other six Swiss regions get null (checked 2026-10-03; see
      the research file; Groupe E unconfirmed, treated as none). It's never a restriction

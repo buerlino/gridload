@@ -35,6 +35,8 @@ sealed interface PriceSource {
  * A supply region and where its prices come from: a utility's dynamic tariff or the market price.
  * [tomorrowFrom] is when tomorrow's prices are out (local time, rounded up from observations).
  * [zone] is the country's unless the country spans several (e.g. Spain with the Canaries).
+ * [minimumKw] is the least peak its tariff bills a month: null where no peak is billed, 0.0 where
+ * one is billed with no minimum.
  */
 data class Region(
     val id: String,
@@ -44,6 +46,7 @@ data class Region(
     val source: PriceSource,
     val tomorrowFrom: LocalTime,
     val zone: ZoneId = country.zone,
+    val minimumKw: Double? = null,
 ) {
     /** How the app lists it: "Central Switzerland (CKW)". */
     val label: String get() = "$name ($utility)"
@@ -62,6 +65,7 @@ val CKW = Region(
             "?tariff_type=integrated&tariff_name=home_dynamic",
     ),
     tomorrowFrom = LocalTime.NOON, // published around 11:20
+    minimumKw = 0.0, // Home dynamic bills the month's highest quarter hour, with no minimum
 )
 
 private fun ekz(tariff: String) = PriceSource.Vse("https://api.tariffs.ekz.ch/v1/tariffs?tariff_type=integrated&tariff_name=$tariff")
@@ -69,7 +73,9 @@ private fun primeo(tariff: String) = PriceSource.Vse("https://tarife.primeo-ener
 
 /**
  * All selectable regions, sorted by name. There is no default: the user picks one on first
- * start. Installs from before that got [CKW], the only region then, without saving it.
+ * start. Installs from before that got [CKW], the only region then, without saving it. Of the
+ * Swiss ones only CKW bills a household peak (checked 2026-10-03; Groupe E unconfirmed, treated
+ * as none).
  */
 val REGIONS: List<Region> = listOf(
     CKW,

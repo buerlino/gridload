@@ -100,7 +100,8 @@ private val MODE_INFO = Info(
     "Without peak load, GridLoad shows the price and what you use now.\n\n" +
         "Peak load: some grid tariffs also charge for the month's highest quarter hour. GridLoad then shows how much you " +
         "can still switch on, your appliances and the month so far. The help (?) explains it. It needs GridLoad's " +
-        "recorder on the whatwatt, and an SD card in it.",
+        "recorder on the whatwatt, and an SD card in it.\n\n" +
+        "Where your region doesn't bill a peak, the limit is a personal cap: nothing is billed for it.",
 )
 private val RECORDER_INFO = Info(
     "Recorder",
@@ -183,7 +184,7 @@ fun SetupGuide(
                 val skip = state.whatwattAddress.isNullOrBlank()
                 Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, viewModel) }
                 if (state.meter.connected) {
-                    Section("📊 Mode", MODE_INFO) { SwitchRow("Peak load", null, state.peakEnabled, viewModel::setPeakEnabled) }
+                    Section("📊 Mode", MODE_INFO) { PeakLoadSwitch(state, REGIONS.first { it.id == chosenRegion }, viewModel) }
                 }
                 Button(
                     onClick = {
@@ -266,7 +267,7 @@ fun SettingsScreen(
             "📊 Mode", MODE_INFO, MODE !in closed, { toggle(MODE) },
             summary = { Summary(if (state.peakEnabled) "Peak load" else "Prices only") },
         ) {
-            SwitchRow("Peak load", null, state.peakEnabled, viewModel::setPeakEnabled)
+            PeakLoadSwitch(state, state.region, viewModel)
             if (state.peakEnabled) {
                 SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                 if (state.goalEnabled) GoalField(state, viewModel::setGoal)
@@ -276,6 +277,13 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+/** The Peak load switch; once it's on in a [region] that bills no peak, a muted line says so. */
+@Composable
+private fun PeakLoadSwitch(state: UiState, region: Region, viewModel: MainViewModel) {
+    SwitchRow("Peak load", null, state.peakEnabled, viewModel::setPeakEnabled)
+    if (state.peakEnabled && region.minimumKw == null) Text("Your region doesn't bill a peak.", color = MUTED)
 }
 
 private val SECTION = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
