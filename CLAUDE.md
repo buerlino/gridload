@@ -166,7 +166,7 @@ Built step by step, as the user decides. Released in v0.7.0 (phases 1 to 3) and 
 
 ### History
 
-A panel below the peak window (user, 2026-10-03: "start and we will see if it's good"), also from the recorder's copied files, so it's complete on open. First version: one bar per day of this month, that day's highest quarter hour, with the month's highest (solid) and the goal (dashed) across them, as in the peak window. Collapsed header: the month's highest and when it happened ("Highest 4.2 kW · 2 Oct 18:30"); before anything is recorded, "No quarter hours recorded yet". Days before the recorder started, and today's remaining hours, have no bar.
+A panel below the peak window (user, 2026-10-03: "start and we will see if it's good"), also from the recorder's copied files, so it's complete on open. First version: one bar per day of this month, that day's highest quarter hour, with the month's highest (solid) and the goal (dashed) across them, as in the peak window. The day of the month's highest is red, today dark, the other days grey (user, 2026-10-03). The bars are thin; no tap-for-value (too thin to hit). Collapsed header: the month's highest and when it happened ("Highest 4.2 kW · 2 Oct 18:30"); before anything is recorded, "No quarter hours recorded yet". Days before the recorder started, and today's remaining hours, have no bar.
 - Ideas accepted (user, 2026-10-02): the alarm warns of a **new monthly peak**, not a price bracket, so it works with any linear tariff; **"kW free"** as the main number; **the quarter-hour countdown** (waiting a few minutes before the kettle or oven often avoids a peak).
 
 ### Recording while away

@@ -168,8 +168,8 @@ deprecation is still a plugin's. No leftovers of the dropped scale switch or `ro
   Extract a shared `drawAxis` and `lineLabel` while the history chart is reworked; the shared
   panel pieces (`Panel`, colours, `tickLabel`, `drawLabels`) could then move from
   `PeakWindow.kt` to a small `Charts.kt`.
-- [ ] 2.2 Store screenshots show the Refresh button and the old peak window: retake before the
-  next release.
+- [x] 2.2 Store screenshots show the Refresh button and the old peak window: retake before the
+  next release. Done 2026-10-03: all three retaken (main screen with both panels, help, Settings).
 - Done 2.1: `Charts.kt` holds `Panel`, the colours, `SMALL`, `Axis` (ticks, unit, axis lines,
   `y()`), `drawLines`, `lineLabel` and `drawLabels` (which now sorts by itself); `tickLabel` is
   folded into `Axis`. The history's highest line is now 2.5 dp like the peak window's (was 2).

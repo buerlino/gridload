@@ -177,7 +177,8 @@ W, recorder details, first start with the SIM's country. Seen on the phone too (
 after Measurement.
 
 History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-value (too thin to
-hit). The dark bar marks the month's highest, which is today's so far.
+hit). The month's highest day red, today dark (only seen with today as the highest so far).
+Open: a full-screen view of the chart on tap (the user's idea; its content to be decided).
 
 Later: the appliance calculator (design with the user first, see `CLAUDE.md`).
 

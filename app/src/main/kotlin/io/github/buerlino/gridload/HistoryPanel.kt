@@ -26,7 +26,8 @@ import java.time.ZoneId
 /**
  * The month so far, below the peak window: its header names the month's highest quarter hour
  * and when it was; open, one bar per day (that day's highest), with the month's highest and the
- * goal across them. Days before the recorder started, or still to come, have no bar.
+ * goal across them. The day of the month's highest is red, today dark. Days before the recorder
+ * started, or still to come, have no bar.
  */
 @Composable
 fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
@@ -52,11 +53,12 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
     }
 }
 
-/** One bar per day of this month, the month's highest in the dark colour and labelled. */
+/** One bar per day of this month: the month's highest in red (its line labelled), today dark, the rest grey. */
 @Composable
 private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal: Double?, unit: PowerUnit) {
     val measurer = rememberTextMeasurer()
-    val month = YearMonth.now(TARIFF_ZONE)
+    val today = LocalDate.now(TARIFF_ZONE)
+    val month = YearMonth.from(today)
     Canvas(Modifier.fillMaxWidth().height(150.dp)) {
         val bottom = size.height - 18.dp.toPx()
         val axis = Axis(measurer, unit, maxOf(goal ?: 0.0, highest.kw), 16.dp.toPx(), bottom, 6.dp.toPx())
@@ -77,7 +79,12 @@ private fun DayBars(days: List<Pair<LocalDate, Quarter>>, highest: Quarter, goal
         }
         for ((day, quarter) in days) {
             val barTop = axis.y(quarter.kw)
-            drawRect(if (quarter == highest) BAR else PAST_BAR, Offset(x(day.dayOfMonth), barTop), Size(barW, bottom - barTop))
+            val color = when {
+                quarter == highest -> RED
+                day == today -> BAR
+                else -> PAST_BAR
+            }
+            drawRect(color, Offset(x(day.dayOfMonth), barTop), Size(barW, bottom - barTop))
         }
         drawLines(axis, highest.kw, goal, linesEnd)
         drawLabels(listOfNotNull(axis.y(highest.kw) to highestLabel, goalLabel), labelX)
