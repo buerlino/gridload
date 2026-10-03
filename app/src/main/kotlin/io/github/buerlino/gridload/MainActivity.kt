@@ -69,7 +69,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.buerlino.gridload.core.Country
 import io.github.buerlino.gridload.core.Level
+import io.github.buerlino.gridload.core.countryHelp
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -207,7 +209,7 @@ private fun Screen(
     val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(onDismiss = { showHelp = false })
+    if (showHelp) HelpDialog(state.region.country, onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background)) {
         PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp)) {
@@ -431,26 +433,30 @@ private fun GreenDot(outline: Color) {
 }
 
 @Composable
-private fun HelpDialog(onDismiss: () -> Unit) {
+private fun HelpDialog(country: Country, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
         title = { Text("How GridLoad works") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { HelpContent() } },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) { HelpContent(country) } },
     )
 }
 
-/** Shared by the help dialog and the first start. A short general part, then prices and peak load. */
+/**
+ * Shared by the help dialog and the first start. A short general part, then prices and peak load,
+ * with [country]'s lines only (null: none, before a country is known).
+ */
 @Composable
-fun HelpContent() {
+fun HelpContent(country: Country?) {
+    val help = countryHelp(country, Instant.now())
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("GridLoad shows whether now is a good time to use electricity, based on your tariff's price, or the market price. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
+        Text("GridLoad shows whether now is a good time to use electricity, based on ${help.price}. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
         Text("⚡ Prices", fontWeight = FontWeight.Bold)
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming.")
-        Text("Tomorrow's prices come out between noon and 6 pm.")
+        help.tomorrow?.let { Text(it) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GreenDot(LocalContentColor.current)
             Text("The next good time.")
@@ -458,16 +464,14 @@ fun HelpContent() {
         Text("With a whatwatt (Settings → 📟 Measurement), also what you use now and what it costs per hour.")
         Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
         Text("The colour saves money only on a dynamic tariff. On a fixed price, it still shows when the grid has power to spare.")
-        Text("In Wallonia and Brussels, the time-of-use grid fee isn't in the colour.")
-        Text("Market prices: Bundesnetzagentur | SMARD.de, via energy-charts.info (CC BY 4.0).")
+        help.priceLines.forEach { Text(it) }
         Text("📊 Peak load", fontWeight = FontWeight.Bold)
         Text("Some grid tariffs also charge for the month's highest quarter hour: your average kW over 15 minutes.")
-        Text("Billed by CKW, in Austria from 2027 (at least 2 kW), and in Flanders (each month counts at least 2.5 kW, billed on the average of 12 months).")
-        Text("Other regions don't bill it.")
+        help.peakLines.forEach { Text(it) }
         Text("Switch it on in Settings → 📊 Mode. It needs the whatwatt with an SD card, and the recorder, which you install under Measurement.")
         Text("The scale shows the three quarter hours before, now in the middle, and the three coming.")
         Text("\"kW free\" is how much more you can switch on before the limit.")
-        Text("The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, your goal, and the least your tariff bills.")
+        Text(help.limit)
         Text("Up to the month's highest is billed anyway, and the biggest appliance reaches its own peak alone. Only stacking costs extra.")
         Text("At the limit, the bar turns red and the phone vibrates.")
         Text("The recorder saves every quarter hour on the whatwatt, also while GridLoad is closed. If it stops, a red line says why.")

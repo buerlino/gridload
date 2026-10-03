@@ -166,7 +166,7 @@ fun SetupGuide(
         Page {
             if (step == 0) {
                 Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                HelpContent()
+                HelpContent(COUNTRIES.find { it.code == country })
                 Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
                 return@Page
             }

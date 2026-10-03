@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6b done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -509,7 +509,25 @@ command above.
      energy-charts.info (CC BY 4.0)".
    - README and `full_description.txt`: which layers work where (prices everywhere listed, the
      whatwatt and peak load where the meter has a port and a peak is billed).
-7. **Release v0.12.0**, before 1 Jan 2027 (Austria's start), with the 25 Oct tests in.
+6b. **The help per country** (user, 2026-10-04): done 2026-10-04, design in `CLAUDE.md` (UI,
+   Help). The help shows only what applies to the selected region's country (Belgium both its
+   regions'): `countryHelp(country, now)` in `core/.../Help.kt` (`CountryHelp`: the price phrase,
+   the tomorrow line, the price lines, the peak lines, the limit line), derived from `isSpot`,
+   `tomorrowFrom`, `minimumKw` and the new `Region.peakFrom` (Austria 1 Jan 2027: "from 2027"
+   drops out by itself), `priceNote` (Wallonia and Brussels' grid fee) and `peakNote` (Flanders'
+   12 months). `HelpContent(country)`: the help dialog passes the region's, the welcome page the
+   phone's preselected one (user: else, null, a general version without country lines). The
+   fixed-price line stays for every country (user: Switzerland too). Tests (`HelpTest`): each
+   country, Austria on both sides of New Year in Vienna, the general version. Seen on the
+   Fairphone 6 (debug build, 2026-10-04 00:40–00:45, region switched in the prefs): the help in
+   CKW, Austria (one Energy-Charts request, saved in the scratchpad only) and Wallonia and
+   Brussels (no request: the cooldown held it), and the welcome page via `first_start_done`
+   (the SIM's CH, while the saved region was Belgian). Prefs, appliances and CKW's
+   `prices.json` restored afterwards; recorded quarters intact. Not seen: the general version
+   (needs a phone whose SIM and locale aren't in the list).
+7. **Release v0.12.0** after 6b, before 1 Jan 2027 (Austria's start). The user decided
+   (2026-10-04) not to wait for the DST tests: the 25 Oct fixtures (CKW and AT) and the
+   recorder's DST check follow on 26 Oct, in a patch release only if they turn something up.
    - F-Droid: the recipe's NonFreeNet text names the utilities' APIs; Energy-Charts is a new
      network service, so draft an update of the text for the user to post (only once the merge
      request is merged, or in it while still open).
