@@ -109,6 +109,62 @@ The delay-start helper, measuring an appliance and "one at a time in the valley"
 of the appliances panel now (start delay per appliance, measured curves, OK/WAIT per row): see
 `CLAUDE.md`, "Appliances", and [appliances.md](appliances.md).
 
+### Savings in francs on each WAIT row
+
+**What:** the WAIT line gives the saving with the time: "Cheaper at 11:00 · saves 0.09 CHF", or
+"Cheaper tomorrow 10:00 · saves 0.31 CHF".
+
+**Why:** "wait" is easier to act on when it has a price. Most people asking whether to run the
+dishwasher now want to know what it's worth.
+
+**How:** `advise()` (`Appliances.kt`) already prices every candidate start with `runPrice`. The
+saving is (price now − price of the chosen start) × the appliance's kWh, which the appliance
+already derives from its curve. It's `:core` arithmetic with a unit test. The prices are already
+CHF/kWh from the API, so no tariff constants go into the code (`CLAUDE.md`).
+
+**Open questions:** does the spot price already include VAT? The app shows the API's price as it
+is, so the saving should match that. Hide the saving below a minimum (e.g. under 0.01 CHF, which
+reads as "0.00")? Spot part only: the peak saving stays separate, as in the peak window.
+
+### Set a timer or alarm for a WAIT row
+
+**What:** a button on a WAIT row that sets the phone's own timer for the wait ("Set timer 1 h 20
+min") or alarm for the cheaper start ("Set alarm 10:00" for "Cheaper tomorrow 10:00"). With a start
+delay, the timer is the delay.
+
+**Why:** it turns the advice into an action, and the reminder comes from the phone's clock app,
+which is already trusted to ring.
+
+**How:** `AlarmClock.ACTION_SET_TIMER` (`EXTRA_LENGTH` in seconds) and `ACTION_SET_ALARM`
+(`EXTRA_HOUR`, `EXTRA_MINUTES`, `EXTRA_MESSAGE` for the appliance's name). No permission, no
+notification code, no background work, so it covers much of the "Green from 11:00 notification"
+below without `POST_NOTIFICATIONS`. The app sets it once, when tapped; it doesn't track it. To
+show the button only when a clock app exists, the manifest needs a `<queries>` entry (Android 11+
+hides other apps otherwise). That's not a permission.
+
+**Open questions:** timer or alarm for a delay, or both? Should the button also appear on OK rows
+("Start in 1 h" is not useful, so probably not)? Does the timer's name carry the appliance
+("Dishwasher")?
+
+### Where the limit comes from
+
+**What:** the peak window's limit line can come from three places: the floor (the biggest
+appliance × 1.2), the goal, or the month's highest quarter hour. Right now the screen says only
+"2.6 limit". A tap on the limit label would say which one sets it: "Floor from Cooking (2.21 kW
+× 1.2)", "Goal", or "Highest this month, 2 Oct 18:30".
+
+**Why:** when the peak window tells Cooking to wait for a limit it set itself, nothing on screen
+explains why. Someone who doesn't know the floor would think the app is broken, which is what the
+floor was meant to fix.
+
+**How:** `peakLine` (`Quarters.kt`) returns only the maximum of the three, so it would need to
+return the winning source with the value (a small pair or a label), and its tests would cover
+which one wins. The explanation goes in a dialog, like the ⓘ ones (`Info` in `SettingsScreen.kt`),
+so the peak window keeps one short line (`CLAUDE.md`: each concept in one place).
+
+**Open questions:** a dialog on tap, or a short suffix in the scale ("2.6 limit · floor")? Show it
+in the help too?
+
 ## Outside the main screen
 
 ### Home-screen widget (or a Quick Settings tile)
@@ -149,6 +205,12 @@ then `values-de` and `values-fr`. The fastlane store text per language too
 (`fastlane/metadata/android/de-DE/...`). It's a lot of strings, and the UI rules (short, one idea
 per line) apply in each language.
 
+**Open question (2026-10-03):** `CLAUDE.md` puts German right after wave 1, which is in English.
+Wave 1 brings more non-German users than German alone: Flanders and the Netherlands (Dutch),
+Wallonia and Brussels (French), and Austria, Germany, Luxembourg and Liechtenstein (German). Should
+the strings move before wave 1, or should wave 1 ship in English first and the translations follow?
+It's the user's call.
+
 ## Settings and diagnostics
 
 - ~~Firmware check in Test~~: dropped 2026-10-03. `device.firmware` is in `/api/v1/system`, but no
@@ -159,6 +221,36 @@ per line) apply in each language.
   reboot during the download tests), all in `/api/v1/system`, which the sync already fetches.
   These help explain gaps, since the whatwatt runs on weak meter power. One line: "Wi-Fi −64 dBm
   · restarted 2 Oct 17:01".
+- **Share the recorder's files** (Settings → Measurement → Recorder): the copies in
+  `files/recorder/` are already CSV. A Share action (the system share sheet, or one
+  `CreateDocument` per month, as the appliance export does) lets someone check a quarter against
+  the bill, or give the utility the data when a peak is disputed.
+
+**How:** the share sheet needs a `FileProvider` in the manifest (not a permission). The files
+hold UTC epoch seconds, so they're hard to read by hand; a readable export would write local
+times in the region's zone, one line per quarter hour, with the register.
+
+**Open questions:** one file per month or the day files as they are? Only the recorder's files,
+or the appliances too?
+
+## Accessibility
+
+### A TalkBack pass
+
+**What:** spoken labels for what the app shows only as colour or icon. `contentDescription`
+appears nowhere in the app. The colour always comes with the headline text, which is good, but
+the peak bars, the ↻ refresh (and its dimmed state), the ▴/▾ toggles, the OK/WAIT chips and the
+history bars have no spoken labels.
+
+**Why:** the app is on F-Droid, where screen-reader users look for accessible apps, and it's a
+small pass for a lot of gain.
+
+**How:** `contentDescription` or `Modifier.semantics` on each control, `stateDescription` for
+the dimmed ↻ ("Refresh blocked for 3 min"), and a spoken line for each bar ("Now, 1.6 kW, 0.4 kW
+free"). Check on the phone with TalkBack on; this list comes from reading the code, not from
+running it.
+
+**Open questions:** do it now, or with the German phase, which touches every string anyway?
 
 ## Considered and skipped
 
