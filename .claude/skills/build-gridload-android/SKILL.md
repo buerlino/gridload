@@ -341,15 +341,14 @@ zone works (user: "make it scalable"):
   the names to choose which files to copy, so a whatwatt set ahead of the region's zone copies
   each day's last quarters late (details in `CLAUDE.md`, Day files).
 
-A new country: add a `Country` (ISO code as the phone reports it, name, flag emoji, zone) to
+A new country: add a `Country` (ISO code as the phone reports it, name, flag emoji, zone, currency) to
 `COUNTRIES` and its regions to `REGIONS`; the dropdowns need no change. Then the steps for a
 new region above. `tomorrowFrom` is local to the region: the day-ahead auction's ~12:55 CET is
 14:15 in Finland and the Baltics (the zone per candidate country is in
-`research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser, and a
-non-CHF currency needs the price and cost-line texts changed (see
-`research/neighbouring_countries.md`).
+`research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
+currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; step 1 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 and 2 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -381,11 +380,14 @@ command above.
      (the same day as the recorder's DST check). Request politely: Energy-Charts answers 429
      after ~3 quick requests; save every response, don't re-request.
    - Phone: none (CKW must look exactly as before; a quick look suffices).
-2. **Currency** (`:core` + the two price texts).
-   - `Country.currency`: `Currency(symbol, small)`, CHF = ("CHF", "Rp"), EUR = ("€", "ct").
-     The price line and the cost line use it (`MainActivity.kt:343`, `:345`); Swiss text
-     unchanged ("22.7 Rp/kWh", "0.34 CHF/h").
-   - Tests: formatting for both currencies, negative prices ("−1.2 ct/kWh").
+2. ~~**Currency**~~ (`:core` + the two price texts): done 2026-10-03. `Currency.kt`:
+   `Currency(symbol, small)` with `perKwh` and `perHour` (a real minus "−", no "−0.0"),
+   `Currency.CHF` ("CHF", "Rp") and `Currency.EUR` ("€", "ct"); `Country.currency`. The price
+   and cost lines in `MainActivity.kt` use the region's country's. Tests: both currencies, the
+   locale's decimal comma, negative prices, and every fixture price formatted exactly as the old
+   `"%.1f Rp/kWh"`/`"%.2f CHF/h"`. No other CHF or Rp in UI text. Seen on the Fairphone 6
+   (debug build, 23:26): "24.1 Rp/kWh", "1.2 kW now · 0.28 CHF/h", as before.
+   Liechtenstein's `Country` gets `Currency.EUR` in step 5 (its source is in €).
 3. **The own price in spot regions** (user, 2026-10-03).
    - `Region.isSpot` (from the source). Own price = (spot + add-on) × (1 + VAT), a `:core`
      function. Prefs `price_addon` (ct/kWh excl. VAT, a string like `peak_goal_kw`) and

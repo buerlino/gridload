@@ -343,9 +343,10 @@ private fun Spot(state: UiState, label: String, content: Color, collapse: Collap
         ) {
             val textSize = if (small) 16.sp else 20.sp
             state.status?.let { status ->
-                Text("%.1f Rp/kWh".format(status.slot.price * 100), color = content, fontSize = textSize)
+                val currency = state.region.country.currency
+                Text(currency.perKwh(status.slot.price), color = content, fontSize = textSize)
                 state.meter.kw?.let { kw ->
-                    Text("${state.powerUnit.format(kw)} now · %.2f CHF/h".format(kw * status.slot.price), color = content, fontSize = textSize)
+                    Text("${state.powerUnit.format(kw)} now · ${currency.perHour(kw * status.slot.price)}", color = content, fontSize = textSize)
                 }
                 status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
             }

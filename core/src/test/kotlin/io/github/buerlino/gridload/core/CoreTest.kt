@@ -3,6 +3,7 @@ package io.github.buerlino.gridload.core
 import java.nio.file.Files
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -210,6 +211,29 @@ class CoreTest {
         assertEquals(SWITZERLAND, countryOf("ch"))
         assertEquals(SWITZERLAND, countryOf("", "US", "CH"))
         assertNull(countryOf(null, "DE"))
+    }
+
+    @Test
+    fun pricesShowInTheCountrysCurrency() {
+        assertEquals("22.7 Rp/kWh", Currency.CHF.perKwh(0.227, Locale.ROOT))
+        assertEquals("0.34 CHF/h", Currency.CHF.perHour(1.3 * 0.2615, Locale.ROOT))
+        assertEquals("11.3 ct/kWh", Currency.EUR.perKwh(0.11268, Locale.ROOT))
+        assertEquals("0.34 €/h", Currency.EUR.perHour(0.34, Locale.ROOT))
+        assertEquals("22,7 Rp/kWh", Currency.CHF.perKwh(0.227, Locale.GERMANY))
+        assertEquals(Currency.CHF, SWITZERLAND.currency)
+    }
+
+    @Test
+    fun negativePricesHaveAMinusSign() {
+        assertEquals("−1.2 ct/kWh", Currency.EUR.perKwh(-0.012, Locale.ROOT))
+        assertEquals("−0.05 €/h", Currency.EUR.perHour(-0.05, Locale.ROOT))
+        assertEquals("0.0 ct/kWh", Currency.EUR.perKwh(-0.0004, Locale.ROOT))
+    }
+
+    @Test
+    fun swissPricesLookAsBefore() = (slots + twoDays).forEach {
+        assertEquals("%.1f Rp/kWh".format(Locale.ROOT, it.price * 100), Currency.CHF.perKwh(it.price, Locale.ROOT))
+        assertEquals("%.2f CHF/h".format(Locale.ROOT, 1.3 * it.price), Currency.CHF.perHour(1.3 * it.price, Locale.ROOT))
     }
 
     @Test

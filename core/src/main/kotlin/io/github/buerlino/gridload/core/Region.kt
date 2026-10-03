@@ -6,12 +6,13 @@ import java.time.ZoneId
 /**
  * A country with at least one region; [code] is ISO 3166-1 alpha-2, as the phone reports it.
  * [zone] is where its tariff days run from midnight to midnight; a region can have its own.
+ * [currency] is what its regions' prices are in.
  */
-data class Country(val code: String, val name: String, val flag: String, val zone: ZoneId) {
+data class Country(val code: String, val name: String, val flag: String, val zone: ZoneId, val currency: Currency) {
     val label: String get() = "$flag $name"
 }
 
-val SWITZERLAND = Country("CH", "Switzerland", "🇨🇭", ZoneId.of("Europe/Zurich"))
+val SWITZERLAND = Country("CH", "Switzerland", "🇨🇭", ZoneId.of("Europe/Zurich"), Currency.CHF)
 
 /** The countries the user picks from before the region, so each list stays short. */
 val COUNTRIES: List<Country> = listOf(SWITZERLAND)

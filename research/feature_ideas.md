@@ -205,11 +205,8 @@ then `values-de` and `values-fr`. The fastlane store text per language too
 (`fastlane/metadata/android/de-DE/...`). It's a lot of strings, and the UI rules (short, one idea
 per line) apply in each language.
 
-**Open question (2026-10-03):** `CLAUDE.md` puts German right after wave 1, which is in English.
-Wave 1 brings more non-German users than German alone: Flanders and the Netherlands (Dutch),
-Wallonia and Brussels (French), and Austria, Germany, Luxembourg and Liechtenstein (German). Should
-the strings move before wave 1, or should wave 1 ship in English first and the translations follow?
-It's the user's call.
+**Order, decided (user, 2026-10-03):** after wave 1, as planned. Wave 1 ships in English first,
+then the strings move to `strings.xml` with German.
 
 ## Settings and diagnostics
 
