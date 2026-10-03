@@ -1,9 +1,11 @@
-# GridLoad outside Switzerland (researched 2026-09-30, revised 2026-10-03)
+# GridLoad outside Switzerland (researched 2026-09-30, revised and decided 2026-10-03)
 
 Which countries can GridLoad cover now that it has peak load, the recorder, the history and the
 appliances, and what does each need? APIs were tested with live requests (2026-09-30 and
 2026-10-03); regulation comes from the web sources listed at the end. Items marked
 **unverified** come from one secondary source or none; check them before building on them.
+The user's decisions (2026-10-03) are in `CLAUDE.md` under "Regions outside Switzerland", the
+build plan in the skill's roadmap; this file keeps the facts.
 
 ## Summary
 
@@ -15,7 +17,8 @@ GridLoad has three layers, and each needs different things from a country:
 | **whatwatt**: cost line, live draw, appliance measuring | a meter port the whatwatt reads (P1, M-Bus, Kamstrup HAN) and a whatwatt to buy | NL, BE, LU, AT (most grids), DK, SI; likely NO, SE, FI |
 | **Peak load**: the line, the alarm, the history, the appliances' "Sets a new peak" | households billed on a power peak | CH (CKW and others), **Belgium (Flanders)** since 2023, **Austria from 1 Jan 2027**, Norway (hourly variant), parts of Sweden |
 
-Recommended order:
+Order (recommended 2026-10-03; the user chose wave 1 = steps 1 and 2 without Czechia, Poland,
+Hungary and Slovenia, then German, Spain, Denmark, and Norway once 2027 is clear):
 
 1. **Austria and Flanders first.** They are the only places outside Switzerland where all three
    layers fit with almost no new concepts. Both bill the **highest quarter hour of the calendar
@@ -40,10 +43,11 @@ Recommended order:
    whatwatt layer (its meters have no port the whatwatt reads), the UK (no local meter port; not
    EU).
 
-**Biggest open point: can people outside Switzerland buy a whatwatt?** whatwatt's own shop sells
-in CHF and ships by Swiss Post; no EU shop or retailer turned up (only one eBay.de listing). The
-site says "Made for Europe". Without an EU source, layers 2 and 3 stay Swiss in practice. Ask
-whatwatt (info@whatwatt.ch) before investing in Austria's peak load. See the open questions.
+**Can people outside Switzerland buy a whatwatt?** Still unverified (re-checked 2026-10-03):
+whatwatt's shop sells in CHF and ships by Swiss Post (PostPac), its terms don't name a delivery
+area, and every retailer found is Swiss (Primeo, Digitec, Brack, …); only one eBay.de listing
+turned up. The user decided not to ask for now: the whatwatt stays the only reader, peak load is
+offered abroad for whoever has one, and an EU reader (HomeWizard P1 or similar) is a later task.
 
 ## What changed since 2026-09-30
 
@@ -53,7 +57,10 @@ whatwatt (info@whatwatt.ch) before investing in Austria's peak load. See the ope
   price source. Their peak advice needs a line, so it needs a peak tariff or a goal.
 - **Austria:** E-Control's new grid-fee framework (SNE-G-V) bills households on their monthly
   highest quarter hour from 2027, and adds a winter low-price window (WiNAP) to the summer one
-  (SNAP).
+  (SNAP). Status (re-checked 2026-10-03): the draft of 30 Jun 2026 went through consultation
+  (to 24 Jul); as of 21 Sep 2026 its issuance was announced for autumn but not done. The
+  amounts (SNE-T-V) come as a draft in October and final in December 2026. The 1 Jan 2027
+  start hasn't moved.
 - **Sweden:** the national power-tariff mandate for 2027 was **paused** on 13 Mar 2026.
 - **Netherlands:** time-dependent grid tariffs for households are only a proposal, for 2029 at
   the earliest. Net metering (saldering) ends 1 Jan 2027, which pushes solar owners towards
@@ -61,6 +68,10 @@ whatwatt (info@whatwatt.ch) before investing in Austria's peak load. See the ope
 - **Wallonia** has had time-of-use grid tariffs since 1 Jan 2026.
 - **Norway:** the state fixed price (Norgespris) covered about 58% of household consumption in
   mid-2026; it runs to 31 Dec 2026 and must be re-ordered for 2027.
+- **Switzerland** (checked 2026-10-03): of the app's seven regions only CKW bills households on a
+  peak. EKZ Netz 400D is "ohne Leistungsmessung" (its tariff sheet); Primeo's and AVAG's household
+  grid prices have no Leistungspreis (2026 price sheet); Groupe E's household Vario has none that
+  could be found (its CHF 25.71/kW is for business customers; unverified).
 
 ## When the spot price gives the right colour
 
@@ -139,6 +150,9 @@ any change to the script.
 | EnergyZero (NL) | NL, all-in incl. VAT | hourly | no | not stated | — |
 
 Notes:
+- Energy-Charts' licence re-read on 2026-10-03 in `/openapi.json`: unchanged, CC BY 4.0 "from
+  Bundesnetzagentur | SMARD.de" for the zones above (plus DE-AT-LU, the zone before Oct 2018);
+  every other zone private and internal use only.
 - Energy-Charts answered `429` after about three quick requests (a `Retry-After` of ~20 s); one
   request every 25 s always worked. At ~2 fetches a day per phone that's harmless, and the app
   already shows "busy" for it.
@@ -154,9 +168,9 @@ Notes:
 
 | Country | What is billed | Fits the current peak load? |
 |---|---|---|
-| Switzerland (CKW and others) | the month's highest quarter hour, linear per kW | yes, built for it |
-| **Belgium, Flanders** | the highest quarter hour of each month; the bill uses the **average of the last 12 monthly peaks**, each at least **2.5 kW**; 2026 about €53/kW per year excl. VAT | yes. The line becomes max(2.5 kW, the month's highest, the goal). The 12-month average changes the money, not the line: a new monthly peak still costs for a year |
-| **Austria, from 1 Jan 2027** | the highest quarter hour of each calendar month; at least 2 kW (or 20% of the contracted capacity); a higher rate per kW above 10 kW; phased in from ~30% of the grid fee to ~50% over three years. SNE-G-V issued in September 2026 (stakeholder sources); the amounts (SNE-T-V) were due in October 2026 | yes. Line = max(2 kW, the month's highest, the goal). It needs a quarter-hour smart meter, which whatwatt users have anyway |
+| Switzerland (CKW; not EKZ, Primeo, AVAG, ELAG, Groupe E) | the month's highest quarter hour, linear per kW | yes, built for it |
+| **Belgium, Flanders** | the highest quarter hour of each month; the bill uses the **average of the last 12 monthly peaks**, each at least **2.5 kW**; 2026: €53.39/kW per year excl. VAT (confirmed 2026-10-03) | yes. The limit becomes the highest of the minimum (2.5 kW), the floor, the month's highest and the goal. The 12-month average changes the money, not the line: a new monthly peak still costs for a year |
+| **Austria, from 1 Jan 2027** | the highest quarter hour of each calendar month; at least 2 kW (or 20% of the contracted capacity); a higher rate per kW above 10 kW; phased in from ~30% of the grid fee to ~50% over three years; about €15–26/kW per year by grid area. SNE-G-V still a draft on 21 Sep 2026 (issuance announced for autumn); amounts (SNE-T-V) draft in October, final in December 2026 | yes. The limit = the highest of the minimum (2 kW), the floor, the month's highest and the goal. It needs a quarter-hour smart meter, which whatwatt users have anyway |
 | Belgium, Wallonia and Brussels | Wallonia: no capacity tariff, time-of-use grid fees since 2026. Brussels: not checked | no peak; prices only |
 | **Norway** | *kapasitetsledd*: the average of the **three highest hours on three different days** in the month, billed in steps (Elvia: 0–2, 2–5, 5–10, 10–15, … kW) | not as is. The recorder's quarters add up to hours, so no script change, but the app needs a second model: daily highest hours, the top three, the step they fall in, and the alarm when an hour would raise the step |
 | Sweden | power tariffs (often the average of the 3 highest hours a month) at some grid operators; the national 2027 mandate was paused on 13 Mar 2026, with a new proposal due by 12 Apr 2027 | per operator; wait for the new rules |
@@ -260,7 +274,7 @@ Notes:
 - Italy: households mostly pay flat prices or the F1/F2/F3 bands; `IT-North` is CC BY but is a
   market signal, not their bill.
 
-## Time zones (done 2026-10-03, not released)
+## Time zones (released in v0.11.0)
 
 Each `Country` has a `zone`, and a `Region` takes it unless it overrides it (commit `39fb3cc`).
 The selected region's zone sets the tariff day (`fetchPeriod(now, zone)`: the request's
@@ -300,72 +314,43 @@ Notes:
   each day's last quarters copied only after midnight, so check its zone in the whatwatt's web UI
   when setting it up abroad. Behind or equal is fine.
 
-## What the code needs (as of 2026-10-03)
+## What the code needs
 
-The current code: `Region(id, name, utility, country, pricesUrl, tomorrowFrom, zone)`,
-`Country(code, name, flag, zone)`, `fetchPrices` appends the VSE `start_timestamp`/
-`end_timestamp`, `parsePrices` reads the VSE JSON, `PriceSlot.price` is "CHF/kWh", and the main
-screen shows "Rp/kWh" and "CHF/h" (`MainActivity.kt:306`, `:308`). Time zones are done (above).
-Steps, smallest first:
+The steps are in the skill's roadmap ("Regions outside Switzerland"). Facts they rely on:
+- The code as of v0.11.0: `Region(id, name, utility, country, pricesUrl, tomorrowFrom, zone)`,
+  `Country(code, name, flag, zone)`; `fetchPrices` appends the VSE `start_timestamp`/
+  `end_timestamp`, `parsePrices` reads the VSE JSON, and the main screen shows "Rp/kWh" and
+  "CHF/h" (`MainActivity.kt:343`, `:345`).
+- Energy-Charts: zip `unix_seconds` and `price` (EUR/MWh, ÷1000 for per kWh); a slot ends where
+  the next starts, the last after the same length. Check on a saved response whether it includes
+  the slot at `end` (Elering does, like the VSE APIs; the existing filter handles both).
+- The customer's price is roughly (spot + markup + grid fee + levies) × (1 + VAT): affine with a
+  positive factor, so the own price in spot regions never changes the colour, and a multiplier
+  alone would be wrong (the fixed part is larger than spot, and spot can be negative).
+- `peakLine` already has a floor (`peakFloor`, the biggest appliance × 1.2). The tariff's minimum
+  billed peak (AT 2 kW, Flanders 2.5 kW) is a separate value, the "minimum", and the limit is the
+  highest of the four.
+- Texts that assume a Swiss utility: the help's first line (`MainActivity.kt:434`), the Region
+  ⓘ (`SettingsScreen.kt:80`), the whatwatt guide's key line (`WhatwattGuide.kt:37`, CKW).
+- Denmark: add the operator's hourly tariff to the spot price before `classify`, in the same
+  currency (a second request; the tariff changes on 1 Apr and 1 Oct, so it can be cached).
+- Norway: from the recorder's quarters, each hour's kWh, each day's highest hour, the month's top
+  three days, their average and its step (NVE). The line is the next step's lower bound.
+- Unchanged: refresh policy and cooldown, the recorder script (frozen at v2), permissions,
+  dependencies.
 
-1. **A price source per region.** Replace `pricesUrl` with a small sealed type, e.g.
-   `VsePrices(url)`, `SpotPrices(bzn)` (Energy-Charts), later `Pvpc`, `EnergiNet(area, operator,
-   chargeCode)`, `Elering(area)`. Each builds its request from `fetchPeriod(now, zone)` and parses
-   into `PriceSlot`s.
-   - Energy-Charts: zip `unix_seconds` and `price`; a slot ends where the next starts, the last
-     after the same length; ÷1000 for per kWh. Check whether it includes the slot at `end`
-     (Elering does, like the VSE APIs; the existing filter handles both).
-   - Unit-test each parser with a saved response in `core/src/test/resources/`, including a DST
-     day (25 Oct 2026).
-   - `PriceCache` writes slots in the VSE shape with the unit `"CHF_kWh"`. It's internal, so it
-     can stay, but renaming it to `"kWh"` with a fallback read is cleaner.
-2. **Currency and price kind.** `Country.currency` (CHF, EUR, DKK, NOK, SEK) with its small unit
-   (Rp, ct, øre, öre), and `Region.final: Boolean`. Final prices (VSE, PVPC, Denmark with its
-   tariff) show as today, in the right units. Spot-only regions: hide the absolute price, or label
-   it "Market price 11.3 ct/kWh", and hide the cost per hour (it would be a third of the real
-   cost). The colour, the next good time and "Cheaper at" are relative and stay correct.
-3. **A minimum billed peak per region** (`Region.peakFloorKw`: CKW 0, Austria 2.0, Flanders 2.5;
-   null where nothing is billed). `peakLine` becomes the highest of the floor, the month's highest
-   and the goal, so "kW free" counts up to the floor. Small `:core` change, unit-tested.
-4. **Peak load where nothing is billed** (NL, DE, DK, …): hide the Peak load switch, or keep it
-   for the goal only. A product decision (open questions).
-5. **Time-varying add-ons** (Denmark first): add the operator's hourly tariff to the spot price
-   before `classify`, in the same currency. For Denmark that's a second request per fetch (the
-   tariff changes twice a year, so it could be cached for weeks).
-6. **Norway's peak model** (later): from the recorder's quarters, each hour's kWh, each day's
-   highest hour, the month's top three days, their average and its step (NVE). The line is the
-   next step's lower bound; the alarm warns when this hour would push the average over it.
-7. **Texts:**
-   - The whatwatt guide names CKW's key address (`WhatwattGuide.kt:37`); make it "from your grid
-     operator", with the CKW line only for Swiss regions.
-   - The help says peak load is billed per month's highest quarter hour; per region it should say
-     what's billed, or nothing.
-   - Attribution in the help: "Market prices: Bundesnetzagentur | SMARD.de (CC BY 4.0)",
-     "Energinet", "Red Eléctrica", "NVE", as used.
-   - Store listing and README: say which layers work where.
-8. **Language:** the UI is English only. For Austria, Germany, Flanders and the Netherlands that's
-   a barrier; extracting the strings (an optional step in `CLAUDE.md`) would become worthwhile.
-9. **Unchanged:** time zones (done), refresh policy and cooldown, the recorder script (frozen at
-   v2), permissions, dependencies.
+## Open questions
 
-## Open questions for the user
-
-- **whatwatt outside Switzerland:** ask whatwatt whether they ship to the EU (Austria, Belgium)
-  and at what price. If not, is another meter reader acceptable for those countries? For example,
-  the HomeWizard P1 meter, common in NL and BE, has a documented local API, but no SD card or
-  scripts, so no recorder; in Belgium the meter's own monthly peak (1-0:1.6.0) could stand in.
-  Or stay whatwatt-only and offer prices only outside Switzerland.
-- **First wave:** Austria + Flanders (with peak) and the other CC BY zones (prices only), before
-  1 Jan 2027?
-- **Absolute price** in spot-only regions: hide it, or "Market price …"?
-- **Peak load without peak billing:** hide the switch, or keep it with the goal only?
-- **Wallonia:** leave it out, or offer it as spot only with a note?
-- **Translations:** German first (AT, DE, LI, LU), then Dutch and French?
-- **Spain** (prices only, large audience) and **Denmark** (two requests per fetch): worth it after
-  the first wave?
-- **Norway:** worth a second peak model, given Norgespris?
-- Still open from 2026-09-30: in Germany most households are on fixed prices. Show the colour as
-  a "grid is cheap now" signal for everyone, or say it pays only on a dynamic tariff?
+Settled with the user on 2026-10-03 (see `CLAUDE.md`): the whatwatt abroad, wave 1, the
+absolute price (and the own price), peak load where nothing is billed, Wallonia, Spain and
+Denmark, Norway, fixed-price households, translations. Still open:
+- Whether the whatwatt ships to the EU (not asked, by the user's choice).
+- Groupe E: whether any household tariff has a power charge (none found).
+- Austria: the final SNE-G-V text and the SNE-T-V amounts (due October to December 2026);
+  whether "20% of the contracted capacity" ever exceeds 2 kW for households.
+- Flanders: any change to the capacity tariff for 2027 (none found).
+- Energy-Charts: when tomorrow is reliably there (`tomorrowFrom` 13:15 is from the ~12:55 CET
+  auction, not observed).
 
 ## Sources
 
@@ -386,6 +371,7 @@ Prices
 - 15-minute day-ahead: https://www.epexspot.com/en/news/successful-implementation-15-minute-market-time-unit-mtu-sdac
 
 Austria
+- Status and rules (updated 21 Sep 2026): https://stromliste.at/strompreis/zusammensetzung/netzentgelte/leistungstarif
 - SNE-G-V draft: https://www.e-control.at/documents/1785851/0/V+SNE+01_26+SNE-G-V+Begutachtungsentwurf+samt+Erl%C3%A4uterungen.pdf/1425ce2f-897d-bea7-b8e6-e84f67f978ab?t=1782735970283
 - Wiener Stadtwerke summary: https://positionen.wienerstadtwerke.at/aktuelles/systemnutzungsentgelte-grundsatz-verordnung-begutachtung
 - https://www.checkeverything.at/en/blog/electricity-grid-fees-austria-2027
@@ -396,6 +382,7 @@ Austria
 - Suppliers: https://www.smartmeter-portal.at/dynamischer-stromtarif/anbieter-vergleich/
 
 Belgium
+- 2026 rate: https://zonnepanelenenergie.be/capaciteitstarief, https://www.vlaamsenutsregulator.be/elektriciteit-en-aardgas/nettarieven/capaciteitstarief
 - Fluvius capacity tariff: https://www.fluvius.be/nl/factuur-en-tarieven/capaciteitstarief/gezinnen-en-kleine-ondernemingen/aangerekend
 - VREG: https://www.vreg.be/en/faq/capaciteitstarief
 - P1 port and 1.6.0: https://partner.fluvius.be/nl/technische-documenten/gebruikerspoort-specificaties
@@ -414,6 +401,11 @@ Nordics
 - Norway, Norgespris: https://www.regnestykket.no/norgespris,
   https://www.regjeringen.no/no/aktuelt/39-milliarder-kroner-spart-med-norgespris-i-andre-kvartal-2026/id3172989/
 - HAN ports per country: https://github.com/ArnieO/SmartMeterDocumentation
+
+Switzerland (peak billing per region)
+- EKZ Netz 400D: https://www.ekz.ch/dam/ekz/privatkunden/strom/tarife-und-agb/Tarifdokumente/tarife-2026/ekz-dynamischer-tarif-2026-tarifblatt.pdf
+- AVAG 2026 grid prices: https://www.primeo-energie.ch/magnolia/dam/jcr:f070faa4-e1f0-48a3-9d19-d6460529e817/PE_Preisblatt2026_Netznutzung_AVAG.pdf
+- Groupe E Vario: https://www.groupe-e.ch/fr/electricite/vario
 
 Others
 - Slovenia: https://www.mdpi.com/1996-1073/19/2/567, https://sloveniatimes.com/42421/parliament-intervenes-in-electricity-network-charges

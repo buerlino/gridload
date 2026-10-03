@@ -327,19 +327,125 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 non-CHF currency needs the price and cost-line texts changed (see
 `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [researched 2026-09-30, revised 2026-10-03, not started]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user, not started]
 
-Recommended first wave: Austria (peak billed on the monthly highest quarter hour from
-1 Jan 2027) and Flanders (since 2023), both with whatwatt-readable meters, plus the other
-Energy-Charts CC BY zones for prices only. Needs a spot-price source and parser, a currency, and
-a minimum billed peak per region. Later: Spain (PVPC), Denmark (spot + grid tariff), the Nordics
-and Baltics, and Norway's hourly peak model. The findings, the tested APIs, the code changes and
-the user's open questions (first: can people outside Switzerland buy a whatwatt?) are in
-`research/neighbouring_countries.md`. Settle the open questions with the user first.
+The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
+APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
+plus Wallonia and Brussels, Germany, Luxembourg, the Netherlands and Liechtenstein with prices
+only, all from Energy-Charts (CC BY 4.0), released before 1 Jan 2027 (Austria's peak tariff
+starts then). In English; German is the next phase. No app code before the user approves this
+plan: approved 2026-10-03, start when the user says so. Each step ends green on the verify
+command above.
+
+1. **A price source per region** (`:core` only, nothing visible changes).
+   - `Region.pricesUrl` becomes `Region.source`, a small sealed type: `Vse(url)` (today's
+     regions, unchanged requests) and `EnergyCharts(bzn)`. `fetchPrices(region)` builds the
+     request from `fetchPeriod(now, region.zone)` (instants, not dates) and parses by source.
+   - Energy-Charts: `GET https://api.energy-charts.info/price?bzn=AT&start=<UTC>&end=<UTC>`;
+     zip `unix_seconds` and `price` (EUR/MWh, ÷1000 → per kWh); a slot ends where the next
+     starts, the last after the same length; drop a slot starting at `end` (the existing filter).
+     `deprecated: true` or an empty list counts as unreadable.
+   - `PriceCache` stays as it is (internal; its `"CHF_kWh"` label just means "per kWh"), so no
+     migration.
+   - Tests: a saved Energy-Charts response for AT (a normal day with tomorrow) and the spring DST
+     day (29 Mar 2026, 92 quarters, saved now since past days work) in `core/src/test/resources/`;
+     the request URL for each source across a DST change, as the VSE test already does.
+     On 26 Oct 2026, save 25 Oct 2026 (100 quarters) for both CKW and AT and add them as tests
+     (the same day as the recorder's DST check). Request politely: Energy-Charts answers 429
+     after ~3 quick requests; save every response, don't re-request.
+   - Phone: none (CKW must look exactly as before; a quick look suffices).
+2. **Currency** (`:core` + the two price texts).
+   - `Country.currency`: `Currency(symbol, small)`, CHF = ("CHF", "Rp"), EUR = ("€", "ct").
+     The price line and the cost line use it (`MainActivity.kt:343`, `:345`); Swiss text
+     unchanged ("22.7 Rp/kWh", "0.34 CHF/h").
+   - Tests: formatting for both currencies, negative prices ("−1.2 ct/kWh").
+3. **The own price in spot regions** (user, 2026-10-03).
+   - `Region.isSpot` (from the source). Own price = (spot + add-on) × (1 + VAT), a `:core`
+     function. Prefs `price_addon` (ct/kWh excl. VAT, a string like `peak_goal_kw`) and
+     `price_vat` (%, blank = the country's `Country.vat`: AT 20, BE 6, DE 19, LU 8, NL 21,
+     LI 8.1, CH null).
+   - `classify` and the appliances' price advice keep using the raw price (an affine change
+     with a positive factor gives the same colour and the same "Cheaper at").
+   - Main screen, spot region without an add-on: "Market price 11.3 ct/kWh", no cost line, and a
+     "Set your price ›" line that opens Settings with Region open at the fields. With an
+     add-on: the normal price line and the cost line, from the own price.
+   - Settings → Region, spot regions only: "Add-on" (ct/kWh excl. VAT) and "VAT" (%) fields,
+     ⓘ: what goes into the add-on (supplier markup, grid fee per kWh, levies, from the bill),
+     and that the colour doesn't depend on it. Summary: "Austria · + 18.5 ct".
+   - Tests: the formula (negative spot, VAT 0 and blank), the default VAT per country.
+   - Phone: an AT region (temporarily, while CKW's peak stays recorded) without and with an
+     add-on; the link lands on the fields; the cost line with the whatwatt.
+4. **The minimum billed peak** (user, 2026-10-03: "floor" keeps its meaning, the biggest
+   appliance × 1.2; the tariff's value is the "minimum").
+   - `Region.minimumKw: Double?`: null = no peak billing, 0.0 = billed with no minimum (CKW),
+     2.0 Austria, 2.5 Flanders. The other six Swiss regions get null (checked 2026-10-03; see
+     the research file; Groupe E unconfirmed, treated as none). It's never a restriction
+     (user, 2026-10-03): users there keep peak load as they set it and can switch it on.
+   - `peakLine(goal, floor, minimum, highest)`: the highest of the four. The minimum counts with
+     the appliances panel hidden too (it's the tariff, not an appliance). The history draws the
+     same line.
+   - Peak load stays off by default everywhere (it already is). With it on in a region whose
+     `minimumKw` is null: a muted line under the switch in Settings → Mode and the setup guide,
+     "Your region doesn't bill a peak.", and the Mode ⓘ says that the limit is then a personal
+     cap that nothing is billed for. Nothing is locked.
+   - Tests: `peakLine` with each combination, each region's `minimumKw`.
+   - Phone: Flanders (2.5) above the user's month's highest (~2.4) shows "2.5 limit" and moves
+     "kW free"; Wallonia shows the line under the switch.
+5. **The regions** (`Region.kt`, README, store text).
+   - Countries: AT `Europe/Vienna`, BE `Europe/Brussels`, DE `Europe/Berlin`, LU
+     `Europe/Luxembourg`, NL `Europe/Amsterdam`, LI `Europe/Vaduz`, each with currency and VAT.
+   - Regions (label "<name> (market price)", `tomorrowFrom` 13:15 local): Austria (`AT`, 2.0),
+     Flanders (`BE`, 2.5), Wallonia and Brussels (`BE`), Germany (`DE-LU`), Luxembourg
+     (`DE-LU`), Netherlands (`NL`), Liechtenstein (`CH`, hourly). Energy-Charts gives every zone
+     in EUR, so Liechtenstein (where households pay CHF) shows € too (user, 2026-10-03: fine;
+     CHF there is a rainy-day task).
+   - Tests: every region's country, zone, source and minimum; the country dropdown from the
+     phone's country (AT, BE, …).
+   - Phone: first start with the setup guide, Country → region for AT and BE; prices with
+     tomorrow after 13:15.
+6. **Texts** (one idea per line, each concept in one place).
+   - Help, Prices: "your utility's price" becomes "your tariff's price, or the market price";
+     one line that the colour saves money only on a dynamic tariff, and on a fixed price still
+     shows when the grid has power to spare (user, 2026-10-03: inform, don't exclude); Wallonia
+     and Brussels: the time-of-use grid fee isn't included.
+   - Help, Peak load: what's billed per region in one line ("At least 2 kW is billed" in
+     Austria, "each month counts at least 2.5 kW, billed on the average of 12 months" in
+     Flanders), and where nothing is billed.
+   - Region ⓘ (`SettingsScreen.kt:80`): utilities with a dynamic tariff, or the market price
+     where none publishes one.
+   - The whatwatt guide's key line (`WhatwattGuide.kt:37`): "from your grid operator", the CKW
+     address only for CKW.
+   - Attribution in the help: "Market prices: Bundesnetzagentur | SMARD.de, via
+     energy-charts.info (CC BY 4.0)".
+   - README and `full_description.txt`: which layers work where (prices everywhere listed, the
+     whatwatt and peak load where the meter has a port and a peak is billed).
+7. **Release v0.12.0**, before 1 Jan 2027 (Austria's start), with the 25 Oct tests in.
+   - F-Droid: the recipe's NonFreeNet text names the utilities' APIs; Energy-Charts is a new
+     network service, so draft an update of the text for the user to post (only once the merge
+     request is merged, or in it while still open).
+   - Phone, release build with R8: switch CH → AT → CH and back; the cache per region; offline
+     start in AT.
+
+Later phases, in order (each settled with the user before it starts):
+- **German** (user, 2026-10-03: right after wave 1): move the inline UI strings to
+  `strings.xml`, add `values-de`, and `fastlane/metadata/android/de-DE/`. Dutch and French
+  afterwards if wanted.
+- **Spain**: REE PVPC (final price, tolls included, so no add-on), a second parser, the
+  Canaries as a region with its own zone, no whatwatt.
+- **Denmark**: spot plus each grid operator's tariff from Energi Data Service (two requests,
+  the tariff cached for weeks), a region per grid operator.
+- **An EU meter reader** (user, 2026-10-03: a future task): HomeWizard P1 or a similar device
+  sold in the EU. It has no recorder, so how the month's highest is kept complete is the first
+  question (in Belgium the meter's own 1-0:1.6.0 may stand in).
+- **Norway**, once Norgespris' 2027 terms are known: its hourly top-three-days peak model.
+- Not planned: Czechia, Poland, Hungary, Slovenia (local currencies, uptake unknown); France,
+  Italy, Portugal (see the research file).
 
 ### Rainy day
 
 Little tasks for when there's nothing else (user, 2026-10-03: skipped for now).
+- **Liechtenstein in CHF** (after wave 1): its market price comes in EUR from Energy-Charts,
+  while households pay CHF; show it in CHF (an exchange rate, or a CHF source for zone `CH`).
 - **Vibrate at the limit on the phone:** after a real limit alarm, check
   `adb shell dumpsys vibrator_manager` for GridLoad's 400 ms vibration with usage NOTIFICATION
   (Unless silent) or ALARM (Always) and that it was played, not `ignored_for_settings`. Try both
