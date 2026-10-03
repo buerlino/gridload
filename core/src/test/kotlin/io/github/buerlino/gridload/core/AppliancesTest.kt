@@ -268,6 +268,17 @@ class AppliancesTest {
         assertFalse(dishwasher.fitsPeak(at("10:15"), peak(3.2, 1.7, 4.0)))
     }
 
+    @Test
+    fun theQuarterLoadsAreTheHouseAndTheRunPerQuarter() {
+        // Started at 10:07: this quarter is the projection, the next the draw now.
+        val loads = dishwasher.quarterLoads(at("10:07"), peak(1.0, 0.5, null))
+        assertEquals(listOf(at("10:00"), at("10:15"), at("10:30"), at("10:45"), at("11:00")), loads.map { it.start })
+        assertEquals(listOf(1.0, 0.5, 0.5, 0.5, 0.5), loads.map { it.houseKw })
+        // 2.0 kW for 8 of the 15 minutes, then whole quarters, then the last 7 minutes.
+        listOf(2.0 * 8 / 15, 2.0, 2.0, 2.0, 2.0 * 7 / 15).zip(loads.map { it.addedKw }).forEach { (want, got) -> assertEquals(want, got, 1e-9) }
+        assertEquals(2.5, loads[1].kw, 1e-9)
+    }
+
     /** Today's quarter-hour slots at 0.30, with 0.15 from 10:00 to 16:00. */
     private val slots = (0 until 96).map { i ->
         val start = OffsetDateTime.parse("2026-10-03T00:00+02:00").plusMinutes(15L * i)

@@ -191,11 +191,47 @@ rename, delete, variants ("Cooking 60 min", "Kettle 1.5 L"), export and import, 
 build (a measurement survives a force-stop). Declutter pass afterwards: see
 [declutter.md](declutter.md).
 
-Open:
-1. On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now, e.g.
-   after the hob is switched off mid-quarter) and a "Cheaper" row (evening prices).
-2. The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
-3. Release: `changelogs/12.txt` isn't written; the user decides.
+Release plan (proposed 2026-10-03, the user decides; committed up to `7498e45`):
+1. ~~**Before the release:**~~ done 2026-10-03, 15:35–15:38: "Kettle 1L test" (saved) gave
+   3 min · 0.10 kWh · 2.0 kW right after Done (jump +1.8 to +2.0 kW; Start and Done in the
+   15:30 quarter). The plan was: install the current R8 build on the Fairphone 6 (it has the pass's
+   fixes and 1.6, which the installed one lacks) and measure "Kettle 1 L" again. This tests the
+   new Done (`doneAt`, `doneKwh`), which has never run on the phone. Expect the result right
+   after Done, close to the first measurement (3 min · 0.09 kWh · 1.8 kW). Why first: once
+   released, `appliances.json` (export/import) and the `measuring` pref are a format to keep.
+   Before installing, check that GridLoad is in front with no measuring row.
+2. **Then release v0.10.0:** versionCode 12, `changelogs/12.txt` (max 500 characters; a new
+   feature, hence the minor bump), see Releasing; tag only when the user asks, the user pushes.
+   Text for `12.txt` (469 characters, approved by the user 2026-10-03; the version isn't bumped yet):
+   ```
+   - Appliances: measure each one once with the whatwatt, then see OK or WAIT for starting it now, by peak and by price, with the time to wait or the delay to set.
+   - Tap an appliance to see its run in the peak window; hold to edit.
+   - Variants: another run time, e.g. a kettle with more water.
+   - Export and import the appliances in Settings.
+   - The peak window shows the last hour and the next three quarter hours.
+   - Scrolling the panels shrinks the price part to one line.
+   ```
+3. **Not blocking, a v0.10.1 if needed:** the logic is covered by core tests, and what's left in
+   the app is plain text and one rounding.
+   - On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now,
+     e.g. after the hob is switched off mid-quarter); a "Cheaper" row and, with a start delay,
+     "Cheaper · Delay 3 h" (evening prices; checks 1.3's rounding and 1.4's separator); the
+     row before tomorrow's prices are out (1.5, before 12:00 for CKW).
+   - The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
+   - Store screenshots without the appliances panel: retake before F-Droid ships it.
+4. Left to the user: the setup help's "The result shows up to 15 minutes later." is still true,
+   though the result now usually comes at once (the user's text).
+
+Preview (built 2026-10-03, uncommitted at first; design in `CLAUDE.md` under "OK or WAIT"): tap
+a row → its run in the peak window, hold → edit; the peak window has 3 past | now | 3 coming
+columns. Tested on the Fairphone 6 with an R8 build: "Cooking" (WAIT, a red 16:15 quarter),
+closing with ×, the empty coming columns, a long press opening the sheet. Also seen (2026-10-03,
+16:06): a run past the columns ("Cooking 60 min" at 16:06, "Then 1 more quarter hour, up to
+0.2 kW.", its plural fixed), W (labels up to 3000 fit; "90 W free"), the preview staying open
+through Settings. Not seen: the preview without a line (needs the goal off and nothing recorded
+this month, so only after a `pm clear` or on a fresh phone; checked in the code: the header shows
+"2.0 kW with …" in ink, no red, the scale fits the bars). A long name wrapping inside
+"with Cooking 60 / min" in the header is fine (user, 2026-10-03).
 
 To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks

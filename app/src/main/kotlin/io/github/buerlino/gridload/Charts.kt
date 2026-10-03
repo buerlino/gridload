@@ -46,12 +46,14 @@ internal val SMALL = TextStyle(color = MUTED, fontSize = 10.sp)
 
 /**
  * A white panel on the main screen: a header row that collapses and expands it ([onToggle]),
- * then [content], which decides itself what shows when collapsed.
+ * then [content], which decides itself what shows when collapsed. With [icon] ("×"), the header
+ * closes something instead.
  */
 @Composable
 internal fun Panel(
     open: Boolean,
     onToggle: () -> Unit,
+    icon: String? = null,
     header: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -62,12 +64,12 @@ internal fun Panel(
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 44.dp)
-                .clickable(onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle),
+                .clickable(onClickLabel = if (icon != null) "Close" else if (open) "Collapse" else "Expand", onClick = onToggle),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             header()
-            Text(if (open) "▴" else "▾", color = MUTED, fontSize = 20.sp)
+            Text(icon ?: if (open) "▴" else "▾", color = MUTED, fontSize = 20.sp)
         }
         content()
     }

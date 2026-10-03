@@ -3,6 +3,7 @@ package io.github.buerlino.gridload
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,11 +60,12 @@ import kotlin.math.roundToInt
 
 /**
  * The measured appliances, below the peak window: per appliance OK (fine to switch it on now) or
- * WAIT, with when. + adds one: the setup help (by itself the first time), then a sheet with its
- * name and fields, and Start. A measurement under way shows in its row until it's saved.
+ * WAIT, with when. Tapping a row previews its run in the peak window ([onPreview], null closes
+ * it); holding it opens its sheet. + adds one: the setup help (by itself the first time), then a
+ * sheet with its name and fields, and Start. A measurement under way shows in its row until it's saved.
  */
 @Composable
-fun AppliancesPanel(state: UiState, viewModel: MainViewModel) {
+fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String?) -> Unit) {
     var help by remember { mutableStateOf(false) }
     // The appliance being edited, or a new one (an empty name).
     var sheet by remember { mutableStateOf<Appliance?>(null) }
@@ -94,7 +96,12 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel) {
             if (appliance.name == measuring?.appliance?.name) {
                 MeasuringRow(state, viewModel)
             } else {
-                ApplianceRow(appliance, state.advice[appliance.name], onClick = { sheet = appliance })
+                val previewed = appliance.name == state.preview
+                ApplianceRow(
+                    appliance, state.advice[appliance.name], previewed,
+                    onClick = { onPreview(appliance.name.takeUnless { previewed }) },
+                    onLongClick = { sheet = appliance },
+                )
             }
         }
         if (measuring != null && state.appliances.none { it.name == measuring.appliance.name }) MeasuringRow(state, viewModel)
@@ -115,28 +122,44 @@ private fun summary(state: UiState): String? {
     return listOfNotNull(ok.takeIf { it > 0 }?.let { "$it OK" }, (state.advice.size - ok).takeIf { it > 0 }?.let { "$it wait" }).joinToString(" · ")
 }
 
+/** The row's line under the name: why WAIT and when, or that only the peak was judged. */
+internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant): String? = when (advice) {
+    is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
+    is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak at any start"
+    is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
+}
+
+/** [previewed]: its run shows in the peak window, so the row is tinted. */
 @Composable
-private fun ApplianceRow(appliance: Appliance, advice: Advice?, onClick: () -> Unit) {
-    val now = Instant.now()
-    val (chip, line) = when (advice) {
-        null -> null to null
-        is Advice.Ok -> "OK" to "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
-        is Advice.NewPeak -> "WAIT" to (advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak at any start")
-        is Advice.Cheaper -> "WAIT" to whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
-    }
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val line = advice?.let { adviceLine(appliance, it, Instant.now()) }
+    Row(
+        Modifier.fillMaxWidth()
+            .background(if (previewed) PREVIEWED else Color.Transparent, RoundedCornerShape(8.dp))
+            .combinedClickable(
+                onClickLabel = if (previewed) "Close the preview" else "Preview in the peak window",
+                onLongClickLabel = "Edit",
+                onLongClick = onLongClick,
+                onClick = onClick,
+            )
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f)) {
             Text(appliance.name, color = INK, fontSize = 16.sp)
             line?.let { Text(it, color = MUTED, fontSize = 13.sp) }
         }
-        when (chip) {
+        when (advice) {
             null -> Text("–", color = MUTED, fontSize = 16.sp)
-            "OK" -> Chip(chip, GREEN, Color.White)
+            is Advice.Ok -> Chip("OK", GREEN, Color.White)
             // Black on orange, as on the main screen's "Fair time".
-            else -> Chip(chip, ORANGE, Color.Black)
+            else -> Chip("WAIT", ORANGE, Color.Black)
         }
     }
 }
+
+/** The previewed row's tint, a light shade of the preview's blue. */
+private val PREVIEWED = Color(0xFFE3F2FD)
 
 /** "at 14:15", or with a start delay "Delay 3 h", the number to set on the appliance. */
 private fun whenToStart(appliance: Appliance, at: Instant, now: Instant) =

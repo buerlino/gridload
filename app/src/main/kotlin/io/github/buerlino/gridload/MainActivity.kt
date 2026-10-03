@@ -55,6 +55,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.roundToInt
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -173,6 +174,7 @@ private fun Screen(
                 if (state.showPeak) {
                     val collapse = remember { Collapse() }
                     val panelScroll = rememberScrollState()
+                    val scope = rememberCoroutineScope()
                     Column(Modifier.weight(1f).nestedScroll(collapse)) {
                         Spot(
                             state, label, content, collapse,
@@ -189,8 +191,12 @@ private fun Screen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            PeakWindow(state, onToggle = onTogglePeak, onOpenSettings = { onOpenSettings(false) })
-                            AppliancesPanel(state, viewModel)
+                            PeakWindow(state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(false) })
+                            // The peak window is above the appliances, so a preview scrolls up to it.
+                            AppliancesPanel(state, viewModel, onPreview = { name ->
+                                viewModel.setPreview(name)
+                                if (name != null) scope.launch { panelScroll.animateScrollTo(0) }
+                            })
                             HistoryPanel(state, onToggle = onToggleHistory)
                         }
                     }
@@ -402,7 +408,7 @@ fun HelpContent() {
         Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
         Text("📊 Peak load", fontWeight = FontWeight.Bold)
         Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
-        Text("Below the price, a scale shows this quarter hour, the two before and the month's highest. \"kW free\" is how much more you can switch on now.")
+        Text("Below the price, a scale shows this quarter hour in the middle, the three before and the month's highest. \"kW free\" is how much more you can switch on now.")
         Text("Close to a new peak, the bar turns red and the phone vibrates.")
         Text("The history shows each day's highest quarter hour this month. Tap a panel's top line to fold it.")
         Text("Needs a whatwatt with an SD card. Switch on the whatwatt and peak load in Settings, and install the recorder there.")
@@ -411,6 +417,7 @@ fun HelpContent() {
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
         Text("Add your appliances with +. GridLoad measures each one once: how much it draws, and for how long.")
         Text("OK: fine to switch it on now. WAIT: it would set a new peak, or a later start is clearly cheaper. The row says when.")
+        Text("Tap a row to see its run on the scale, as if you switched it on now. Hold it to edit.")
         Text("Can wait: the price counts too, e.g. for a dishwasher. A kettle can't wait, so only the peak counts.")
         Text("Start delay: if the appliance has one, WAIT says what to set.")
         Text("Add a variant in an appliance's sheet for another run time, e.g. more water in the kettle.")

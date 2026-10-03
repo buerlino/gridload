@@ -198,15 +198,28 @@ data class PeakNow(
     val line: Double?,
 )
 
+/** A quarter hour of a run: the household's average ([houseKw]) and the appliance's on top ([addedKw]). */
+data class QuarterLoad(val start: Instant, val houseKw: Double, val addedKw: Double) {
+    val kw: Double get() = houseKw + addedKw
+}
+
+/**
+ * Each quarter hour the run touches if started at [start]: the household (this quarter: the peak
+ * window's projection; later ones: the draw now) plus the curve's energy in it as an average kW.
+ * The peak check and the peak window's preview both use it, so they always agree.
+ */
+fun Appliance.quarterLoads(start: Instant, peak: PeakNow): List<QuarterLoad> {
+    val end = endIfStarted(start)
+    return generateSequence(quarterStart(start)) { it.plusSeconds(QUARTER_SECONDS) }.takeWhile { it < end }.map { q ->
+        val house = if (q == peak.projection.start) peak.projection.kw else peak.drawKw
+        QuarterLoad(q, house, curve.kwhBetween(minutesBetween(start, q), minutesBetween(start, q.plusSeconds(QUARTER_SECONDS))) * 4)
+    }.toList()
+}
+
 /** Whether starting at [start] keeps every quarter hour of the run below the peak window's warning. */
 internal fun Appliance.fitsPeak(start: Instant, peak: PeakNow): Boolean {
     val line = peak.line ?: return true
-    val end = endIfStarted(start)
-    return generateSequence(quarterStart(start)) { it.plusSeconds(QUARTER_SECONDS) }.takeWhile { it < end }.all { q ->
-        val house = if (q == peak.projection.start) peak.projection.kw else peak.drawKw
-        val added = curve.kwhBetween(minutesBetween(start, q), minutesBetween(start, q.plusSeconds(QUARTER_SECONDS))) * 4
-        !isPeakWarning(house + added, line)
-    }
+    return quarterLoads(start, peak).none { isPeakWarning(it.kw, line) }
 }
 
 /** The run's price for a start at [start], weighted by its kWh; null unless the whole run lies within [slots]. */

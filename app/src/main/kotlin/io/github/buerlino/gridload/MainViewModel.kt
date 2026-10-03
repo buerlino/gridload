@@ -22,6 +22,7 @@ import io.github.buerlino.gridload.core.PeakNow
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.PriceCache
 import io.github.buerlino.gridload.core.PriceSlot
+import io.github.buerlino.gridload.core.QuarterLoad
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
@@ -39,6 +40,7 @@ import io.github.buerlino.gridload.core.parseAppliances
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
 import io.github.buerlino.gridload.core.peakLine
+import io.github.buerlino.gridload.core.quarterLoads
 import io.github.buerlino.gridload.core.reachedServer
 import io.github.buerlino.gridload.core.wantsFetch
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +77,9 @@ data class UiState(
     /** The measured appliances, and for each (by name) whether to start it now; no advice without a reading, nor for one that can wait without prices. */
     val appliances: List<Appliance> = emptyList(),
     val advice: Map<String, Advice> = emptyMap(),
+    /** The appliance (by name) whose run, started now, the peak window previews, and its quarter hours; not saved. */
+    val preview: String? = null,
+    val previewLoads: List<QuarterLoad> = emptyList(),
     /** Whether the measurement setup help was shown once; afterwards it opens from ⓘ. */
     val applianceHelpSeen: Boolean = false,
     /** A measurement under way, and its result once Done was tapped. */
@@ -219,8 +224,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val projection = s.meter.projection
             val kw = s.meter.kw
             val peak = if (projection != null && kw != null) PeakNow(projection, kw, s.peakLine) else null
+            // Gone without a reading, or when the appliance is deleted, renamed or measured again.
+            val previewed = s.appliances.find { it.name == s.preview && it.name != s.measuring?.appliance?.name }
+            val previewLoads = if (peak != null && previewed != null) previewed.quarterLoads(now, peak) else emptyList()
             s.copy(
                 advice = peak?.let { s.appliances.mapNotNull { a -> advise(a, now, it, slots)?.let { a.name to it } }.toMap() }.orEmpty(),
+                preview = s.preview.takeIf { previewLoads.isNotEmpty() },
+                previewLoads = previewLoads,
                 measurement = s.measuring?.result(s.meter.quarters),
             )
         }
@@ -298,6 +308,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setAppliancesOpen(open: Boolean) {
         prefs.edit { putBoolean(KEY_APPLIANCES_OPEN, open) }
         _state.update { it.copy(appliancesOpen = open) }
+    }
+
+    /** Shows [name]'s run, started now, in the peak window; null hides it. */
+    fun setPreview(name: String?) {
+        _state.update { it.copy(preview = name) }
+        derive()
     }
 
     fun applianceHelpShown() {
