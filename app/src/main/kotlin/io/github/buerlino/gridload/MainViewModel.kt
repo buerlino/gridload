@@ -39,6 +39,8 @@ import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.measuringJson
 import io.github.buerlino.gridload.core.mergeAppliances
 import io.github.buerlino.gridload.core.parseAppliances
+import io.github.buerlino.gridload.core.ownPrice
+import io.github.buerlino.gridload.core.parseNonNegative
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
 import io.github.buerlino.gridload.core.peakFloor
@@ -71,6 +73,9 @@ data class UiState(
     /** The goal switch and its value in kW; off, or blank, it doesn't count for the limit. */
     val goalEnabled: Boolean = false,
     val goalKw: Double? = null,
+    /** In a spot region: the add-on in the small unit per kWh excl. VAT (null until entered) and the VAT in % (null: the country's). */
+    val priceAddOn: Double? = null,
+    val priceVat: Double? = null,
     /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
     /** Vibrate at the limit in silent mode too, as an alarm; else as a notification, so not while the phone is silent. */
@@ -112,6 +117,13 @@ data class UiState(
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
     }
+    /**
+     * What a slot's [price] costs the user: the price itself, or in a spot region the own price
+     * from the add-on and VAT; null there until the add-on is entered. Only for showing it: the
+     * colour and the appliances' advice use the price itself, which ranks the slots the same.
+     */
+    fun yourPrice(price: Double): Double? =
+        if (!region.isSpot) price else priceAddOn?.let { ownPrice(price, it, priceVat, region.country) }
     /** Whether the main screen shows the panels: the peak window, the appliances and the history. */
     val showPeak: Boolean get() = peakEnabled && whatwattEnabled
 }
@@ -165,6 +177,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             peakEnabled = prefs.getBoolean(KEY_PEAK_ENABLED, false),
             goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parsePositive),
+            priceAddOn = prefs.getString(KEY_PRICE_ADDON, null)?.let(::parseNonNegative),
+            priceVat = prefs.getString(KEY_PRICE_VAT, null)?.let(::parseNonNegative),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
@@ -300,6 +314,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setGoal(kw: Double?) {
         prefs.edit { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }
         _state.update { it.copy(goalKw = kw) }
+    }
+
+    /** The add-on for the own price in spot regions; null (a blank field) shows the market price. */
+    fun setPriceAddOn(addOn: Double?) {
+        prefs.edit { if (addOn == null) remove(KEY_PRICE_ADDON) else putString(KEY_PRICE_ADDON, addOn.toString()) }
+        _state.update { it.copy(priceAddOn = addOn) }
+    }
+
+    /** The VAT for the own price, in %; null uses the country's, so it follows a change of country. */
+    fun setPriceVat(vat: Double?) {
+        prefs.edit { if (vat == null) remove(KEY_PRICE_VAT) else putString(KEY_PRICE_VAT, vat.toString()) }
+        _state.update { it.copy(priceVat = vat) }
     }
 
     fun setPowerUnit(unit: PowerUnit) {
@@ -562,6 +588,9 @@ private const val KEY_PEAK_ENABLED = "peak_enabled"
 private const val KEY_GOAL_ENABLED = "peak_goal_enabled"
 private const val KEY_GOAL_KW = "peak_goal_kw"
 private const val KEY_POWER_UNIT = "power_unit"
+/** Strings like the goal: the add-on in ct (or Rp) per kWh excl. VAT, the VAT in %. */
+private const val KEY_PRICE_ADDON = "price_addon"
+private const val KEY_PRICE_VAT = "price_vat"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
 private const val KEY_PEAK_OPEN = "peak_open"

@@ -36,7 +36,10 @@ fun peakLine(goalKw: Double?, floorKw: Double?, highest: Quarter?): Double? = li
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= line
 
 /** A typed number (kW, W, minutes, litres), with a decimal point or comma; null unless it's above 0. */
-fun parsePositive(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() }
+fun parsePositive(text: String): Double? = parseNonNegative(text)?.takeIf { it > 0 }
+
+/** A number typed in a field ("18.5" or "18,5"); null unless it's 0 or more. */
+fun parseNonNegative(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 && it.isFinite() }
 
 const val QUARTER_SECONDS = 900L
 

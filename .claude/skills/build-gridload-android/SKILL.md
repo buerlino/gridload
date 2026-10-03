@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 and 2 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 3 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -389,7 +389,18 @@ command above.
    `"%.1f Rp/kWh"`/`"%.2f CHF/h"`. No other CHF or Rp in UI text. Seen on the Fairphone 6
    (debug build, 23:26): "24.1 Rp/kWh", "1.2 kW now · 0.28 CHF/h", as before.
    Liechtenstein's `Country` gets `Currency.EUR` in step 5 (its source is in €).
-3. **The own price in spot regions** (user, 2026-10-03).
+3. ~~**The own price in spot regions**~~ (user, 2026-10-03): done 2026-10-03, waiting for the
+   user's look before step 4. `Country.vat`, `Region.isSpot`, `ownPrice` in `Currency.kt`,
+   `parseNonNegative`, `UiState.yourPrice` (screen only), `SettingsAt` (TOP, REGION_LIST,
+   PRICE) for where Settings opens, `PriceFields` in `SettingsScreen.kt` (the VAT field shows the
+   country's rate; typing that rate saves blank). Tests: the formula (negative spot, VAT 0 and
+   blank, CH without VAT), the default VAT, and that the own price keeps the colour and the next
+   good time on real prices. Seen on the Fairphone 6 (debug build, 23:37–23:40) with a temporary,
+   uncommitted Austria region (user's choice): "Market price 19.3 ct/kWh" and "Set your price ›"
+   without a cost line; the link opens a folded Region with the cursor in the add-on; "18,5"
+   saved as 18.5; "45.3 ct/kWh", "1.2 kW now · 0.53 €/h", the colour and "Cheaper tomorrow
+   09:15" unchanged; VAT 0 → "37.8 ct/kWh"; the summary "Austria (market price) · + 18.5 ct";
+   the ⓘ. Back on CKW afterwards (the user's prefs restored, recorded quarters intact).
    - `Region.isSpot` (from the source). Own price = (spot + add-on) × (1 + VAT), a `:core`
      function. Prefs `price_addon` (ct/kWh excl. VAT, a string like `peak_goal_kw`) and
      `price_vat` (%, blank = the country's `Country.vat`: AT 20, BE 6, DE 19, LU 8, NL 21,

@@ -17,6 +17,15 @@ data class Currency(val symbol: String, val small: String) {
     }
 }
 
+/**
+ * What a household in a spot region pays per kWh, in its [country]'s currency: ([spot] +
+ * [addOn]) × (1 + VAT). [addOn] is in the small unit (ct) excl. VAT: supplier markup, grid fee
+ * per kWh and levies. VAT is [vat] in %, or the country's when it's null (blank). Not a factor
+ * on the spot price, since the add-on is often larger than it and the spot price can be negative.
+ */
+fun ownPrice(spot: Double, addOn: Double, vat: Double?, country: Country): Double =
+    (spot + addOn / 100) * (1 + (vat ?: country.vat ?: 0.0) / 100)
+
 /** [value] with [decimals], a real minus sign when it's below 0 as shown, and no "−0.0". */
 private fun signed(value: Double, decimals: Int, locale: Locale): String {
     val format = "%.${decimals}f"

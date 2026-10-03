@@ -107,8 +107,8 @@ class MainActivity : ComponentActivity() {
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 var showHistory by rememberSaveable { mutableStateOf(false) }
-                // Settings opened from the region in the top bar, with the region list open.
-                var pickRegion by remember { mutableStateOf(false) }
+                // Where Settings opens: the region in the top bar opens the region list.
+                var settingsAt by remember { mutableStateOf(SettingsAt.TOP) }
                 // Here rather than in Screen, so it's where it was after Settings or the history.
                 val panelScroll = rememberScrollState()
                 val collapse = remember { Collapse() }
@@ -120,15 +120,15 @@ class MainActivity : ComponentActivity() {
                     )
                     showSettings -> SettingsScreen(
                         state, viewModel,
-                        pickRegion = pickRegion,
+                        at = settingsAt,
                         onOpenGuide = { showGuide = true },
-                        onBack = { showSettings = false; pickRegion = false },
+                        onBack = { showSettings = false; settingsAt = SettingsAt.TOP },
                     )
                     showHistory -> HistoryScreen(state, onBack = { showHistory = false })
                     else -> Screen(
                         state, viewModel, panelScroll, collapse,
                         onRefresh = viewModel::refresh,
-                        onOpenSettings = { region -> pickRegion = region; showSettings = true },
+                        onOpenSettings = { at -> settingsAt = at; showSettings = true },
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
                         onToggleHistory = { viewModel.setHistoryOpen(!state.historyOpen) },
                         onOpenHistory = { showHistory = true },
@@ -199,7 +199,7 @@ private fun Screen(
     panelScroll: ScrollState,
     collapse: Collapse,
     onRefresh: () -> Unit,
-    onOpenSettings: (pickRegion: Boolean) -> Unit,
+    onOpenSettings: (SettingsAt) -> Unit,
     onTogglePeak: () -> Unit,
     onToggleHistory: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -217,7 +217,7 @@ private fun Screen(
                     val scope = rememberCoroutineScope()
                     Column(Modifier.weight(1f).nestedScroll(collapse)) {
                         Spot(
-                            state, label, content, collapse,
+                            state, label, content, collapse, onSetPrice = { onOpenSettings(SettingsAt.PRICE) },
                             Modifier.clipToBounds()
                                 .layout { measurable, constraints ->
                                     val placeable = measurable.measure(constraints)
@@ -231,7 +231,7 @@ private fun Screen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            PeakWindow(state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(false) })
+                            PeakWindow(state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(SettingsAt.TOP) })
                             // The peak window is above the appliances, so a preview scrolls up to it.
                             if (state.appliancesEnabled) AppliancesPanel(state, viewModel, onPreview = { name ->
                                 viewModel.setPreview(name)
@@ -242,7 +242,7 @@ private fun Screen(
                     }
                 } else {
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                        Spot(state, label, content, collapse = null, Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight))
+                        Spot(state, label, content, collapse = null, onSetPrice = { onOpenSettings(SettingsAt.PRICE) }, Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight))
                     }
                 }
                 Updated(state, content)
@@ -308,9 +308,12 @@ private class Collapse : NestedScrollConnection {
     }
 }
 
-/** The headline, the price, the cost now and the next good time; smaller and collapsing above the panels. */
+/**
+ * The headline, the price, the cost now and the next good time; smaller and collapsing above the
+ * panels. In a spot region without an add-on, the market price and a link to the add-on's field.
+ */
 @Composable
-private fun Spot(state: UiState, label: String, content: Color, collapse: Collapse?, modifier: Modifier) {
+private fun Spot(state: UiState, label: String, content: Color, collapse: Collapse?, onSetPrice: () -> Unit, modifier: Modifier) {
     val small = collapse != null
     val shrink = collapse?.fraction ?: 0f
     val spacing = if (small) 6.dp else 12.dp
@@ -344,9 +347,15 @@ private fun Spot(state: UiState, label: String, content: Color, collapse: Collap
             val textSize = if (small) 16.sp else 20.sp
             state.status?.let { status ->
                 val currency = state.region.country.currency
-                Text(currency.perKwh(status.slot.price), color = content, fontSize = textSize)
-                state.meter.kw?.let { kw ->
-                    Text("${state.powerUnit.format(kw)} now · ${currency.perHour(kw * status.slot.price)}", color = content, fontSize = textSize)
+                val price = state.yourPrice(status.slot.price)
+                if (price == null) {
+                    Text("Market price ${currency.perKwh(status.slot.price)}", color = content, fontSize = textSize)
+                    Text("Set your price ›", Modifier.clickable(onClick = onSetPrice), color = content, fontSize = textSize)
+                } else {
+                    Text(currency.perKwh(price), color = content, fontSize = textSize)
+                    state.meter.kw?.let { kw ->
+                        Text("${state.powerUnit.format(kw)} now · ${currency.perHour(kw * price)}", color = content, fontSize = textSize)
+                    }
                 }
                 status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
             }
@@ -386,9 +395,9 @@ private fun look(state: UiState): Look = when (state.status?.level) {
 
 /** ⚙ at the top left, the region in the middle (tap to change it), ? at the top right. */
 @Composable
-private fun TopBar(state: UiState, content: Color, onOpenSettings: (pickRegion: Boolean) -> Unit, onHelp: () -> Unit) {
+private fun TopBar(state: UiState, content: Color, onOpenSettings: (SettingsAt) -> Unit, onHelp: () -> Unit) {
     Box(Modifier.fillMaxWidth()) {
-        TextButton(onClick = { onOpenSettings(false) }, modifier = Modifier.align(Alignment.TopStart)) {
+        TextButton(onClick = { onOpenSettings(SettingsAt.TOP) }, modifier = Modifier.align(Alignment.TopStart)) {
             Text("⚙", color = content, fontSize = 22.sp)
         }
         Text(
@@ -398,7 +407,7 @@ private fun TopBar(state: UiState, content: Color, onOpenSettings: (pickRegion: 
             textAlign = TextAlign.Center,
             // Clear of the ⚙ and ? buttons; long names wrap.
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp, start = 48.dp, end = 48.dp)
-                .clickable { onOpenSettings(true) }.padding(vertical = 8.dp),
+                .clickable { onOpenSettings(SettingsAt.REGION_LIST) }.padding(vertical = 8.dp),
         )
         TextButton(onClick = onHelp, modifier = Modifier.align(Alignment.TopEnd)) {
             Text("?", color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold)

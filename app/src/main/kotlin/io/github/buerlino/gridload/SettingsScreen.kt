@@ -53,6 +53,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -70,6 +72,8 @@ import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.countryOf
+import io.github.buerlino.gridload.core.parseNonNegative
+import java.text.NumberFormat
 import java.util.Locale
 
 /** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
@@ -78,6 +82,13 @@ private class Info(val title: String, val text: String)
 private val REGION_INFO = Info(
     "Region",
     "GridLoad uses your utility's dynamic tariff. Only utilities that publish one are listed. Pick the one on your electricity bill.",
+)
+private val PRICE_INFO = Info(
+    "Your price",
+    "The market price is only part of what you pay.\n\n" +
+        "Add-on: the rest per kWh, without VAT. Your supplier's markup, the grid fee per kWh and levies, from your bill.\n\n" +
+        "VAT: preset for your country.\n\n" +
+        "The colour doesn't depend on them.",
 )
 private val MEASUREMENT_INFO = Info(
     "Measurement",
@@ -119,6 +130,9 @@ private val VIBRATE_INFO = Info(
     "When this quarter hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: like a " +
         "notification, so not while the phone is silent. Always: like an alarm, in silent mode too.",
 )
+
+/** Where Settings opens: at the top, at the region list (from the top bar), or at the own price's add-on (from the main screen). */
+enum class SettingsAt { TOP, REGION_LIST, PRICE }
 
 /** The Settings sections' ids, for folding them. */
 private const val REGION = "region"
@@ -187,24 +201,25 @@ fun SetupGuide(
 /**
  * Three sections, each a light grey card that folds to a one-line summary: the region; the
  * whatwatt with its connection, the power unit and, with peak load on, the recorder; and the
- * mode, peak load with its goal, countdown and appliances. [pickRegion] opens the region list
- * right away (from the region in the top bar).
+ * mode, peak load with its goal, countdown and appliances. [at] opens the region section with
+ * its list or at the add-on.
  */
 @Composable
 fun SettingsScreen(
     state: UiState,
     viewModel: MainViewModel,
-    pickRegion: Boolean,
+    at: SettingsAt,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
-    LaunchedEffect(Unit) { if (pickRegion) viewModel.setSectionOpen(REGION, true) }
+    LaunchedEffect(Unit) { if (at != SettingsAt.TOP) viewModel.setSectionOpen(REGION, true) }
     Page {
         TitleRow("Settings", onBack) { OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") } }
         val closed = state.closedSections
         val toggle = { id: String -> viewModel.setSectionOpen(id, id in closed) }
-        Section("⚡ Region", REGION_INFO, REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label) }) {
+        val addOn = state.priceAddOn?.takeIf { state.region.isSpot }?.let { " · + ${amount(it)} ${state.region.country.currency.small}" }
+        Section("⚡ Region", REGION_INFO, REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label + addOn.orEmpty()) }) {
             // Only the region is saved; another country shows its regions until one is picked.
             var country by rememberSaveable { mutableStateOf(state.region.country.code) }
             Picker(COUNTRIES.first { it.code == country }.label, COUNTRIES, Country::label, { country = it.code })
@@ -213,8 +228,11 @@ fun SettingsScreen(
                 REGIONS.filter { it.country.code == country },
                 Region::label,
                 viewModel::selectRegion,
-                initiallyOpen = pickRegion,
+                initiallyOpen = at == SettingsAt.REGION_LIST,
             )
+            if (state.region.isSpot && state.region.country.code == country) {
+                key(state.region.id) { PriceFields(state, viewModel, focus = at == SettingsAt.PRICE) }
+            }
         }
         Section(
             "📟 Measurement", MEASUREMENT_INFO, MEASUREMENT !in closed, { toggle(MEASUREMENT) },
@@ -447,6 +465,46 @@ private fun Appliances(state: UiState, viewModel: MainViewModel) {
     }
     state.applianceFileResult?.let { Text(it) }
 }
+
+/**
+ * The add-on and the VAT that turn the market price into the user's own. The VAT field shows the
+ * country's rate until another is typed; that rate is saved as blank, so it follows the country.
+ * [focus] puts the cursor in the add-on (from the main screen's "Set your price").
+ */
+@Composable
+private fun PriceFields(state: UiState, viewModel: MainViewModel, focus: Boolean) {
+    val country = state.region.country
+    val addOn = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (focus) addOn.requestFocus() }
+    InfoLabel("Your price", PRICE_INFO)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        NumberField(state.priceAddOn, "Add-on, ${country.currency.small}/kWh", Modifier.weight(2f).focusRequester(addOn), viewModel::setPriceAddOn)
+        NumberField(state.priceVat ?: country.vat, "VAT, %", Modifier.weight(1f)) { vat -> viewModel.setPriceVat(vat.takeIf { it != country.vat }) }
+    }
+}
+
+/** A field for a number of 0 or more; [onValue] gets null when it's blank, and nothing while it isn't a number. */
+@Composable
+private fun NumberField(value: Double?, label: String, modifier: Modifier, onValue: (Double?) -> Unit) {
+    var text by rememberSaveable { mutableStateOf(value?.let(::amount).orEmpty()) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            val number = parseNonNegative(it)
+            if (it.isBlank() || number != null) onValue(number)
+        },
+        label = { Text(label) },
+        isError = text.isNotBlank() && parseNonNegative(text) == null,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier,
+    )
+}
+
+/** An add-on or a VAT rate as typed: "18.5", "20", "8.1", in the phone's decimal separator. */
+private fun amount(value: Double): String =
+    NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2; isGroupingUsed = false }.format(value)
 
 /** kW or W, for everything the whatwatt shows. */
 @Composable

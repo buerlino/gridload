@@ -236,6 +236,47 @@ class CoreTest {
         assertEquals("%.2f CHF/h".format(Locale.ROOT, 1.3 * it.price), Currency.CHF.perHour(1.3 * it.price, Locale.ROOT))
     }
 
+    private val austria = Country("AT", "Austria", "🇦🇹", java.time.ZoneId.of("Europe/Vienna"), Currency.EUR, vat = 20.0)
+
+    @Test
+    fun ownPriceAddsTheAddOnThenVat() {
+        assertEquals(0.36, ownPrice(0.113, 18.7, 20.0, austria), 1e-9)
+        // Blank VAT is the country's.
+        assertEquals(0.36, ownPrice(0.113, 18.7, null, austria), 1e-9)
+        assertEquals(0.30, ownPrice(0.113, 18.7, 0.0, austria), 1e-9)
+        // A negative market price lowers it, and can still be outweighed by the add-on.
+        assertEquals(0.18, ownPrice(-0.035, 18.5, 20.0, austria), 1e-9)
+        assertEquals(-0.03, ownPrice(-0.035, 0.5, 0.0, austria), 1e-9)
+        // No VAT where the country has none.
+        assertEquals(0.30, ownPrice(0.113, 18.7, null, SWITZERLAND), 1e-9)
+    }
+
+    @Test
+    fun defaultVatPerCountry() {
+        assertNull(SWITZERLAND.vat)
+        // Every country with a market-price region has a VAT to start from.
+        assertTrue(REGIONS.filter { it.isSpot }.all { it.country.vat != null })
+    }
+
+    @Test
+    fun addOnAndVatMayBeZero() {
+        assertEquals(0.0, parseNonNegative("0"))
+        assertEquals(18.5, parseNonNegative(" 18,5 "))
+        assertNull(parseNonNegative("-1"))
+        assertNull(parseNonNegative("NaN"))
+        assertNull(parsePositive("0"))
+    }
+
+    @Test
+    fun ownPriceKeepsTheColourAndTheNextGoodTime() {
+        val own = twoDays.map { it.copy(price = ownPrice(it.price, 18.5, 20.0, austria)) }
+        for (slot in twoDays) {
+            val time = slot.start.toInstant()
+            assertEquals(classify(twoDays, time)?.level, classify(own, time)?.level)
+            assertEquals(classify(twoDays, time)?.nextGreen?.start, classify(own, time)?.nextGreen?.start)
+        }
+    }
+
     @Test
     fun cooldownBlocksRapidFetches() {
         val last = at("12:00")

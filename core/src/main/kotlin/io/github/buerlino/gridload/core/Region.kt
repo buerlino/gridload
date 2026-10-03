@@ -6,9 +6,10 @@ import java.time.ZoneId
 /**
  * A country with at least one region; [code] is ISO 3166-1 alpha-2, as the phone reports it.
  * [zone] is where its tariff days run from midnight to midnight; a region can have its own.
- * [currency] is what its regions' prices are in.
+ * [currency] is what its regions' prices are in. [vat] is its standard VAT rate in %, the
+ * default for the own price in its spot regions; null where it has none.
  */
-data class Country(val code: String, val name: String, val flag: String, val zone: ZoneId, val currency: Currency) {
+data class Country(val code: String, val name: String, val flag: String, val zone: ZoneId, val currency: Currency, val vat: Double? = null) {
     val label: String get() = "$flag $name"
 }
 
@@ -46,6 +47,9 @@ data class Region(
 ) {
     /** How the app lists it: "Central Switzerland (CKW)". */
     val label: String get() = "$name ($utility)"
+
+    /** Whether its price is the market price, which the user's add-on and VAT turn into their own. */
+    val isSpot: Boolean get() = source is PriceSource.EnergyCharts
 }
 
 val CKW = Region(
