@@ -139,7 +139,8 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
             kw == null -> "whatwatt: no meter reading"
             else -> null
         }
-        set { it.copy(connected = kw != null, kw = kw, problem = problem) }
+        // The last Test's result is stale once a reading connects or fails where it said otherwise.
+        set { s -> s.copy(connected = kw != null, kw = kw, problem = problem, testResult = s.testResult.takeUnless { s.connected != (kw != null) }) }
         if (reading == null) {
             syncedAt = null
             set { it.copy(projection = null, recorder = null) }
@@ -227,7 +228,14 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
         if (error == null && verb != "remove") delay(6_000)
         acting = false
         syncedAt = null
-        set { it.copy(recorderAction = error?.let { e -> "Couldn't $verb the recorder: $e." }, recorderFailed = error != null) }
+        // After a success the last check is stale ("stopped" right after Start) until the next one, a reading later.
+        set {
+            it.copy(
+                recorder = if (error == null) null else it.recorder,
+                recorderAction = error?.let { e -> "Couldn't $verb the recorder: $e." },
+                recorderFailed = error != null,
+            )
+        }
     }
 
     /** A one-off reading from [address], to check it before relying on it. */

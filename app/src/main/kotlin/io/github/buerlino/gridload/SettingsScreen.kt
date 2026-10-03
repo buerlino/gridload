@@ -114,6 +114,11 @@ private val COUNTDOWN_INFO = Info(
     "Shows the minutes left in this quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
         "out of the current one.",
 )
+private val VIBRATE_INFO = Info(
+    "Vibrate at the limit",
+    "When this quarter hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: like a " +
+        "notification, so not while the phone is silent. Always: like an alarm, in silent mode too.",
+)
 
 /** The Settings sections' ids, for folding them. */
 private const val REGION = "region"
@@ -256,6 +261,7 @@ fun SettingsScreen(
                 SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                 if (state.goalEnabled) GoalField(state, viewModel::setGoal)
                 SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
+                VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
                 Appliances(state, viewModel)
             }
         }
@@ -310,7 +316,8 @@ private fun Fold(open: Boolean, onToggle: (() -> Unit)?, label: @Composable RowS
 }
 
 /**
- * The whatwatt's address with Test beside it and the last result below, green once connected.
+ * The whatwatt's address with Test beside it and the last result below (or why it can't be
+ * read), green once connected.
  * Once connected it folds to "192.168.0.36 · connected", and opens and folds again with a tap;
  * it stays open after a Test, so the result can be read. Until connected, a button opens the
  * setup guide for a new whatwatt in place of the field. Android 17 (API 37) needs the local
@@ -363,7 +370,7 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
             enabled = text.isNotBlank(),
         ) { Text("Test") }
     }
-    state.meter.testResult?.let { Text(it, color = if (connected) GREEN else Color.Unspecified) }
+    (state.meter.testResult ?: state.meter.problem)?.let { Text(it, color = if (connected) GREEN else Color.Unspecified) }
 }
 
 /** The recorder's state as one line, and whether it's a warning (red: nothing is being recorded, or an action failed). */
@@ -461,6 +468,23 @@ private fun UnitRow(unit: PowerUnit, onUnit: (PowerUnit) -> Unit) {
                     onClick = { onUnit(u) },
                     shape = SegmentedButtonDefaults.itemShape(i, PowerUnit.entries.size),
                 ) { Text(u.id) }
+            }
+        }
+    }
+}
+
+/** How the phone vibrates when this quarter hour reaches the limit: unless silent, or always. */
+@Composable
+private fun VibrateRow(always: Boolean, onAlways: (Boolean) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        InfoLabel("Vibrate at the limit", VIBRATE_INFO)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf(false to "Unless silent", true to "Always").forEachIndexed { i, (value, label) ->
+                SegmentedButton(
+                    selected = always == value,
+                    onClick = { onAlways(value) },
+                    shape = SegmentedButtonDefaults.itemShape(i, 2),
+                ) { Text(label) }
             }
         }
     }

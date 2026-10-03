@@ -205,9 +205,19 @@ Still open:
 1. **Not blocking, a v0.10.1 if needed:** the logic is covered by core tests, and what's left in
    the app is plain text and one rounding.
    - On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now,
-     e.g. after the hob is switched off mid-quarter); a "Cheaper" row and, with a start delay,
-     "Cheaper · Delay 3 h" (evening prices; checks 1.3's rounding and 1.4's separator); the
-     row before tomorrow's prices are out (1.5, before 12:00 for CKW).
+     e.g. after the hob is switched off mid-quarter; with the limit at 2.1 and a 0.85 kW base it
+     takes ~0.35 kWh in the quarter's first 8 min, so catch it after real cooking rather than
+     staging it, user 2026-10-03); the row before tomorrow's prices are out
+     (1.5, before 12:00 for CKW). Seen 2026-10-03 19:35 (debug build, "Kettle 1 L" with Can wait
+     on): "Cheaper at tomorrow 10:00" (wording asked, below) and, with a 1 h delay, "Cheaper ·
+     Delay 15 h".
+   - ~~Wording~~: done 2026-10-03 (user): no "at" before "tomorrow" ("Cheaper tomorrow 10:00"),
+     seen on the phone.
+   - "Kettle 1 L" has Can wait on for the before-12:00 check on 2026-10-04 (the user sends a
+     screenshot); switch it back off afterwards, as in the user's export.
+   - Can wait on is saved by leaving the key out: `json` doesn't encode defaults, and
+     `canWait`/`countsForLimit` default to true. Check the row or the sheet, not a grep for
+     `"canWait":true` (a 2026-10-03 session took this for a bug).
    - The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
    - ~~Store screenshots~~: done 2026-10-03 on the Fairphone 6, demo mode, "Kettle 1L test"
      hidden for the shots: 1 main screen with the appliances, 2 the "Cooking" preview, 3
@@ -238,8 +248,20 @@ Design in `CLAUDE.md` under "Peak load" (The limit, Alarm) and "Appliances"; the
 floor = the biggest appliance with "Counts for the limit" on × 1.2, red at the limit (no 90%).
 Core tests cover the floor, the heaviest quarter and the old JSON. Seen on the Fairphone 6 in an
 R8 build: "2.6 limit" in the peak window and the history, "2.2 kW free" at 0.4 kW, all five rows
-OK (Cooking included), the switch in the edit sheet. Not seen yet: the switch turned off (the
-limit falling to the next appliance), and a red bar at the limit.
+OK (Cooking included), the switch in the edit sheet; the switch turned off on both cookings
+(2026-10-03, debug build: the limit fell from 2.6 to 2.1, the month's highest, above the kettles'
+~0.65 floor). A red bar at the limit, seen 2026-10-03 19:49–19:52 (limit lowered to 2.1 that
+way, kettle + hob): "2.1" right at the line already red, then 2.8 with the scale stretched to
+4 kW, "This quarter hour sets a new peak.", all rows "Sets a new peak right now" (later quarters
+at the high draw now); after the hob, 1.3, matching the register (0.23 kWh at 8.7 min + 0.85 kW
+for the rest). The user's hob plate draws ~1.1 kW. The vibration was requested (19:49:08, 400 ms)
+but not played: `adb shell dumpsys vibrator_manager` lists it `ignored_for_settings`, usage TOUCH,
+since `vibrate()` without attributes counts as touch feedback, which is OFF in silent mode (as are
+notification vibrations; alarm and ringtone stay on). Every earlier alarm that day was dropped too.
+Built then (user: "let the user decide"; not committed): Settings → Mode → **Vibrate at the limit**,
+Unless silent (notification, default) | Always (alarm), `peak_vibrate_always`; seen in Settings
+with its ⓘ. Not seen vibrating yet: check `dumpsys vibrator_manager` after the next real alarm
+(usage NOTIFICATION or ALARM, played).
 
 ### Settings and setup guide rework [built 2026-10-03, not released]
 
@@ -249,13 +271,28 @@ a summary (`settings_closed`), ⓘ on every section title, the recorder folded i
 Measurement card, Mode (📊) with peak load, goal, countdown and the appliances switch
 (`appliances_enabled`), no dividers, the connection block folding by tap with a green Test
 result, the setup guide on the same cards with ← and "n of 2", and the appliances panel's title
-without 🔌, bold. Not seen: a recorder warning in the folded Measurement summary.
+without 🔌, bold. A recorder warning, seen 2026-10-03 20:15 (the user agreed to stop it with
+`PUT /api/v1/berry?run=false` right after the 20:00 line; 20:15 lost): "The recorder is stopped. ›"
+in the peak window, Start beside the folded Recorder row, the red line under the folded Measurement
+summary; Start → "Recorder started. First quarter hour at 20:45.". Fixed then (not committed): for
+one reading after a successful action the old check ("stopped", with Start) came back; `act` now
+drops it on success.
+Disconnect (2026-10-03 ~19:57, the user unplugged the Wi-Fi repeater): the peak window's
+"whatwatt not reachable" header, past bars and limit, "–" for now and every row, no preview on
+tap, + blocked with the reason. Fixed then (not committed yet): the open Measurement card kept the
+first start's "Connected. 0.8 kW now." (and a failed Test's text would have stayed, green, after
+the readings reconnected); now a reading whose connected state differs from the Test's clears the
+Test result, and the line shows `meter.problem` without one. Seen both ways on the phone: a failed
+Test, then the whatwatt back (20:05:22, "· connected", the old text gone), then gone again a
+minute later ("whatwatt not reachable"). The 19:45 quarter, recorded while it was offline, was
+copied afterwards with no gap.
 Open, in order:
 1. ~~A theme~~: done 2026-10-03, the user chose "neutral ink", always light (`NEUTRAL` in
-   `MainActivity.kt`); seen in Settings and a dialog. Not yet seen in the appliance sheets.
+   `MainActivity.kt`); seen in Settings, a dialog and the appliance edit sheet (ink switches).
 2. ~~Redo the help~~: done 2026-10-03 (declutter pass "whole app"): one idea per line, the
    Settings paths, the limit with its floor, 3 · now · 3, the help keeps 🔌; Mode and Goal ⓘ
-   shortened to point at it. Not seen on the phone yet.
+   shortened to point at it. Seen on the phone (welcome page, Mode and Goal ⓘ), with the first
+   start redone and a malformed address ("192.168.0.36 x") answered without a crash.
 
 ### Countries and time zones [built 2026-10-03, not released]
 
@@ -273,7 +310,8 @@ zone works (user: "make it scalable"):
 - Times shown on screen ("Updated 14:02", "● tomorrow 10:00") stay in the phone's zone.
 - Tests: London's midnights across the October DST change in the request, `tomorrowFrom` in the
   region's zone, every current region on its country's zone.
-- For Switzerland nothing changes. Not tested on the phone; ship it with the next release.
+- For Switzerland nothing changes. Seen on the phone for CKW (2026-10-03, debug build of
+  `d45df99`): prices with tomorrow, the peak window, the history; ship it with the next release.
 - The recorder's day files are still named by the whatwatt's own clock zone; the app only uses
   the names to choose which files to copy, so a whatwatt set ahead of the region's zone copies
   each day's last quarters late (details in `CLAUDE.md`, Day files).

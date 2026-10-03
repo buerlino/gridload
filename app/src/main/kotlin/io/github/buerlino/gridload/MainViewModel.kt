@@ -2,8 +2,10 @@ package io.github.buerlino.gridload
 
 import android.app.Application
 import android.content.Context
+import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -71,6 +73,8 @@ data class UiState(
     val goalKw: Double? = null,
     /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
+    /** Vibrate at the limit in silent mode too, as an alarm; else as a notification, so not while the phone is silent. */
+    val vibrateAlways: Boolean = false,
     /** Whether the peak window, the appliances and the history are expanded. */
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
@@ -162,6 +166,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parsePositive),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
+            vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
             appliancesOpen = prefs.getBoolean(KEY_APPLIANCES_OPEN, true),
@@ -425,6 +430,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(countdown = show) }
     }
 
+    fun setVibrateAlways(always: Boolean) {
+        prefs.edit { putBoolean(KEY_VIBRATE_ALWAYS, always) }
+        _state.update { it.copy(vibrateAlways = always) }
+    }
+
     /** Saves (or, blank, clears) the whatwatt device address. */
     fun setWhatwattAddress(address: String) {
         val trimmed = address.trim()
@@ -472,7 +482,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             app.getSystemService(Vibrator::class.java)
         }
-        vibrator?.vibrate(VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE))
+        val effect = VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE)
+        // Without a usage, Android takes it for touch feedback, which silent mode turns off.
+        if (Build.VERSION.SDK_INT >= 33) {
+            val usage = if (state.vibrateAlways) VibrationAttributes.USAGE_ALARM else VibrationAttributes.USAGE_NOTIFICATION
+            vibrator?.vibrate(effect, VibrationAttributes.createForUsage(usage))
+        } else {
+            val usage = if (state.vibrateAlways) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(effect, AudioAttributes.Builder().setUsage(usage).build())
+        }
     }
 
     fun refresh() {
@@ -544,6 +563,7 @@ private const val KEY_GOAL_ENABLED = "peak_goal_enabled"
 private const val KEY_GOAL_KW = "peak_goal_kw"
 private const val KEY_POWER_UNIT = "power_unit"
 private const val KEY_COUNTDOWN = "peak_countdown"
+private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
 private const val KEY_PEAK_OPEN = "peak_open"
 private const val KEY_HISTORY_OPEN = "history_open"
 private const val KEY_APPLIANCES_OPEN = "appliances_open"

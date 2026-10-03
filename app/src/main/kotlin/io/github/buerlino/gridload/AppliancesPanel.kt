@@ -161,9 +161,13 @@ private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boole
 /** The previewed row's tint, a light shade of the preview's blue. */
 private val PREVIEWED = Color(0xFFE3F2FD)
 
-/** "at 14:15", or with a start delay "Delay 3 h", the number to set on the appliance. */
+/** "at 14:15" or "tomorrow 10:00", or with a start delay "Delay 3 h", the number to set on the appliance. */
 private fun whenToStart(appliance: Appliance, at: Instant, now: Instant) =
-    if (appliance.delayMinutes > 0) "Delay ${duration(Duration.between(now, at).toMillis() / 60_000.0)}" else "at ${comingTime(at)}"
+    if (appliance.delayMinutes > 0) {
+        "Delay ${duration(Duration.between(now, at).toMillis() / 60_000.0)}"
+    } else {
+        comingTime(at).let { if (it.startsWith("tomorrow")) it else "at $it" }
+    }
 
 /** "3 min", "2 h", "1 h 55 min"; to the nearest minute. */
 private fun duration(minutes: Double): String {
