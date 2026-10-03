@@ -1,0 +1,6 @@
+- The limit: the highest of your goal, the month's highest and what your biggest appliance needs, so it alone is never told to wait. Red right at the limit.
+- Vibrate at the limit: unless silent, or always.
+- Settings in foldable sections: Region, Measurement, Mode; a calmer look.
+- Appliances can be hidden in Settings.
+- The help redone, one idea per line.
+- Ready for countries in other time zones.

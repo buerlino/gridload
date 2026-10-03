@@ -241,7 +241,7 @@ To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the
 pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
 the `&quot;` entities).
 
-### The limit and its floor [built 2026-10-03, not released]
+### The limit and its floor [released in v0.11.0, 2026-10-03]
 
 Design in `CLAUDE.md` under "Peak load" (The limit, Alarm) and "Appliances"; the reasoning in
 `research/appliances.md` ("The floor"). One line, the limit = max(goal, floor, month's highest),
@@ -258,12 +258,12 @@ for the rest). The user's hob plate draws ~1.1 kW. The vibration was requested (
 but not played: `adb shell dumpsys vibrator_manager` lists it `ignored_for_settings`, usage TOUCH,
 since `vibrate()` without attributes counts as touch feedback, which is OFF in silent mode (as are
 notification vibrations; alarm and ringtone stay on). Every earlier alarm that day was dropped too.
-Built then (user: "let the user decide"; not committed): Settings → Mode → **Vibrate at the limit**,
+Built then (user: "let the user decide"): Settings → Mode → **Vibrate at the limit**,
 Unless silent (notification, default) | Always (alarm), `peak_vibrate_always`; seen in Settings
 with its ⓘ. Not seen vibrating yet: check `dumpsys vibrator_manager` after the next real alarm
 (usage NOTIFICATION or ALARM, played).
 
-### Settings and setup guide rework [built 2026-10-03, not released]
+### Settings and setup guide rework [released in v0.11.0, 2026-10-03]
 
 The user's list of 2026-10-03; the design is in `CLAUDE.md` under UI ("Settings", "Sections",
 "Setup guide"). Done and seen on the Fairphone 6: the sections as light grey cards that fold to
@@ -274,12 +274,12 @@ result, the setup guide on the same cards with ← and "n of 2", and the applian
 without 🔌, bold. A recorder warning, seen 2026-10-03 20:15 (the user agreed to stop it with
 `PUT /api/v1/berry?run=false` right after the 20:00 line; 20:15 lost): "The recorder is stopped. ›"
 in the peak window, Start beside the folded Recorder row, the red line under the folded Measurement
-summary; Start → "Recorder started. First quarter hour at 20:45.". Fixed then (not committed): for
+summary; Start → "Recorder started. First quarter hour at 20:45.". Fixed then: for
 one reading after a successful action the old check ("stopped", with Start) came back; `act` now
 drops it on success.
 Disconnect (2026-10-03 ~19:57, the user unplugged the Wi-Fi repeater): the peak window's
 "whatwatt not reachable" header, past bars and limit, "–" for now and every row, no preview on
-tap, + blocked with the reason. Fixed then (not committed yet): the open Measurement card kept the
+tap, + blocked with the reason. Fixed then: the open Measurement card kept the
 first start's "Connected. 0.8 kW now." (and a failed Test's text would have stayed, green, after
 the readings reconnected); now a reading whose connected state differs from the Test's clears the
 Test result, and the line shows `meter.problem` without one. Seen both ways on the phone: a failed
@@ -294,7 +294,7 @@ Open, in order:
    shortened to point at it. Seen on the phone (welcome page, Mode and Goal ⓘ), with the first
    start redone and a malformed address ("192.168.0.36 x") answered without a crash.
 
-### Countries and time zones [built 2026-10-03, not released]
+### Countries and time zones [released in v0.11.0, 2026-10-03]
 
 Country before region shipped in v0.9.0 (`Country`, `COUNTRIES`, the Country dropdown in the
 setup guide and Settings, preselected from the SIM, then the locale). On 2026-10-03 the single
@@ -311,7 +311,7 @@ zone works (user: "make it scalable"):
 - Tests: London's midnights across the October DST change in the request, `tomorrowFrom` in the
   region's zone, every current region on its country's zone.
 - For Switzerland nothing changes. Seen on the phone for CKW (2026-10-03, debug build of
-  `d45df99`): prices with tomorrow, the peak window, the history; ship it with the next release.
+  `d45df99`): prices with tomorrow, the peak window, the history.
 - The recorder's day files are still named by the whatwatt's own clock zone; the app only uses
   the names to choose which files to copy, so a whatwatt set ahead of the region's zone copies
   each day's last quarters late (details in `CLAUDE.md`, Day files).
