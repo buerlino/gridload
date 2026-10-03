@@ -21,11 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.buerlino.gridload.core.CKW
+import io.github.buerlino.gridload.core.Region
 
 /** One page of the guide: a title, a few short lines, and optionally a link to open. */
 private class GuideStep(val title: String, val lines: List<String>, val link: Pair<String, String>? = null)
 
-private val STEPS = listOf(
+private fun steps(region: Region) = listOf(
     GuideStep(
         "🧾 What you need",
         listOf(
@@ -34,7 +36,8 @@ private val STEPS = listOf(
             "• The whatwatt Plus licence",
             "• For peak load: a microSD card in FAT32. Any size: GridLoad uses about 1 MB a year.",
             "• For peak load: the whatwatt's script slot free. GridLoad puts its recorder there.",
-            "• Your meter's key, from your utility. CKW: email messtechnik@ckw.ch with the meter number.",
+            "• Your meter's key, from your grid operator." +
+                if (region == CKW) " CKW: email messtechnik@ckw.ch with the meter number." else "",
             "• 2.4 GHz Wi-Fi at the meter",
         ),
     ),
@@ -98,16 +101,17 @@ private val STEPS = listOf(
  * step closes it, so the address is entered and tested in the real field.
  */
 @Composable
-fun WhatwattGuide(onClose: () -> Unit) {
+fun WhatwattGuide(region: Region, onClose: () -> Unit) {
     var index by rememberSaveable { mutableIntStateOf(0) }
-    val step = STEPS[index]
-    val last = index == STEPS.lastIndex
+    val steps = steps(region)
+    val step = steps[index]
+    val last = index == steps.lastIndex
     val uriHandler = LocalUriHandler.current
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Step ${index + 1} of ${STEPS.size}",
+                    "Step ${index + 1} of ${steps.size}",
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.labelLarge,
                 )

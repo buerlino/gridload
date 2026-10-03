@@ -50,6 +50,16 @@ All of them follow the VSE/AES standard for dynamic tariffs. Each utility serves
 
 Data source: `https://api.energy-charts.info/price`, day-ahead prices, out at about 13:00. Market prices: Bundesnetzagentur | SMARD.de, via [Energy-Charts](https://energy-charts.info) (CC BY 4.0). The market price isn't what you pay, but your supplier's markup, the grid fee and the levies add the same amount to every hour, so the colour is the same. To see your own price, enter that add-on (ct/kWh excl. VAT, from your bill) in Settings → Region; the VAT is preset per country.
 
+On a fixed-price tariff, common in Germany, the colour doesn't change your bill, but it still shows when the grid has power to spare.
+
+### What works where
+
+| Layer | Where |
+|-------|-------|
+| Prices: the colour, the next good time, your price | every region above |
+| The whatwatt: what you draw now and what it costs | wherever a whatwatt adapter fits your smart meter's customer port |
+| Peak load and appliances | with a whatwatt; it saves money where a peak is billed (CKW, Austria from 2027, Flanders), elsewhere the limit is a cap you set yourself |
+
 ## Measurement
 
 With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in Settings under Measurement, the screen also shows what the home draws right now and what that costs per hour.
@@ -69,7 +79,7 @@ The quarter hours come from the **GridLoad recorder**, a small Berry script that
 | 1 | [whatwatt Go](https://whatwatt.ch) on your smart meter | 90 |
 | 2 | The whatwatt adapter for your meter (e.g. Kamstrup OMNIPOWER) | 20 |
 | 3 | whatwatt **Plus** licence (on the device, no account needed) | 19 |
-| 4 | Your meter's encryption key from your utility (CKW: email messtechnik@ckw.ch with the meter number) | free |
+| 4 | Your meter's encryption key from your grid operator (CKW: email messtechnik@ckw.ch with the meter number) | free |
 | 5 | For peak load: a microSD card in the whatwatt, formatted **FAT32** (cards over 32 GB usually come as exFAT and need reformatting). Any size: the recorder uses about 1 MB a year | a few |
 | 6 | For peak load: recent whatwatt firmware (the recorder is tested on 2.8.2). Update it in the whatwatt's web page, on USB power | |
 | 7 | For peak load: the whatwatt's one Berry script slot free (GridLoad never replaces another script) | |

@@ -247,7 +247,7 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
                 val reading = fetchMeterReading(address)
                 reading.ok to when {
                     reading.ok -> "Connected. ${unit.format(reading.powerKw ?: 0.0)} now."
-                    reading.meterStatus == "KEY REQUIRED" -> "Connected, but the meter needs its key. Ask your utility for it and enter it in the whatwatt web UI."
+                    reading.meterStatus == "KEY REQUIRED" -> "Connected, but the meter needs its key. Ask your grid operator for it and enter it in the whatwatt web UI."
                     reading.meterStatus != null -> "Connected, but the meter says: ${reading.meterStatus}"
                     else -> "Connected, but got no reading."
                 }

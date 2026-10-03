@@ -81,7 +81,8 @@ private class Info(val title: String, val text: String)
 
 private val REGION_INFO = Info(
     "Region",
-    "GridLoad uses your utility's dynamic tariff. Only utilities that publish one are listed. Pick the one on your electricity bill.",
+    "Where utilities publish a dynamic tariff, GridLoad uses it: pick the utility on your electricity bill.\n\n" +
+        "Elsewhere it uses the day-ahead market price: pick where you live.",
 )
 private val PRICE_INFO = Info(
     "Your price",
@@ -355,7 +356,7 @@ private fun Connection(state: UiState, viewModel: MainViewModel) {
         return
     }
     if (guide) {
-        WhatwattGuide(onClose = { guide = false })
+        WhatwattGuide(state.region, onClose = { guide = false })
         return
     }
     if (connected) {

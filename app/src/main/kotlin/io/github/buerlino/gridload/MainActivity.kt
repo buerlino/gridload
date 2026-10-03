@@ -444,7 +444,7 @@ private fun HelpDialog(onDismiss: () -> Unit) {
 @Composable
 fun HelpContent() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("GridLoad shows whether now is a good time to use electricity, based on your utility's price. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
+        Text("GridLoad shows whether now is a good time to use electricity, based on your tariff's price, or the market price. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
         Text("⚡ Prices", fontWeight = FontWeight.Bold)
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
@@ -457,12 +457,17 @@ fun HelpContent() {
         }
         Text("With a whatwatt (Settings → 📟 Measurement), also what you use now and what it costs per hour.")
         Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
+        Text("The colour saves money only on a dynamic tariff. On a fixed price, it still shows when the grid has power to spare.")
+        Text("In Wallonia and Brussels, the time-of-use grid fee isn't in the colour.")
+        Text("Market prices: Bundesnetzagentur | SMARD.de, via energy-charts.info (CC BY 4.0).")
         Text("📊 Peak load", fontWeight = FontWeight.Bold)
         Text("Some grid tariffs also charge for the month's highest quarter hour: your average kW over 15 minutes.")
+        Text("Billed by CKW, in Austria from 2027 (at least 2 kW), and in Flanders (each month counts at least 2.5 kW, billed on the average of 12 months).")
+        Text("Other regions don't bill it.")
         Text("Switch it on in Settings → 📊 Mode. It needs the whatwatt with an SD card, and the recorder, which you install under Measurement.")
         Text("The scale shows the three quarter hours before, now in the middle, and the three coming.")
         Text("\"kW free\" is how much more you can switch on before the limit.")
-        Text("The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, and your goal.")
+        Text("The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, your goal, and the least your tariff bills.")
         Text("Up to the month's highest is billed anyway, and the biggest appliance reaches its own peak alone. Only stacking costs extra.")
         Text("At the limit, the bar turns red and the phone vibrates.")
         Text("The recorder saves every quarter hour on the whatwatt, also while GridLoad is closed. If it stops, a red line says why.")

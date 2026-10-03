@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 5 done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6 done]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -477,7 +477,21 @@ command above.
      phone's country (AT, BE, …).
    - Phone: first start with the setup guide, Country → region for AT and BE; prices with
      tomorrow after 13:15.
-6. **Texts** (one idea per line, each concept in one place).
+6. **Texts** (one idea per line, each concept in one place): done 2026-10-04, to show the user
+   before step 7. Help: "your tariff's price, or the market price"; after "Pull down to refresh"
+   the dynamic-tariff line, Wallonia and Brussels' grid fee and the attribution (kept together
+   there, so the green dot stays next to the colours); Peak load: who bills it ("Billed by CKW,
+   in Austria from 2027 (at least 2 kW), and in Flanders (…)"), "Other regions don't bill it."
+   (the personal cap stays in the Mode ⓘ only), and the tariff's minimum in the limit line.
+   `REGION_INFO` reworded; `WhatwattGuide(region, …)` with `steps(region)`, the CKW address only
+   for CKW; "Ask your grid operator"; `priceError(e, region)` ("the price server" in spot
+   regions). README: a "What works where" table, the fixed-price line, the key from the grid
+   operator; store text: the first paragraph, the fixed-price line, the adapter, the minimum in
+   the limit. Seen on the Fairphone 6 (debug build, 2026-10-04 00:21–00:26, address set wrong
+   in the prefs to reach the guide): the help in CKW, the Region ⓘ, the guide's key line with
+   the CKW address in CKW and without it in Austria (one Energy-Charts request, saved in the
+   scratchpad only). Prefs, appliances and CKW's `prices.json` restored afterwards; recorded
+   quarters intact. Not seen: a fetch error's text (plain string change).
    - Help, Prices: "your utility's price" becomes "your tariff's price, or the market price";
      one line that the colour saves money only on a dynamic tariff, and on a fixed price still
      shows when the grid has power to spare (user, 2026-10-03: inform, don't exclude); Wallonia

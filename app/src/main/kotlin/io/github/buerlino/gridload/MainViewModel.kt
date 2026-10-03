@@ -551,7 +551,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 if (region != _state.value.region) return@launch
                 if (!reachedServer(e)) saveLastAttempt(previousAttempt) // no cooldown for an attempt the server never saw
-                _state.update { it.copy(error = priceError(e)) }
+                _state.update { it.copy(error = priceError(e, region)) }
             }
             recompute()
             _state.update { it.copy(loading = false) }
@@ -570,11 +570,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 private fun appliancesCount(n: Int) = if (n == 1) "1 appliance" else "$n appliances"
 
 /** A failed price fetch in words, instead of the exception's text. */
-private fun priceError(e: Exception) = when {
-    e is HttpException && e.code == 429 -> "The utility's server is busy. Try again later."
-    e is HttpException -> "The utility's server answered with error ${e.code}."
-    e is IOException -> "No connection to the utility. Check your internet."
-    else -> "The utility sent prices GridLoad can't read."
+private fun priceError(e: Exception, region: Region): String {
+    val server = if (region.isSpot) "the price server" else "the utility's server"
+    val subject = server.replaceFirstChar { it.uppercase() }
+    return when {
+        e is HttpException && e.code == 429 -> "$subject is busy. Try again later."
+        e is HttpException -> "$subject answered with error ${e.code}."
+        e is IOException -> "No connection to $server. Check your internet."
+        else -> "$subject sent prices GridLoad can't read."
+    }
 }
 
 private const val KEY_REGION = "region"
