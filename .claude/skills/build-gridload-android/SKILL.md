@@ -349,7 +349,7 @@ new region above. `tomorrowFrom` is local to the region: the day-ahead auction's
 `research/neighbouring_countries.md`). A country whose utilities don't follow VSE/AES needs its own parser; a
 currency other than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6b done]
+### Regions outside Switzerland [decided 2026-10-03, plan approved by the user; steps 1 to 6b done, 6c next]
 
 The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
 APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
@@ -525,6 +525,14 @@ command above.
    (the SIM's CH, while the saved region was Belgian). Prefs, appliances and CKW's
    `prices.json` restored afterwards; recorded quarters intact. Not seen: the general version
    (needs a phone whose SIM and locale aren't in the list).
+6c. **The colour on market prices** (Claude, 2026-10-04, `:core` and a script only; see
+   `research/feature_ideas.md`, Review): the thirds were scored on CKW's smooth hourly prices
+   only. Request one month of AT and DE-LU from Energy-Charts (one request each, saved in
+   `research/`, not re-requested) and score every quarter hour as `CLAUDE.md` (Classification)
+   did: the share of green, orange and red, the average saving from waiting at each, and how
+   many greens missed more than 5 ct. If the thirds hold, nothing changes and the result goes
+   into `CLAUDE.md`; if spikes squeeze them, propose a percentile for `max` to the user, with
+   the same scores for both.
 7. **Release v0.12.0** after 6b, before 1 Jan 2027 (Austria's start). The user decided
    (2026-10-04) not to wait for the DST tests: the 25 Oct fixtures (CKW and AT) and the
    recorder's DST check follow on 26 Oct, in a patch release only if they turn something up.
@@ -535,7 +543,26 @@ command above.
      start in AT.
 
 Later phases, in order (each settled with the user before it starts):
-- **German** (user, 2026-10-03: right after wave 1): move the inline UI strings to
+- **Energy planning** (Claude's proposal, 2026-10-04, to confirm with the user: before German,
+  so the new strings are translated once and wave 1's users, mostly without a whatwatt, get
+  more than one colour; the reasoning is in `research/feature_ideas.md`, Review). Each step is
+  its own release-sized piece, settled with the user before it starts:
+  1. **Timer or alarm on WAIT rows:** `AlarmClock.ACTION_SET_TIMER` / `ACTION_SET_ALARM`, a
+     `<queries>` entry, no permission. Open: timer, alarm or both; the appliance's name as the
+     message.
+  2. **The saving on WAIT rows:** "Cheaper at 11:00 · saves 0.09 CHF", from `advise`'s prices ×
+     the appliance's kWh, in spot regions × (1 + VAT) and only with an add-on. Open: hide below
+     0.01.
+  3. **The price curve panel:** the window's slots in their colours, a marker for now, the
+     collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
+     peak load too (then the panel layout is everyone's), hourly or per slot, prices on the
+     axis or not, where.
+  4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says
+     which (floor from which appliance, goal, minimum, highest and when).
+  - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
+    flat curve), which touches the "measured only" rule. Only the user can decide.
+  - Small, any time: the base load line in the history panel.
+- **German** (user, 2026-10-03: right after wave 1; see the energy-planning proposal above): move the inline UI strings to
   `strings.xml`, add `values-de`, and `fastlane/metadata/android/de-DE/`. Dutch and French
   afterwards if wanted.
 - **Spain**: REE PVPC (final price, tolls included, so no add-on), a second parser, the

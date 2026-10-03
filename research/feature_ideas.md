@@ -28,12 +28,42 @@ meter), 2788 quarter hours:
   valley would save a couple of francs a month. So features that shift *when* energy is used are
   worth at least as much as more peak detail.
 
-## Recommended first: two ideas
+## Review of the planning features (Claude, 2026-10-04)
 
-1. [The price curve panel](#1-price-curve-for-the-next-24-hours): helps every user, not only
-   those with a whatwatt.
-2. [The home-screen widget](#home-screen-widget-or-a-quick-settings-tile): the colour without
-   opening the app.
+Asked by the user for an opinion on the energy-planning feature set (not the countries). The
+plan built from it is the "Energy planning" phase in the skill's roadmap.
+
+- **Strong:** the price signal (scored against real savings), the recorder, one set of numbers
+  behind the peak window, the chips and the preview, and measured rather than typed appliances.
+- **Value against complexity:** in Switzerland the peak is worth about 1 CHF a month and
+  shifting a couple of francs (see above), while the limit already has four sources (goal,
+  floor, minimum, highest). New peak features need a high bar; Austria and Flanders are where
+  the machinery pays off.
+- **The advice comes at the wrong time:** "Cheaper at 11:00" only helps if someone remembers at
+  11:00. The [timer or alarm button](#set-a-timer-or-alarm-for-a-wait-row) is the cheapest fix
+  (no permission, no background work).
+- **Users without a whatwatt get one colour and the next good time.** That's most users, and
+  most of wave 1's. The [price curve](#1-price-curve-for-the-next-24-hours) shows how long green
+  lasts, which they need to plan a long run.
+- **Appliances by run time, without a whatwatt** (open, the user's decision): a run time read
+  off the appliance's display ("2 h 30") isn't a guess the way typed watts were. With a flat
+  curve it gives price-only OK/WAIT rows. It touches the "measured only" rule (`CLAUDE.md`,
+  Appliances), so only the user can say whether that rule is about watts or about appliances.
+  Decide before the German phase, since it changes what the appliances panel is for.
+- **[Where the limit comes from](#where-the-limit-comes-from):** with four sources, a Cooking
+  row told to wait for a floor Cooking set itself looks like a bug.
+- **The classification on spot prices:** the known weak point (one spike sets `max`, `CLAUDE.md`,
+  Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
+  sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
+  wave 1 is released; if the thirds hold, nothing changes, else a percentile for `max`.
+- Smaller: the [saving on WAIT rows](#savings-in-francs-on-each-wait-row) (in spot regions from
+  the own price with VAT); the [base load](#2-base-load) is the biggest number in the data
+  (~700 kWh a year, far above the peak), one line in the history panel; the
+  [widget](#home-screen-widget-or-a-quick-settings-tile) can wait, since without a background
+  fetch it runs dry by evening and the timer button covers most of the need.
+
+Suggested order: the timer or alarm and the saving on WAIT rows, then the price curve, then
+where the limit comes from.
 
 ## Panels for the main screen
 
@@ -123,7 +153,9 @@ already derives from its curve. It's `:core` arithmetic with a unit test. The pr
 CHF/kWh from the API, so no tariff constants go into the code (`CLAUDE.md`).
 
 **Open questions:** does the spot price already include VAT? The app shows the API's price as it
-is, so the saving should match that. Hide the saving below a minimum (e.g. under 0.01 CHF, which
+is, so the saving should match that. (Since wave 1's own price, 2026-10-04: in spot regions the
+saving is the market-price difference × (1 + VAT), the add-on cancels out; without an add-on,
+show no saving, like the cost line.) Hide the saving below a minimum (e.g. under 0.01 CHF, which
 reads as "0.00")? Spot part only: the peak saving stays separate, as in the peak window.
 
 ### Set a timer or alarm for a WAIT row
