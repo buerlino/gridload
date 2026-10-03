@@ -257,13 +257,13 @@ private fun MeasureHelp(onDismiss: () -> Unit) {
                     "No red line: the recorder must be recording.",
                     "Be at home, with GridLoad open, when you switch it on.",
                     "Keep it open until the jump shows, about a minute.",
-                    "Switch nothing else on or off until the result shows.",
+                    "Switch nothing else on or off until you tap Done.",
                     "Lights and small devices are fine.",
                     "Start at a quiet time, not while cooking.",
                     "Run the programme you always use, to its end.",
                     "Another programme is another appliance.",
                     "Tap Done as soon as it has finished.",
-                    "The result shows up to 15 minutes later.",
+                    "The result usually shows right after Done.",
                     "Only appliances on the whatwatt's meter count.",
                 ).forEach { Text(it) }
             }

@@ -42,7 +42,13 @@ class WhatwattTest {
     }
 
     @Test
-    fun fetchesFromTheDevice() = withDevice(200, sample) { address ->
+    fun aMalformedAddressThrowsIllegalArgument() {
+        // Test shows "That doesn't look like an address." for it; URI's own exception would crash the app.
+        assertFailsWith<IllegalArgumentException> { fetchMeterReading("192.168.0.36 x") }
+    }
+
+    @Test
+    fun fetchesFromTheDevice()= withDevice(200, sample) { address ->
         assertEquals(0.212, fetchMeterReading(address).powerKw)
     }
 

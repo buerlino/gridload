@@ -1,5 +1,0 @@
-- Peak load is recorded on the whatwatt: every quarter hour, also while GridLoad is closed. Needs an SD card in the whatwatt; install the recorder in Settings.
-- Clear warnings when the recorder stops, and which quarter hours are missing.
-- A step-by-step guide for setting up a new whatwatt.
-- Quarter hours recorded by v0.7 are deleted.
-- Fixes: the peak window no longer jumps; no wait after a refresh that failed offline.

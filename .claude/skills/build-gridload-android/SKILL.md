@@ -213,8 +213,8 @@ Still open:
      hidden for the shots: 1 main screen with the appliances, 2 the "Cooking" preview, 3
      scrolled (strip, appliances, history), 4 help and 5 Settings kept from v0.9. F-Droid takes
      them from the built tag, so they show there from the first tag after v0.10.0.
-2. Left to the user: the setup help's "The result shows up to 15 minutes later." is still true,
-   though the result now usually comes at once (the user's text).
+2. ~~The setup help's result line~~: done 2026-10-03 (user): "The result usually shows right
+   after Done." and "Switch nothing else on or off until you tap Done."
 
 Preview (built 2026-10-03; design in `CLAUDE.md` under "OK or WAIT"): tap
 a row → its run in the peak window, hold → edit; the peak window has 3 past | now | 3 coming
@@ -253,10 +253,9 @@ without 🔌, bold. Not seen: a recorder warning in the folded Measurement summa
 Open, in order:
 1. ~~A theme~~: done 2026-10-03, the user chose "neutral ink", always light (`NEUTRAL` in
    `MainActivity.kt`); seen in Settings and a dialog. Not yet seen in the appliance sheets.
-2. **Redo the help** (user, 2026-10-03: "at the end"): `HelpContent` has grown long and still
-   says "🔌 Appliances" and "Settings lists them under Recorder". Rework it after the theme,
-   for the current app (sections, Mode, the folded recorder, the appliances switch), and check
-   the ⓘ texts against it.
+2. ~~Redo the help~~: done 2026-10-03 (declutter pass "whole app"): one idea per line, the
+   Settings paths, the limit with its floor, 3 · now · 3, the help keeps 🔌; Mode and Goal ⓘ
+   shortened to point at it. Not seen on the phone yet.
 
 ### Countries and time zones [built 2026-10-03, not released]
 

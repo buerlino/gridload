@@ -28,13 +28,12 @@ meter), 2788 quarter hours:
   valley would save a couple of francs a month. So features that shift *when* energy is used are
   worth at least as much as more peak detail.
 
-## Recommended first: three ideas
+## Recommended first: two ideas
 
 1. [The price curve panel](#1-price-curve-for-the-next-24-hours): helps every user, not only
    those with a whatwatt.
-2. [The delay-start helper](#1-delay-start-helper): turns the colour into the number you type
-   on the appliance. Now part of the appliances panel (`CLAUDE.md`, "Appliances").
-3. [The home-screen widget](#3-home-screen-widget): the colour without opening the app.
+2. [The home-screen widget](#home-screen-widget-or-a-quick-settings-tile): the colour without
+   opening the app.
 
 ## Panels for the main screen
 
@@ -106,52 +105,9 @@ with a whatwatt.
 
 ## Tools
 
-**Update 2026-10-03:** the user chose the appliances panel, now built (`CLAUDE.md`,
-"Appliances"; the reasoning in [appliances.md](appliances.md)). It takes in tools 1 to 3 below,
-per appliance and with measured load curves. They stay here as background.
-
-### 1. Delay-start helper
-
-**What:** pick a run length (e.g. 1 h, 2 h, 3 h; chips, no free text), and the app answers:
-"Delay 4 h → runs 11:00–14:00, all green". Many dishwashers and washing machines have a "start
-in X h" button, so the answer is the number you type on the appliance.
-
-**Computation (`:core`, unit-testable):** for each start from now to the end of the known
-slots, the average price over [start, start + length], restricted to whole-hour delays from now
-(most appliances step in hours; some in 30 min). Pick the cheapest, ties to the earliest. Show
-the delay, the time span and its colour mix. If the cheapest start is now, say "Start now".
-
-**Open questions:**
-- Hour steps only, or half hours too?
-- Which run lengths? Dishwasher eco programmes are 3–4 h, washing machines 1–3 h.
-- Where: a sheet from the main screen (a button or a tap on the next good time line), or a
-  panel? A sheet keeps the main screen clean.
-- Combine with peak load: warn if the run lands where the household usually peaks? Probably
-  not; keep it to price.
-
-### 2. Measure an appliance
-
-**What:** a "Measure" button (e.g. in the peak window or Settings → whatwatt). It reads the
-draw now as a baseline, you switch the appliance on, and it shows the jump: "+2.2 kW". It
-updates live with each reading (about every 4.2 s).
-
-**Why:** it fits "the meter measures everything", and it would give an appliance list real values instead of typed guesses. Many appliances don't run at their label
-power (heating phases, eco programmes).
-
-**Data:** `report.instantaneous_power.active.positive.total`, 0.001 kW resolution, already read
-every 5 s by `WhatwattMeter`. Other loads switching on or off meanwhile (fridge, router)
-add noise of maybe ±0.1 kW. The heat pump is on the other meter, so it doesn't interfere.
-
-**Taken in** by the appliances panel: it's how the panel measures (`CLAUDE.md`, "Appliances").
-
-### 3. "One at a time" in the valley
-
-**What:** when the spot colour is green and peak load is on, and kW free is low, the peak window
-could say something like "Good time, but one appliance at a time."
-
-**Why:** the September data shows the peak is set at noon, in the green valley.
-
-**Taken in** by the appliances panel's OK/WAIT per row (`CLAUDE.md`, "Appliances").
+The delay-start helper, measuring an appliance and "one at a time in the valley" are all part
+of the appliances panel now (start delay per appliance, measured curves, OK/WAIT per row): see
+`CLAUDE.md`, "Appliances", and [appliances.md](appliances.md).
 
 ## Outside the main screen
 
@@ -198,7 +154,7 @@ per line) apply in each language.
 - **Firmware check in Test:** `device.firmware` in `/api/v1/system`. Firmware 2.0.0 doesn't run
   Berry, 2.8.2 does (already noted in the skill as a possible next step). Test could say "Firmware
   2.0.0 is too old for the recorder; update it on USB power".
-- **whatwatt health in Recorder → Details:** `wifi.rssi` (−64 at the meter here),
+- **whatwatt health in Settings → Recorder (opened):** `wifi.rssi` (−64 at the meter here),
   `device.last_reboot`, and maybe `device.plug.v_scap` (supercap voltage; 3.2 V came before a
   reboot during the download tests), all in `/api/v1/system`, which the sync already fetches.
   These help explain gaps, since the whatwatt runs on weak meter power. One line: "Wi-Fi −64 dBm

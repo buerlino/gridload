@@ -32,6 +32,8 @@ import java.time.ZoneId
 fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
     val unit = state.powerUnit
     val highest = state.meter.highest
+    // Never null while there is a highest: the limit is at least that.
+    val line = state.peakLine
     Panel(
         open = state.historyOpen,
         onToggle = onToggle,
@@ -48,7 +50,7 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit) {
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
-        if (state.historyOpen && highest != null) DayBars(state.meter.days, highest, state.peakLine ?: highest.kw, unit, state.region.zone)
+        if (state.historyOpen && highest != null && line != null) DayBars(state.meter.days, highest, line, unit, state.region.zone)
     }
 }
 

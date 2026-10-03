@@ -60,6 +60,8 @@ data class MeterState(
     val recorderInstalled: Boolean = false,
     /** An install, start or removal under way, or why the last one failed. */
     val recorderAction: String? = null,
+    /** Whether [recorderAction] says why the last one failed. */
+    val recorderFailed: Boolean = false,
     /** This month's quarter hours the recorder should have saved but didn't. */
     val missing: List<Instant> = emptyList(),
     /** When the recorder restarted right after the last missing quarter, which explains it. */
@@ -206,7 +208,7 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
     private suspend fun act(address: String, doing: String, verb: String, action: (String) -> Unit) {
         if (acting) return
         acting = true
-        set { it.copy(recorderAction = doing) }
+        set { it.copy(recorderAction = doing, recorderFailed = false) }
         val error = withContext(Dispatchers.IO) {
             try {
                 action(address)
@@ -215,6 +217,8 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
                 "the whatwatt answered with error ${e.code}"
             } catch (_: IOException) {
                 "the whatwatt isn't reachable"
+            } catch (_: IllegalArgumentException) {
+                "the address isn't valid"
             } catch (e: IllegalStateException) {
                 e.message
             }
@@ -223,7 +227,7 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
         if (error == null && verb != "remove") delay(6_000)
         acting = false
         syncedAt = null
-        set { it.copy(recorderAction = error?.let { e -> "Couldn't $verb the recorder: $e." }) }
+        set { it.copy(recorderAction = error?.let { e -> "Couldn't $verb the recorder: $e." }, recorderFailed = error != null) }
     }
 
     /** A one-off reading from [address], to check it before relying on it. */

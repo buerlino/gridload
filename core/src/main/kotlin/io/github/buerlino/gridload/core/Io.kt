@@ -18,7 +18,8 @@ internal fun httpGet(url: String, timeoutMillis: Int): String = httpRequest("GET
 
 /**
  * Blocking request; returns the body of a 2xx answer, anything else throws [HttpException].
- * [body] goes as [contentType]. Call off the main thread.
+ * A malformed [url] throws [IllegalArgumentException]. [body] goes as [contentType]. Call off
+ * the main thread.
  */
 internal fun httpRequest(
     method: String,
@@ -27,7 +28,7 @@ internal fun httpRequest(
     body: String? = null,
     contentType: String = "application/json",
 ): String {
-    val conn = URI(url).toURL().openConnection() as HttpURLConnection
+    val conn = URI.create(url).toURL().openConnection() as HttpURLConnection
     try {
         conn.requestMethod = method
         conn.connectTimeout = timeoutMillis

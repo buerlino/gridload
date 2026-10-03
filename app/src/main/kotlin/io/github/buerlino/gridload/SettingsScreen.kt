@@ -87,10 +87,9 @@ private val MEASUREMENT_INFO = Info(
 private val MODE_INFO = Info(
     "Mode",
     "Without peak load, GridLoad shows the price and what you use now.\n\n" +
-        "Peak load: some grid tariffs also charge for the month's highest quarter hour, your average kW over 15 minutes. " +
-        "A scale shows this quarter hour, the hour before and the limit not to pass. At the limit, the bar turns red " +
-        "and the phone vibrates. Your appliances say whether they fit, and the history shows each day's highest. It needs " +
-        "GridLoad's recorder on the whatwatt, and an SD card in it.",
+        "Peak load: some grid tariffs also charge for the month's highest quarter hour. GridLoad then shows how much you " +
+        "can still switch on, your appliances and the month so far. The help (?) explains it. It needs GridLoad's " +
+        "recorder on the whatwatt, and an SD card in it.",
 )
 private val RECORDER_INFO = Info(
     "Recorder",
@@ -100,9 +99,8 @@ private val RECORDER_INFO = Info(
 )
 private val GOAL_INFO = Info(
     "Goal",
-    "The limit not to pass is the highest of this month's highest quarter hour, your biggest appliance's plus 20%, " +
-        "and the goal when it's on. Everything up to the month's highest is billed anyway, and the biggest appliance sets " +
-        "such a peak by itself. A goal raises the limit, e.g. to what you expect to need this month.",
+    "Raises the limit to this value, e.g. to what you expect to need this month anyway. It never lowers it: the " +
+        "month's highest is billed anyway.",
 )
 private val APPLIANCES_INFO = Info(
     "Appliances",
@@ -378,8 +376,7 @@ private fun recorderState(meter: MeterState): Pair<String?, Boolean> {
         check == RecorderCheck.Ok -> "Installed and recording."
         else -> recorderLine(check)
     }
-    val failed = meter.recorderAction?.startsWith("Couldn't") == true
-    return line to (failed || (meter.recorderAction == null && check != null && isRecorderWarning(check)))
+    return line to (meter.recorderFailed || (meter.recorderAction == null && check != null && isRecorderWarning(check)))
 }
 
 /**
@@ -412,7 +409,7 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
     val (line, warning) = recorderState(meter)
     Fold(open, onToggle = { open = !open }) {
         Box(Modifier.weight(1f)) { InfoLabel("Recorder", RECORDER_INFO) }
-        val idle = meter.recorderAction == null || meter.recorderAction.startsWith("Couldn't")
+        val idle = meter.recorderAction == null || meter.recorderFailed
         when {
             !idle || check == null -> {}
             check == RecorderCheck.NotInstalled -> Button(onClick = viewModel::installRecorder) { Text("Install") }

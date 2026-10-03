@@ -40,10 +40,6 @@ class PriceCache(private val file: File) {
         val slots = prices.slots.map { Slot(it.start.toString(), it.end.toString(), listOf(Value(KWH, it.price))) }
         file.writeAtomically(json.encodeToString(Cache(prices.regionId, prices.fetchedAt.toString(), slots)))
     }
-
-    fun clear() {
-        file.delete()
-    }
 }
 
 private const val KWH = "CHF_kWh"

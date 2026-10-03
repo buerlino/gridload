@@ -1,6 +1,0 @@
-- History: each day's highest quarter hour this month. The month's highest is red, today dark.
-- The peak window and the history fold up to one line each. The peak window's header says how many kW are free.
-- Pull down to refresh, instead of the Refresh button.
-- Choose your country, then your region.
-- Power in kW or W.
-- Recorder details (recorded since, missing quarter hours, Remove) are in Settings.

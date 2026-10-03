@@ -257,3 +257,50 @@ the work differed from the checklist:
 - **Phone:** 1.3, 1.4 and 1.5 couldn't be seen at 15:00 (no WAIT with a time on an appliance
   with a start delay; tomorrow's prices out). 1.4 and 1.5 are plain strings; 1.3 rounds in the
   app, untested by core.
+
+## Pass 2026-10-03 (whole app)
+
+Report (at `aaf0e01`): 72 tests green, lint 0, debug and R8 release builds fine. The user
+approved the whole list.
+
+### Bug
+- [x] 1.1 Test crashed on a malformed address ("192.168.0.36 x"): `URI(url)` throws
+  `URISyntaxException`, which nothing caught. `URI.create` (an `IllegalArgumentException`,
+  which Test already turns into "That doesn't look like an address."); `act()` catches it too;
+  a core test.
+
+### Code
+- [x] 2.1 `PriceCache.clear()` was used only by its test: removed.
+- [x] 2.2 `recorderAction?.startsWith("Couldn't")` in two places → `MeterState.recorderFailed`,
+  set by `act()`.
+- [x] 2.3 `MainActivity.kt` imports sorted; `HistoryPanel`'s unreachable `?: highest.kw`.
+
+### Docs
+- [x] 3.1 README: peak load under Mode, the scale (3 · now · 3) and the limit with its floor,
+  red at the limit, the panel order, the Settings paths, "Counts for the limit".
+- [x] 3.2 Store text: warns at the limit, not "before a new monthly peak".
+- [x] 3.3 `CLAUDE.md`: "Without a reading", "No price brackets", "7 min left", the goal's
+  rounding, "Ideas accepted" folded into Design, history git keeps, the Remove dialog described
+  instead of quoted, Phases one line each.
+- [x] 3.4 `research/feature_ideas.md`: the Recorder path; Tools shrunk to a pointer.
+- [x] 3.5 Redo the help and check the ⓘ texts against it.
+
+### Repo
+- [x] 4.1 Changelogs 5, 8, 9, 10, 11 deleted (the recipe builds only versionCode 12).
+- [x] 4.2 `git gc` (246 loose objects → 0).
+
+### Done (2026-10-03)
+
+Verified with 73 tests (1 new), lint 0, debug and R8 release builds. The phone test is the
+user's. Where the work differed from the checklist:
+- **1.1:** `act()` says "Couldn't install the recorder: the address isn't valid." A saved bad
+  address in the polling loops was already caught (`catch (_: Exception)`).
+- **2.3:** the history keeps a null check on the limit (smart cast, no fallback value) rather
+  than `!!`.
+- **3.1:** `CLAUDE.md` also called the appliances "the third panel"; now the second. The README
+  gives the history its own short paragraph.
+- **3.5:** drafted and approved by the user: the help keeps 🔌 on its heading; Mode and Goal ⓘ
+  no longer repeat the limit's reasoning (help only); the other five ⓘ unchanged. MeasureHelp:
+  "The result usually shows right after Done." and "until you tap Done" (user).
+- **3.4:** "One at a time" is covered by OK/WAIT, so it went too; "Recommended first" dropped
+  the delay-start helper and is now two ideas.

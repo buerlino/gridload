@@ -4,48 +4,53 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.ui.draw.alpha
-import java.time.Duration
-import java.time.Instant
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.foundation.ScrollState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -54,14 +59,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import kotlin.math.roundToInt
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -73,12 +70,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.buerlino.gridload.core.Level
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -432,30 +432,34 @@ fun HelpContent() {
         LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("The price is compared with the next 24 hours, so red means a cheaper time is coming. Tomorrow's prices come out between noon and 6 pm.")
+        Text("The price is compared with the next 24 hours, so red means a cheaper time is coming.")
+        Text("Tomorrow's prices come out between noon and 6 pm.")
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GreenDot(LocalContentColor.current)
             Text("The next good time.")
         }
-        Text("With a whatwatt on your meter, it also shows what you use right now and what that costs per hour.")
+        Text("With a whatwatt (Settings → 📟 Measurement), also what you use now and what it costs per hour.")
         Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
         Text("📊 Peak load", fontWeight = FontWeight.Bold)
-        Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
-        Text("Below the price, a scale shows this quarter hour in the middle, the three before and the limit. \"kW free\" is how much more you can switch on now.")
-        Text("The limit is the month's highest quarter hour, or your biggest appliance's plus 20% if that's higher. That appliance sets such a peak by itself, so only stacking others on it costs extra.")
+        Text("Some grid tariffs also charge for the month's highest quarter hour: your average kW over 15 minutes.")
+        Text("Switch it on in Settings → 📊 Mode. It needs the whatwatt with an SD card, and the recorder, which you install under Measurement.")
+        Text("The scale shows the three quarter hours before, now in the middle, and the three coming.")
+        Text("\"kW free\" is how much more you can switch on before the limit.")
+        Text("The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, and your goal.")
+        Text("Up to the month's highest is billed anyway, and the biggest appliance reaches its own peak alone. Only stacking costs extra.")
         Text("At the limit, the bar turns red and the phone vibrates.")
-        Text("The history shows each day's highest quarter hour this month. Tap a panel's top line to fold it.")
-        Text("Needs a whatwatt with an SD card. Switch on the whatwatt and peak load in Settings, and install the recorder there.")
-        Text("The recorder runs on the whatwatt and saves every quarter hour, also while GridLoad is closed. If it stops, a red line says why.")
-        Text("Quarter hours it misses, e.g. while the whatwatt restarts, are missing from the month's highest. Settings lists them under Recorder.")
+        Text("The recorder saves every quarter hour on the whatwatt, also while GridLoad is closed. If it stops, a red line says why.")
+        Text("Quarter hours it misses are missing from the month's highest. Open Recorder in Settings → Measurement to see them.")
+        Text("The history shows each day's highest quarter hour this month.")
+        Text("Tap a panel's top line to fold it.")
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
-        Text("Add your appliances with +. GridLoad measures each one once: how much it draws, and for how long.")
-        Text("OK: fine to switch it on now. WAIT: it would pass the limit, or a later start is clearly cheaper. The row says when.")
-        Text("Tap a row to see its run on the scale, as if you switched it on now. Hold it to edit.")
-        Text("Can wait: the price counts too, e.g. for a dishwasher. A kettle can't wait, so only the peak counts.")
-        Text("Counts for the limit: switch it off for one that shouldn't raise the limit, e.g. one you rarely use.")
+        Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")
+        Text("OK: fine to switch on now. WAIT: it would reach the limit, or a later start is clearly cheaper. The row says when.")
+        Text("Tap a row to see its run on the scale. Hold it to edit.")
+        Text("Can wait: the price counts too, e.g. a dishwasher. Off, only the limit counts, e.g. a kettle.")
+        Text("Counts for the limit: its heaviest quarter hour can raise the limit. Switch it off for one you rarely use.")
         Text("Start delay: if the appliance has one, WAIT says what to set.")
-        Text("Add a variant in an appliance's sheet for another run time, e.g. more water in the kettle.")
+        Text("A variant is the same appliance with another run time, e.g. more water in the kettle.")
         Text("A row looks at the whole run, so it can differ from the colour.")
     }
 }

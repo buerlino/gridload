@@ -133,8 +133,6 @@ class CoreTest {
             val saved = CachedPrices("ekz", Instant.parse("2026-09-29T10:15:30Z"), twoDays + slots)
             cache.save(saved)
             assertEquals(saved, cache.load())
-            cache.clear()
-            assertNull(cache.load())
         } finally {
             dir.deleteRecursively()
         }
