@@ -13,6 +13,12 @@ class HttpException(val code: Int) : IOException("HTTP $code")
 /** For the price APIs and the whatwatt, which send more fields than the app reads. */
 internal val json = Json { ignoreUnknownKeys = true }
 
+/** The app's `versionName`; bump it with each release (`IoTest` checks they match). */
+internal const val APP_VERSION = "0.11.1"
+
+/** Sent with every request, so API operators can see which client calls them and reach the project. */
+internal const val USER_AGENT = "GridLoad/$APP_VERSION (+https://github.com/buerlino/gridload)"
+
 /** Blocking GET of [url]'s JSON body; anything but 200 throws [HttpException]. Call off the main thread. */
 internal fun httpGet(url: String, timeoutMillis: Int): String = httpRequest("GET", url, timeoutMillis)
 
@@ -34,6 +40,7 @@ internal fun httpRequest(
         conn.connectTimeout = timeoutMillis
         conn.readTimeout = timeoutMillis
         conn.setRequestProperty("Accept", "application/json")
+        conn.setRequestProperty("User-Agent", USER_AGENT)
         if (body != null) {
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", contentType)

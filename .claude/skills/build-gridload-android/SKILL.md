@@ -77,7 +77,8 @@ mask merges letters, cables and mast into one blob. If the SVGs change, regenera
 
 ## Releasing
 
-1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, and `APP_VERSION` in
+   `core/.../Io.kt` (the User-Agent; `:core:test` fails until they match).
 2. Add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (max 500 characters).
 3. Commit and tag `vX.Y.Z` (only when the user asks); the user pushes. The tag builds the signed
    GitHub Release for Obtainium.
