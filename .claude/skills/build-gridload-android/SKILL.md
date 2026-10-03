@@ -64,6 +64,10 @@ The user's SVGs in `logo/` (108 x 108, yellow background, tower with "GL" as for
 the source. `res/drawable/ic_launcher_{background,foreground}.xml` are vector drawables
 converted from them, combined in `res/mipmap-anydpi/ic_launcher.xml` (adaptive icon), and
 `fastlane/.../images/icon.png` is a 512 px render of both (`rsvg-convert` + `magick`).
+`fastlane/.../images/featureGraphic.png` (1024 x 500, asked for by a tester on 2026-10-03) is the
+foreground's `Artboard11` group at 5.6x on `#FFE537`, with "GridLoad" (Inter Bold 112 px) and
+"When to run your appliances" (Inter Medium 36 px) in `INK` and the red, orange and green dots,
+rendered the same way and flattened to RGB.
 The themed (monochrome) layer, `logo/gl_icon_monochrome.svg` → `ic_launcher_monochrome.xml`
 (user's choice, 2026-10-02), is computed from the foreground with shapely: the `Grid_bright`
 mast lines at 3.2 px, minus the GL letters grown by 0.5 px (their outline) plus a 1.6 px gap,
