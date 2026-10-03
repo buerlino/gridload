@@ -49,8 +49,8 @@ data class MeterState(
     /** This month's highest recorded quarter hour, and last month's (the goal's first value). */
     val highest: Quarter? = null,
     val lastMonthHighest: Quarter? = null,
-    /** The last few recorded quarters, for the bars before the current one. */
-    val recent: List<Quarter> = emptyList(),
+    /** The copied quarters of this and last month: the bars before the current one, and measuring appliances. */
+    val quarters: List<Quarter> = emptyList(),
     /** This month's days with a recorded quarter, and each day's highest, for the history. */
     val days: List<Pair<LocalDate, Quarter>> = emptyList(),
     /** The result of the last Test, shown under the address field. */
@@ -291,7 +291,7 @@ class WhatwattMeter(recorderDir: File, private val publish: (MeterState) -> Unit
             it.copy(
                 highest = loaded.quarters.filter { q -> inMonth(q, now) }.maxByOrNull { q -> q.kwh },
                 lastMonthHighest = loaded.quarters.filter { q -> inMonth(q, now.minusMonths(1)) }.maxByOrNull { q -> q.kwh },
-                recent = loaded.quarters.takeLast(PAST_BARS),
+                quarters = loaded.quarters,
                 days = dailyHighest(loaded, now),
                 missing = missing,
                 restartAfterGap = lastGap?.let { gap ->

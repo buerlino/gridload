@@ -2,6 +2,7 @@ package io.github.buerlino.gridload
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -9,21 +10,33 @@ import android.os.VibratorManager
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.buerlino.gridload.core.Advice
+import io.github.buerlino.gridload.core.Appliance
+import io.github.buerlino.gridload.core.ApplianceFile
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.CachedPrices
 import io.github.buerlino.gridload.core.HttpException
+import io.github.buerlino.gridload.core.Measurement
+import io.github.buerlino.gridload.core.Measuring
+import io.github.buerlino.gridload.core.PeakNow
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.PriceCache
 import io.github.buerlino.gridload.core.PriceSlot
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.Status
+import io.github.buerlino.gridload.core.advise
+import io.github.buerlino.gridload.core.appliancesJson
 import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.cooldownEnd
 import io.github.buerlino.gridload.core.fetchPrices
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
+import io.github.buerlino.gridload.core.measuringJson
+import io.github.buerlino.gridload.core.mergeAppliances
+import io.github.buerlino.gridload.core.parseAppliances
 import io.github.buerlino.gridload.core.parseKw
+import io.github.buerlino.gridload.core.parseMeasuring
 import io.github.buerlino.gridload.core.peakLine
 import io.github.buerlino.gridload.core.reachedServer
 import io.github.buerlino.gridload.core.wantsFetch
@@ -57,6 +70,17 @@ data class UiState(
     /** Whether the peak window and the history panel are expanded. */
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
+    val appliancesOpen: Boolean = true,
+    /** The measured appliances, and for each (by name) whether to start it now; no advice without a reading. */
+    val appliances: List<Appliance> = emptyList(),
+    val advice: Map<String, Advice> = emptyMap(),
+    /** Whether the measurement setup help was shown once; afterwards it opens from ⓘ. */
+    val applianceHelpSeen: Boolean = false,
+    /** A measurement under way, and its result once Done was tapped. */
+    val measuring: Measuring? = null,
+    val measurement: Measurement? = null,
+    /** The last export or import in Settings, as one line. */
+    val applianceFileResult: String? = null,
     val status: Status? = null,
     val loading: Boolean = false,
     val error: String? = null,
@@ -128,9 +152,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
+            appliancesOpen = prefs.getBoolean(KEY_APPLIANCES_OPEN, true),
+            applianceHelpSeen = prefs.getBoolean(KEY_APPLIANCE_HELP_SEEN, false),
+            measuring = prefs.getString(KEY_MEASURING, null)?.let { runCatching { parseMeasuring(it) }.getOrNull() },
         ),
     )
     val state: StateFlow<UiState> = _state
+
+    private val applianceFile = ApplianceFile(File(app.filesDir, "appliances.json"))
+
+    init {
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) { runCatching { applianceFile.load() }.getOrDefault(emptyList()) }
+            _state.update { it.copy(appliances = loaded) }
+            derive()
+        }
+    }
 
     private val meter = WhatwattMeter(File(app.filesDir, "recorder")) { meter -> _state.update { it.copy(meter = meter) } }
 
@@ -168,6 +205,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val now = Instant.now()
         val status = classify(slots, now)
         _state.update { it.copy(status = status, notice = null, cooldownEnd = cooldownEnd(lastAttempt, now, status != null)) }
+        derive()
+    }
+
+    /** Each appliance's advice, from the reading, the line and the prices, and the result of a finished measurement. */
+    private fun derive() {
+        val now = Instant.now()
+        _state.update { s ->
+            val projection = s.meter.projection
+            val kw = s.meter.kw
+            val peak = if (projection != null && kw != null) PeakNow(projection, kw, s.peakLine) else null
+            s.copy(
+                advice = peak?.let { s.appliances.associate { a -> a.name to advise(a, now, it, slots) } }.orEmpty(),
+                measurement = s.measuring?.result(s.meter.quarters),
+            )
+        }
     }
 
     /** Switching region drops the cached slots, since they belong to the old region's tariff. */
@@ -239,6 +291,91 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(historyOpen = open) }
     }
 
+    fun setAppliancesOpen(open: Boolean) {
+        prefs.edit { putBoolean(KEY_APPLIANCES_OPEN, open) }
+        _state.update { it.copy(appliancesOpen = open) }
+    }
+
+    fun applianceHelpShown() {
+        prefs.edit { putBoolean(KEY_APPLIANCE_HELP_SEEN, true) }
+        _state.update { it.copy(applianceHelpSeen = true) }
+    }
+
+    /** Start tapped: from now, with the draw now as the base for the jump. Needs a reading. */
+    fun startMeasuring(appliance: Appliance) {
+        val kw = _state.value.meter.kw ?: return
+        saveMeasuring(Measuring(appliance, Instant.now().epochSecond, kw, kw))
+    }
+
+    /** Done tapped: the result shows once the recorder has saved this quarter hour. */
+    fun finishMeasuring() {
+        _state.value.measuring?.let { saveMeasuring(it.copy(done = Instant.now().epochSecond)) }
+    }
+
+    /** Saves the measured curve; an appliance of the same name (measured again) is replaced. */
+    fun saveMeasurement() {
+        val measuring = _state.value.measuring ?: return
+        val result = _state.value.measurement as? Measurement.Result ?: return
+        saveAppliances(mergeAppliances(_state.value.appliances, listOf(measuring.appliance.copy(curve = result.curve))))
+        saveMeasuring(null)
+    }
+
+    fun discardMeasurement() = saveMeasuring(null)
+
+    private fun saveMeasuring(measuring: Measuring?) {
+        prefs.edit { if (measuring == null) remove(KEY_MEASURING) else putString(KEY_MEASURING, measuringJson(measuring)) }
+        _state.update { it.copy(measuring = measuring) }
+        derive()
+    }
+
+    /** The edit sheet's changes to the appliance that was called [name] (renaming too). */
+    fun updateAppliance(name: String, appliance: Appliance) =
+        saveAppliances(_state.value.appliances.map { if (it.name == name) appliance else it })
+
+    fun deleteAppliance(name: String) = saveAppliances(_state.value.appliances.filter { it.name != name })
+
+    private fun saveAppliances(appliances: List<Appliance>) {
+        _state.update { it.copy(appliances = appliances) }
+        derive()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                applianceFile.save(appliances)
+            } catch (_: IOException) {
+                // Shown again from memory until the app restarts; nothing else to do.
+            }
+        }
+    }
+
+    /** Writes the appliances to a file the user picked, to keep them or move them to another phone. */
+    fun exportAppliances(uri: Uri) {
+        val appliances = _state.value.appliances
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(appliancesJson(appliances).toByteArray()) }
+                }.isSuccess
+            }
+            val count = appliances.size
+            _state.update { it.copy(applianceFileResult = if (ok) "Exported $count ${if (count == 1) "appliance" else "appliances"}." else "Couldn't write the file.") }
+        }
+    }
+
+    /** Adds the appliances from a file the user picked; one with the same name is replaced. */
+    fun importAppliances(uri: Uri) {
+        viewModelScope.launch {
+            val imported = withContext(Dispatchers.IO) {
+                runCatching {
+                    parseAppliances(getApplication<Application>().contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() })
+                }.getOrNull()
+            }
+            if (imported != null) saveAppliances(mergeAppliances(_state.value.appliances, imported))
+            val count = imported?.size ?: 0
+            _state.update {
+                it.copy(applianceFileResult = if (imported == null) "This file has no appliances GridLoad can read." else "Imported $count ${if (count == 1) "appliance" else "appliances"}.")
+            }
+        }
+    }
+
     fun setCountdown(show: Boolean) {
         prefs.edit { putBoolean(KEY_COUNTDOWN, show) }
         _state.update { it.copy(countdown = show) }
@@ -276,6 +413,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
         meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled)
         warnIfClose()
+        // The jump: the highest draw seen while the appliance runs, until Done.
+        val measuring = _state.value.measuring
+        val kw = _state.value.meter.kw
+        if (measuring != null && measuring.done == null && kw != null && kw > measuring.highestKw) {
+            saveMeasuring(measuring.copy(highestKw = kw))
+        } else {
+            derive()
+        }
     }
 
     /** With peak load on, vibrates once per quarter hour when it comes close to the line. */
@@ -361,3 +506,6 @@ private const val KEY_POWER_UNIT = "power_unit"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_PEAK_OPEN = "peak_open"
 private const val KEY_HISTORY_OPEN = "history_open"
+private const val KEY_APPLIANCES_OPEN = "appliances_open"
+private const val KEY_APPLIANCE_HELP_SEEN = "appliance_help_seen"
+private const val KEY_MEASURING = "measuring"

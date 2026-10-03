@@ -120,7 +120,7 @@ Next: answer reviewer comments. The user posts on GitLab (it's public under thei
 Claude drafts the answers and any recipe changes, and can check the merge request and
 pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
 
-### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, in v0.8.0]
+### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, in v0.8.0; script frozen at v2]
 
 The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak load with
 whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
@@ -180,7 +180,24 @@ History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-val
 hit). The month's highest day red, today dark (only seen with today as the highest so far).
 Open: a full-screen view of the chart on tap (the user's idea; its content to be decided).
 
-Later: the appliance calculator (design with the user first, see `CLAUDE.md`).
+### Appliances panel [designed 2026-10-03; step 1 done, step 2 in progress]
+
+Measured appliances with OK/WAIT per row. The design, the user's decisions and the open
+questions (all settled 2026-10-03) are in `research/appliances.md`. Measuring uses the recorder's quarter hours plus the live jump at the start; the
+recorder script stays at v2 (frozen, see `CLAUDE.md`). In order:
+1. ~~`:core`~~ (done 2026-10-03): `Appliances.kt` with unit tests (model and JSON, the curve from the quarters, the
+   peak fit, the run price, OK/WAIT). Unused until step 2, so both ship in one release.
+2. `:app`: the panel, the add/edit sheet, the setup help, the measuring flow, `appliances.json`,
+   export and import in Settings (file picker), help, ⓘ, README and store text. Test on the phone with a kettle, then a real dishwasher run,
+   and in an R8 release build.
+3. Move the decided design into `CLAUDE.md`.
+
+Step 2, first cut built 2026-10-03 (not committed): `AppliancesPanel.kt` (panel, rows, the
+measuring row, add/edit sheet, setup help), the view model's appliance state and actions,
+Settings → 🔌 Appliances (Export/Import), the help section; `MeterState.quarters` replaces
+`recent`. Seen on the Fairphone 6: the panel, the first-time help, the add sheet. Still to test
+on the phone: a kettle measurement end to end, the OK/WAIT rows, edit/rename/delete, export and
+import, then a real dishwasher run and an R8 release build; README and store text after that.
 
 ### Regions outside Switzerland [researched 2026-09-30, not started]
 

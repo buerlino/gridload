@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { showSettings = false; pickRegion = false },
                     )
                     else -> Screen(
-                        state,
+                        state, viewModel,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { region -> pickRegion = region; showSettings = true },
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val GREEN = Color(0xFF2E7D32)
+internal val GREEN = Color(0xFF2E7D32)
 private val ORANGE = Color(0xFFFFA000)
 internal val RED = Color(0xFFC62828)
 private val GREY = Color(0xFF616161)
@@ -126,12 +126,13 @@ internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.s
 /**
  * The colour, the headline, the price, the next good time, and when the prices were updated;
  * pulling down refreshes. With peak load on, this part is fixed at the top with smaller text,
- * and the peak window and the history scroll below it.
+ * and the peak window, the appliances and the history scroll below it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Screen(
     state: UiState,
+    viewModel: MainViewModel,
     onRefresh: () -> Unit,
     onOpenSettings: (pickRegion: Boolean) -> Unit,
     onTogglePeak: () -> Unit,
@@ -154,6 +155,7 @@ private fun Screen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         PeakWindow(state, onToggle = onTogglePeak, onOpenSettings = { onOpenSettings(false) })
+                        AppliancesPanel(state, viewModel)
                         HistoryPanel(state, onToggle = onToggleHistory)
                     }
                 } else {
@@ -289,10 +291,16 @@ fun HelpContent() {
         Text("Your grid bill can also charge for the month's highest quarter hour: the average kW over 15 minutes.")
         Text("Below the price, a scale shows this quarter hour, the two before and the month's highest. \"kW free\" is how much more you can switch on now.")
         Text("Close to a new peak, the bar turns red and the phone vibrates.")
-        Text("Below the scale, the history shows each day's highest quarter hour this month. Tap a panel's top line to fold it.")
+        Text("The history shows each day's highest quarter hour this month. Tap a panel's top line to fold it.")
         Text("Needs a whatwatt with an SD card. Switch on the whatwatt and peak load in Settings, and install the recorder there.")
         Text("The recorder runs on the whatwatt and saves every quarter hour, also while GridLoad is closed. If it stops, a red line says why.")
         Text("Quarter hours it misses, e.g. while the whatwatt restarts, are missing from the month's highest. Settings lists them under Recorder.")
+        Text("🔌 Appliances", fontWeight = FontWeight.Bold)
+        Text("Add your appliances with +. GridLoad measures each one once: how much it draws, and for how long.")
+        Text("OK: fine to switch it on now. WAIT: it would set a new peak, or a later start is clearly cheaper. The row says when.")
+        Text("Can wait: the price counts too, e.g. for a dishwasher. A kettle can't wait, so only the peak counts.")
+        Text("Start delay: if the appliance has one, WAIT says what to set.")
+        Text("A row looks at the whole run, so it can differ from the colour.")
     }
 }
 

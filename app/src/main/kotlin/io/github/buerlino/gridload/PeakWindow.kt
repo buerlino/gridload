@@ -71,7 +71,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onOpenSettings: () -> Unit)
         if (state.peakOpen) {
             val bars = (PAST_BARS downTo 1).map { i ->
                 val start = current.minusSeconds(QUARTER_SECONDS * i)
-                Bar(meter.recent.find { it.start == start }?.kw, timeFormat.format(start), current = false)
+                Bar(meter.quarters.lastOrNull { it.start == start }?.kw, timeFormat.format(start), current = false)
             } + Bar(projection?.kw, "now", current = true)
             Scale(bars, state.activeGoalKw, meter.highest?.kw, line, state.peakWarning, unit)
             if (projection != null && line != null) {

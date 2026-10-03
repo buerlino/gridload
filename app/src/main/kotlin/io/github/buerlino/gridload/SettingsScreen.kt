@@ -99,6 +99,11 @@ private val GOAL_INFO = Info(
     "Off: the line not to pass is this month's highest quarter hour. On: your own value. The line is then the higher " +
         "of the two, since everything up to the month's highest is billed anyway.",
 )
+private val APPLIANCES_INFO = Info(
+    "Appliances",
+    "Export saves your measured appliances to a file, so you don't have to measure them again on a new phone. Import " +
+        "adds them from such a file; one with the same name is replaced.",
+)
 private val COUNTDOWN_INFO = Info(
     "Quarter-hour countdown",
     "Shows the minutes left in this quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
@@ -205,6 +210,7 @@ fun SettingsScreen(
                     SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                     if (state.goalEnabled) GoalField(state, viewModel::setGoal)
                     SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
+                    ApplianceFiles(state, viewModel)
                 }
             }
         }
@@ -324,6 +330,22 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
         Text("$count quarter ${if (count == 1) "hour" else "hours"} missing this month, the last ${shortTime(meter.missing.last())}$restart.")
     }
     if (removable) OutlinedButton(onClick = { confirmRemove = true }) { Text("Remove the recorder") }
+}
+
+/** Export and import of the measured appliances, through Android's file picker: no permission needed. */
+@Composable
+private fun ApplianceFiles(state: UiState, viewModel: MainViewModel) {
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let(viewModel::exportAppliances)
+    }
+    // Any type: a file sent through a messenger may have lost its JSON type.
+    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::importAppliances) }
+    InfoLabel("🔌 Appliances", APPLIANCES_INFO)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { export.launch("gridload_appliances.json") }, enabled = state.appliances.isNotEmpty()) { Text("Export") }
+        OutlinedButton(onClick = { import.launch(arrayOf("*/*")) }) { Text("Import") }
+    }
+    state.applianceFileResult?.let { Text(it) }
 }
 
 /** kW or W, for everything the whatwatt shows. */
