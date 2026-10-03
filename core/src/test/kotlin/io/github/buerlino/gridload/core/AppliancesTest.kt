@@ -131,8 +131,23 @@ class AppliancesTest {
         assertEquals(1.7, waterShare(1.0, 1.7, 100), 1e-9)
         // Half a litre to 80 °C: half the water, 65 of the 85 degrees.
         assertEquals(0.5 * 65 / 85, waterShare(1.0, 0.5, 80), 1e-9)
-        val variant = Appliance("Kettle", listOf(Piece(2.0, 2.2), Piece(1.0, 2.2)), canWait = false).scaled("Kettle 1.5 L", 1.5)
-        assertEquals(Appliance("Kettle 1.5 L", listOf(Piece(3.0, 2.2), Piece(1.5, 2.2)), canWait = false), variant)
+    }
+
+    @Test
+    fun aVariantStretchesOrCutsTheLastPhase() {
+        val oven = listOf(Piece(10.0, 2.5), Piece(15.0, 1.0), Piece(5.0, 0.6))
+        // Longer: the start stays, the last piece runs on.
+        assertEquals(listOf(Piece(10.0, 2.5), Piece(15.0, 1.0), Piece(35.0, 0.6)), oven.withRunTime(60.0))
+        // Shorter: cut from the end, across pieces.
+        assertEquals(listOf(Piece(10.0, 2.5), Piece(8.0, 1.0)), oven.withRunTime(18.0))
+        assertEquals(listOf(Piece(10.0, 2.5), Piece(15.0, 1.0)), oven.withRunTime(25.0))
+        assertEquals(listOf(Piece(4.0, 2.5)), oven.withRunTime(4.0))
+        assertEquals(oven, oven.withRunTime(30.0))
+        // A kettle measured across a quarter boundary: 1.5 L heats 1.5 times as long at the same power.
+        val kettle = listOf(Piece(2.0, 2.2), Piece(1.0, 2.2))
+        assertEquals(listOf(Piece(2.0, 2.2), Piece(2.5, 2.2)), kettle.withRunTime(3.0 * waterShare(1.0, 1.5, 100)))
+        assertEquals(listOf(Piece(1.5, 2.2)), kettle.withRunTime(1.5))
+        assertFailsWith<IllegalArgumentException> { kettle.withRunTime(0.0) }
     }
 
     @Test

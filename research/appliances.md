@@ -1,5 +1,9 @@
 # Appliances panel (design draft, 2026-10-03)
 
+**The decided design is now in `CLAUDE.md` under "Appliances" (moved 2026-10-03), which wins
+where the two differ.** This file keeps the reasoning, the rejected options and the test
+measurements.
+
 The appliance list planned under "Later" in `CLAUDE.md` (UI), designed with the user on
 2026-10-03. It reverses the v0.6 decision "no appliance list". That decision was against
 *typed-in* appliances whose values were guesses. This list holds **measured** appliances: the
@@ -54,7 +58,8 @@ Considered and left out, for now:
 - **Programmes:** an eco and an intensive programme have different curves. Add them as two
   appliances ("Dishwasher eco", "Dishwasher 65°"). There's no programme field.
 - **Variable run time** (oven, hob, kettle: depends on what you cook): measure a typical use
-  ("Oven 30 min"), or add two. There's no run-time slider.
+  ("Oven 30 min"), then add **variants** with other run times (question 16). There's no
+  run-time slider.
 - **Emoji per appliance:** later, not in the first version (user, 2026-10-03). A name can hold
   an emoji typed from the keyboard anyway.
 - **Typed watts:** no (user, 2026-10-03). Only measured appliances; a typed value is the guess
@@ -287,22 +292,21 @@ All settled with the user on 2026-10-03; the answers are in the sections above.
 
 New, open (2026-10-03, after the first cut):
 
-14. **Kettle variants** (settled with the user, 2026-10-03): measure the usual amount once
-    (1 L to 100 °C). A measured appliance with Can wait off has **Other amount of water** in its
-    edit sheet: Measured with (L, to 100 °C, default 1), Water (L), Temperature (100 · 90 · 80 ·
-    70 °C). It adds an ordinary appliance ("Kettle 1.5 L" from "Kettle 1 L"; rename it in its edit sheet)
-    whose curve is the measured one with each piece's minutes × `waterShare` = litres / measured
-    litres × (T − 15 °C) / 85, at the same kW: heating water takes energy in proportion to the
-    amount and the temperature rise, and the element's power is fixed. Tap water is taken as
-    15 °C; the kettle's own heat-up is ignored, so very small amounts come out a little short.
-    Nothing new is stored, and export and import carry the variants like any appliance.
+14. **Kettle variants** (settled with the user, 2026-10-03; built as a variant, question 16):
+    measure the usual amount once (1 L to 100 °C). Its variant's **From water** helper takes
+    Measured with (L, to 100 °C, default 1), Water (L) and Temperature (100 · 90 · 80 · 70 °C)
+    and fills in the run time as the measured one × `waterShare` = litres / measured litres ×
+    (T − 15 °C) / 85: heating water takes energy in proportion to the amount and the temperature
+    rise, and the element's power is fixed. Tap water is taken as 15 °C; the kettle's own heat-up
+    is ignored, so very small amounts come out a little short.
 
 15. **Start times** (user, 2026-10-03): candidates stay **now, then :00, :15, :30, :45**; no
     minute-level starts. Cleaner code and plainer advice.
 16. **Variants instead of categories** (Claude's proposal 2026-10-03, the user's goal: scalable,
-    not hardcoded, robust; build next): the user listed fixed appliances, linear dynamic ones
-    (kettle), non-linear dynamic ones, composite actions (cooking) and dynamic actions. The
-    engine only needs a curve per row, so they differ only in how the curve is made:
+    not hardcoded, robust; built 2026-10-03, `withRunTime`, `VariantDialog`): the user listed
+    fixed appliances, linear dynamic ones (kettle), non-linear dynamic ones, composite actions
+    (cooking) and dynamic actions. The engine only needs a curve per row, so they differ only in
+    how the curve is made:
     - Fixed (dishwasher programme) and composite actions (cooking): measured once, as a whole.
     - Dynamic, linear or not (kettle, oven 30 vs 60 min, a longer simmer, a bigger meal): a
       **variant** of a measured appliance with another **run time**: the curve's start stays
@@ -310,13 +314,16 @@ New, open (2026-10-03, after the first cut):
       cycling grows; a kettle is one phase at fixed power, so this is the linear rule.
     - UI: the edit sheet of every measured appliance gets **Add a variant** (replacing "Other
       amount of water"): Run time (min), plus an optional helper "From water" (litres,
-      temperature, `waterShare`) that fills the run time in. No category field, nothing tied to
-      names.
+      temperature, `waterShare`) that fills the run time in, and the name, suggested from the
+      original's with its trailing amount replaced ("Cooking 34 min" → "Cooking 60 min",
+      "Kettle 1 L" → "Kettle 1.5 L") until it's typed. The variant keeps Can wait and Start
+      delay. No category field; the name is only a suggestion.
     - Variants are saved as plain curves (baked), not links: renaming or deleting the original
       can't break them, export and import stay as they are; re-measuring the original means
       adding its variants again (rare).
     - Core: one function, a curve with a new total run time (extend the last piece, or cut
-      pieces from the end), replacing `Appliance.scaled`. `advise` and the peak fit don't change.
+      pieces from the end, `List<Piece>.withRunTime`), replacing `Appliance.scaled`. `advise`
+      and the peak fit don't change.
     - Left out until needed: power levels (hob 4.5/9: measure the action as cooked) and
       combining appliances ("Kettle + Toaster").
 

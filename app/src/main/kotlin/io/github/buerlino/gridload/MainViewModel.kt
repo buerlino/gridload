@@ -333,7 +333,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun updateAppliance(name: String, appliance: Appliance) =
         saveAppliances(_state.value.appliances.map { if (it.name == name) appliance else it })
 
-    /** A variant derived from a measured appliance, e.g. another amount of water in the kettle. */
+    /** A variant of a measured appliance with another run time, e.g. "Cooking 60 min". */
     fun addAppliance(appliance: Appliance) = saveAppliances(_state.value.appliances + appliance)
 
     fun deleteAppliance(name: String) = saveAppliances(_state.value.appliances.filter { it.name != name })

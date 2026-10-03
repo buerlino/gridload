@@ -42,6 +42,8 @@ With a whatwatt Go on the smart meter (home Wi-Fi, Plus licence), switched on in
 
 The quarter hours come from the **GridLoad recorder**, a small Berry script that the app installs on the whatwatt (Settings → Peak load → Recorder → Install). It records every quarter hour on the whatwatt's SD card around the clock, also while the app is closed or the phone is away, and the app copies the new ones when it opens. There is no fallback: if the recorder stops, the app says exactly what is wrong (no SD card, not installed, another script in the slot, stopped, nothing saved since a time). Quarter hours it missed (e.g. while the whatwatt restarted) are listed in Settings under Recorder → Details.
 
+**Appliances** (a third panel, with peak load on): measure each appliance once with **+** (tap Start, switch it on, tap Done when it has finished). From the recorder's quarter hours, GridLoad learns how much it draws, for how long, and when in the run. Each row then says **OK**, or **WAIT** with when: starting now would set a new monthly peak, or, for appliances that can wait (a dishwasher, a washing machine), a later start is clearly cheaper. With a start delay on the appliance, it says what delay to set. A measured appliance gives variants with another run time ("Cooking 60 min", or "Kettle 1.5 L" from the amount of water). Settings → 🔌 Appliances exports and imports them as a file, for a new phone.
+
 ### What you need
 
 | | What | Price (CHF, 2026) |

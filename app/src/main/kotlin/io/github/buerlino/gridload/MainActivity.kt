@@ -300,6 +300,7 @@ fun HelpContent() {
         Text("OK: fine to switch it on now. WAIT: it would set a new peak, or a later start is clearly cheaper. The row says when.")
         Text("Can wait: the price counts too, e.g. for a dishwasher. A kettle can't wait, so only the peak counts.")
         Text("Start delay: if the appliance has one, WAIT says what to set.")
+        Text("Add a variant in an appliance's sheet for another run time, e.g. more water in the kettle.")
         Text("A row looks at the whole run, so it can differ from the colour.")
     }
 }

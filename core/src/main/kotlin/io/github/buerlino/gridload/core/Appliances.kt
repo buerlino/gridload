@@ -43,8 +43,22 @@ private const val TAP_CELSIUS = 15.0
 fun waterShare(measuredLitres: Double, litres: Double, celsius: Int): Double =
     litres / measuredLitres * (celsius - TAP_CELSIUS) / (100 - TAP_CELSIUS)
 
-/** This appliance's run shortened (or lengthened) to [share] of it, at the same power. */
-fun Appliance.scaled(name: String, share: Double) = copy(name = name, curve = curve.map { it.copy(min = it.min * share) })
+/**
+ * A variant of this curve that runs [minutes] in all: its start stays as measured, and its last
+ * phase is stretched (the last piece runs longer) or cut (the pieces past [minutes] are dropped).
+ * An oven keeps its preheat and cycles longer; a kettle is one phase at fixed power.
+ */
+fun List<Piece>.withRunTime(minutes: Double): List<Piece> {
+    require(minutes > 0) { "No run time: $minutes" }
+    var t = 0.0
+    val kept = mutableListOf<Piece>()
+    for (piece in this) {
+        if (t >= minutes) break
+        kept += piece.copy(min = minOf(piece.min, minutes - t))
+        t += piece.min
+    }
+    return if (t < minutes) kept.dropLast(1) + last().copy(min = last().min + minutes - t) else kept
+}
 
 /** Parses `appliances.json`, or an exported copy; throws on anything else. */
 fun parseAppliances(text: String): List<Appliance> = json.decodeFromString<List<Appliance>>(text).onEach { a ->
