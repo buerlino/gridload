@@ -44,6 +44,24 @@ class QuartersTest {
     }
 
     @Test
+    fun averagesTheDrawOverTheLastTwoMinutes() {
+        val average = DrawAverage()
+        // A hob cycling 2 kW on and off every 20 s, on top of 0.2 kW: 1.2 kW on average.
+        var kwh = 100.0
+        var result: Double? = null
+        for (s in 0..240 step 5) {
+            val time = at("16:00:00").plusSeconds(s.toLong())
+            if (s > 0) kwh += (if ((s - 5) / 20 % 2 == 0) 2.2 else 0.2) * 5 / 3600
+            result = average.add(time, kwh)
+            if (s < 60) assertNull(result)
+        }
+        assertEquals(1.2, result!!, 0.05)
+        // A reading seen twice changes nothing; a register going back starts over.
+        assertEquals(result, average.add(at("16:04:00"), kwh))
+        assertNull(average.add(at("16:04:05"), 50.0))
+    }
+
+    @Test
     fun theLineIsTheHighestOfGoalFloorMinimumAndMonthsHighest() {
         val highest = Quarter(at("17:15:00"), 0.95)
         assertEquals(3.8, highest.kw, 1e-9)

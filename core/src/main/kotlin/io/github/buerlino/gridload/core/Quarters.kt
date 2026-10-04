@@ -9,11 +9,11 @@ data class Quarter(val start: Instant, val kwh: Double) {
 }
 
 /**
- * This quarter hour's average kW if the draw now holds until [end], from a reading at [time].
+ * This quarter hour's average kW if the draw [aheadKw] holds until [end], from a reading at [time].
  * [usedKwh]: the energy since the quarter began, when it's exact (the recorder has a line ending
  * at the quarter's start); without it the quarter's first minutes are [estimated].
  */
-data class Projection(val kw: Double, val end: Instant, val time: Instant, val usedKwh: Double? = null) {
+data class Projection(val kw: Double, val end: Instant, val time: Instant, val aheadKw: Double, val usedKwh: Double? = null) {
     val start: Instant get() = end.minusSeconds(QUARTER_SECONDS)
     val estimated: Boolean get() = usedKwh == null
 
@@ -53,17 +53,18 @@ private fun hours(from: Instant, to: Instant) = Duration.between(from, to).toMil
 
 /**
  * Projects the current quarter hour from the meter's register: the energy since the quarter began
- * plus the draw now for the time left. The quarter's start is the recorder's last line when that
- * ends where this quarter begins (exact). Without it (the whatwatt restarted, or the line isn't
- * copied yet) the time before the first reading seen is assumed at the average since then, or at
- * the draw now within the first minute, when the register's 0.001 kWh steps are too coarse.
+ * plus the draw ahead ([DrawAverage] or the latest reading) for the time left. The quarter's start
+ * is the recorder's last line when that ends where this quarter begins (exact). Without it (the
+ * whatwatt restarted, or the line isn't copied yet) the time before the first reading seen is
+ * assumed at the average since then, or at the draw ahead within the first minute, when the
+ * register's 0.001 kWh steps are too coarse.
  */
 class QuarterProjector {
     /** The first reading seen in the current quarter: the meter's time and its register. */
     private var first: Pair<Instant, Double>? = null
 
     /** [start] is the recorder's last quarter end and the register there. */
-    fun project(time: Instant, kwh: Double, powerKw: Double, start: Pair<Instant, Double>?): Projection {
+    fun project(time: Instant, kwh: Double, aheadKw: Double, start: Pair<Instant, Double>?): Projection {
         val qStart = quarterStart(time)
         val end = qStart.plusSeconds(QUARTER_SECONDS)
         val seenFirst = first?.takeIf { quarterStart(it.first) == qStart && kwh >= it.second } ?: (time to kwh).also { first = it }
@@ -73,14 +74,42 @@ class QuarterProjector {
         } else {
             val (firstTime, firstKwh) = seenFirst
             val seen = hours(firstTime, time)
-            val before = if (seen >= 1 / 60.0) (kwh - firstKwh) / seen else powerKw
+            val before = if (seen >= 1 / 60.0) (kwh - firstKwh) / seen else aheadKw
             before * hours(qStart, firstTime) + kwh - firstKwh
         }
-        return Projection((used + powerKw * hours(time, end)) * 4, end, time, used.takeIf { exact })
+        return Projection((used + aheadKw * hours(time, end)) * 4, end, time, aheadKw, used.takeIf { exact })
     }
 
     /** Forgets the readings, e.g. when the address now points to another device. */
     fun reset() {
         first = null
     }
+}
+
+/** How far back [DrawAverage] looks. */
+const val AVERAGE_SECONDS = 120L
+
+/**
+ * The average draw over the last [AVERAGE_SECONDS], from the meter's register, so an appliance
+ * switching on and off (a hob at medium heat) counts at what it draws on average rather than at
+ * whichever moment the last reading caught. Null until the readings span a minute, as the
+ * register's 0.001 kWh steps are too coarse for less.
+ */
+class DrawAverage {
+    private val readings = ArrayDeque<Pair<Instant, Double>>()
+
+    /** Adds the reading at [time] (the meter's clock) with its register [kwh], and returns the average. */
+    fun add(time: Instant, kwh: Double): Double? {
+        val last = readings.lastOrNull()
+        // A register or clock going back is another meter or a reset: start over.
+        if (last != null && (time < last.first || kwh < last.second)) readings.clear()
+        if (readings.lastOrNull()?.first != time) readings.addLast(time to kwh)
+        while (Duration.between(readings.first().first, time).seconds > AVERAGE_SECONDS) readings.removeFirst()
+        val (firstTime, firstKwh) = readings.first()
+        val span = hours(firstTime, time)
+        return if (span >= 1 / 60.0) (kwh - firstKwh) / span else null
+    }
+
+    /** Forgets the readings, e.g. when the address now points to another device. */
+    fun reset() = readings.clear()
 }

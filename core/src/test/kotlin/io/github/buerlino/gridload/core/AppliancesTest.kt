@@ -175,7 +175,7 @@ class AppliancesTest {
 
     @Test
     fun doneTakesTheEnergyFromAFreshExactReading() {
-        fun projection(end: String, time: String, used: Double?) = Projection(1.0, at(end), at(time), used)
+        fun projection(end: String, time: String, used: Double?) = Projection(1.0, at(end), at(time), 1.0, used)
         assertEquals(at("10:15:20") to 0.0127, doneAt(at("10:15:20"), projection("10:30", "10:15:18", 0.0127)))
         // The last reading was before the boundary: Done goes back to it.
         assertEquals(at("10:15") to null, doneAt(at("10:15:03"), projection("10:15", "10:14:58", 0.2)))
@@ -276,7 +276,7 @@ class AppliancesTest {
     }
 
     private fun peak(projectionKw: Double, drawKw: Double, line: Double?, now: String = "10:07") =
-        PeakNow(Projection(projectionKw, quarterStart(at(now)).plusSeconds(QUARTER_SECONDS), at(now)), drawKw, line)
+        PeakNow(Projection(projectionKw, quarterStart(at(now)).plusSeconds(QUARTER_SECONDS), at(now), drawKw), line)
 
     @Test
     fun theKettleFitsWhenItsQuarterStaysBelowTheLimit() {
@@ -389,7 +389,7 @@ class AppliancesTest {
         }.toList()
         assertEquals(100, dst.size)
         val now = OffsetDateTime.parse("2026-10-25T01:50+02:00").toInstant()
-        val calm = PeakNow(Projection(0.5, quarterStart(now).plusSeconds(QUARTER_SECONDS), now), 0.5, 3.6)
+        val calm = PeakNow(Projection(0.5, quarterStart(now).plusSeconds(QUARTER_SECONDS), now, 0.5), 3.6)
         // Cheap up to 0.20: from 10:45, 15 min at 0.30 and 45 at 0.15 is 0.1875.
         assertEquals(Advice.Cheaper(OffsetDateTime.parse("2026-10-25T10:45+01:00").toInstant()), advise(dishwasher, now, calm, dst))
         // Through the repeated hour: 02:30 summer time to 02:30 winter time is one hour.

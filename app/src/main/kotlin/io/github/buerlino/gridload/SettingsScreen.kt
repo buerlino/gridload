@@ -133,6 +133,15 @@ private val VIBRATE_INFO = Info(
         "notification, so not while the phone is silent. Always: like an alarm, in silent mode too.",
 )
 
+private val DRAW_INFO = Info(
+    "Draw ahead",
+    "What GridLoad assumes your house draws for the rest of this quarter hour and, when you tap an appliance, the " +
+        "quarter hours after it.\n\n" +
+        "2-min average: the meter's average over the last 2 minutes, so an appliance switching on and off (a hob, an " +
+        "oven) counts at what it really uses. One just switched on shows fully after 2 minutes.\n\n" +
+        "Latest reading: the last reading, every 5 seconds. It follows a switch at once, but jumps with every on and off.",
+)
+
 /** Where Settings opens: at the top, at the region list (from the top bar), or at the own price's add-on (from the main screen). */
 enum class SettingsAt { TOP, REGION_LIST, PRICE }
 
@@ -273,7 +282,8 @@ fun SettingsScreen(
                 SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                 if (state.goalEnabled) GoalField(state, viewModel::setGoal)
                 SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
-                VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
+                ChoiceRow("Vibrate at the limit", VIBRATE_INFO, listOf(false to "Unless silent", true to "Always"), state.vibrateAlways, viewModel::setVibrateAlways)
+                ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
                 Appliances(state, viewModel)
             }
         }
@@ -533,18 +543,18 @@ private fun UnitRow(unit: PowerUnit, onUnit: (PowerUnit) -> Unit) {
     }
 }
 
-/** How the phone vibrates when this quarter hour reaches the limit: unless silent, or always. */
+/** A setting with two choices under its label: Vibrate at the limit, Draw ahead. */
 @Composable
-private fun VibrateRow(always: Boolean, onAlways: (Boolean) -> Unit) {
+private fun ChoiceRow(label: String, info: Info, choices: List<Pair<Boolean, String>>, selected: Boolean, onSelect: (Boolean) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        InfoLabel("Vibrate at the limit", VIBRATE_INFO)
+        InfoLabel(label, info)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf(false to "Unless silent", true to "Always").forEachIndexed { i, (value, label) ->
+            choices.forEachIndexed { i, (value, text) ->
                 SegmentedButton(
-                    selected = always == value,
-                    onClick = { onAlways(value) },
-                    shape = SegmentedButtonDefaults.itemShape(i, 2),
-                ) { Text(label) }
+                    selected = selected == value,
+                    onClick = { onSelect(value) },
+                    shape = SegmentedButtonDefaults.itemShape(i, choices.size),
+                ) { Text(text) }
             }
         }
     }

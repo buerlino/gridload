@@ -5,6 +5,7 @@ import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.Quarter
+import io.github.buerlino.gridload.core.DrawAverage
 import io.github.buerlino.gridload.core.QuarterProjector
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.RecorderFiles
@@ -81,6 +82,7 @@ private val TYPING = Duration.ofSeconds(10)
  */
 class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private val publish: (MeterState) -> Unit) {
     private val projector = QuarterProjector()
+    private val average = DrawAverage()
     private val files = RecorderFiles(recorderDir)
     private var recording = Recording()
     /** The month whose files are loaded. */
@@ -109,7 +111,10 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
 
     /** The address was edited; [changed] when it's really another one, maybe another meter. */
     fun addressEdited(changed: Boolean) {
-        if (changed) projector.reset()
+        if (changed) {
+            projector.reset()
+            average.reset()
+        }
         editedAt = Instant.now()
         clearReading()
         set { it.copy(testResult = null, recorderInstalled = false) }
@@ -118,10 +123,10 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
     /**
      * Called every few seconds while the app is visible: reads [address], if any. With [peak]
      * load on, it also shows the copied quarter hours at once, copies new ones when a line is
-     * due, and projects this quarter hour. A failure shows a quiet line instead of the last
-     * value, which would be stale.
+     * due, and projects this quarter hour, assuming the 2-minute average ahead if [averaged], else
+     * the latest reading. A failure shows a quiet line instead of the last value, which would be stale.
      */
-    suspend fun read(address: String?, peak: Boolean) {
+    suspend fun read(address: String?, peak: Boolean, averaged: Boolean) {
         if (peak) loadMonth()
         if (address == null || editedAt?.let { Duration.between(it, Instant.now()) < TYPING } == true) return
         val generation = generation
@@ -150,7 +155,12 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
         if (!acting && shouldSync(Instant.now())) sync(address)
         val time = reading.time
         val kwh = reading.energyKwh
-        val projection = if (kw != null && time != null && kwh != null) projector.project(time, kwh, kw, recording.lastEnd) else null
+        val projection = if (kw != null && time != null && kwh != null) {
+            val ahead = average.add(time, kwh)?.takeIf { averaged } ?: kw
+            projector.project(time, kwh, ahead, recording.lastEnd)
+        } else {
+            null
+        }
         set { it.copy(projection = projection) }
     }
 

@@ -64,6 +64,16 @@ the whole run: fine for a kettle, clumsy for a dishwasher.
   what it draws, and this agrees with the peak window's bar. This quarter uses the bar's own
   projection, so the row and the bar always agree (both at the limit; at 90% of the line until
   the floor, below).
+  - **Since 2026-10-04 the draw ahead** (user): a hob at medium heat cycles every 15 to 30 s, so
+    the latest 5 s reading swung by its full power, and the preview's later quarters, the "now"
+    bar and the rows flipped with it. By default the draw assumed ahead (the rest of this
+    quarter and the later ones) is the meter's average over the last 2 minutes, from the
+    register (`DrawAverage`); Settings → Mode → Draw ahead switches back to the latest reading.
+  - **Red in the preview is what goes over the limit** (user, 2026-10-04: the visuals must be
+    accurate): the appliance's whole share used to turn red, so the red started at the house's
+    top, below the line, and looked like the amount over. Now everything above the line is red
+    (house included when the house alone is over), so the red starts exactly at the line. A bar
+    exactly at the limit shows no red; the header ("0.0 kW free", red) and the row's line warn.
 - **A short run adds little to a quarter:** power × minutes / 15. So starting at the next quarter
   hour often fits when now doesn't: a kettle in a fresh quarter adds 2.2 kW × 3/15. A long run
   adds its full power to every quarter it covers. Seen on the phone: a kettle at 14:15 drawing

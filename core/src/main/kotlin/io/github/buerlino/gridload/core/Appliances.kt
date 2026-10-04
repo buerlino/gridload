@@ -213,8 +213,6 @@ internal fun measure(start: Instant, done: Instant, beforeKw: Double, baseKw: Do
 data class PeakNow(
     /** This quarter hour's projection, as the peak window shows it. */
     val projection: Projection,
-    /** The draw now, assumed for the later quarter hours. */
-    val drawKw: Double,
     /** From [peakLine]; null when there's no line, so the peak never blocks. */
     val line: Double?,
 )
@@ -226,13 +224,13 @@ data class QuarterLoad(val start: Instant, val houseKw: Double, val addedKw: Dou
 
 /**
  * Each quarter hour the run touches if started at [start]: the household (this quarter: the peak
- * window's projection; later ones: the draw now) plus the curve's energy in it as an average kW.
+ * window's projection; later ones: the draw it assumes ahead, [Projection.aheadKw]) plus the curve's energy in it as an average kW.
  * The peak check and the peak window's preview both use it, so they always agree.
  */
 fun Appliance.quarterLoads(start: Instant, peak: PeakNow): List<QuarterLoad> {
     val end = endIfStarted(start)
     return generateSequence(quarterStart(start)) { it.plusSeconds(QUARTER_SECONDS) }.takeWhile { it < end }.map { q ->
-        val house = if (q == peak.projection.start) peak.projection.kw else peak.drawKw
+        val house = if (q == peak.projection.start) peak.projection.kw else peak.projection.aheadKw
         QuarterLoad(q, house, curve.kwhBetween(minutesBetween(start, q), minutesBetween(start, q.plusSeconds(QUARTER_SECONDS))) * 4)
     }.toList()
 }

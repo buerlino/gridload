@@ -240,8 +240,9 @@ Still open:
      Delay 15 h".
    - ~~Wording~~: done 2026-10-03 (user): no "at" before "tomorrow" ("Cheaper tomorrow 10:00"),
      seen on the phone.
-   - "Kettle 1 L" has Can wait on for the before-12:00 check on 2026-10-04 (the user sends a
-     screenshot); switch it back off afterwards, as in the user's export.
+   - Before 12:00: seen 2026-10-04 10:41 (v0.12.0 release, CKW, green at 16.7 Rp, only today's
+     prices): "Kettle 1 L" with Can wait on gives OK, with a 1 h delay too; switched back off
+     (no delay), as in the user's export. A WAIT before 12:00 (a red morning) is still unseen.
    - Can wait on is saved by leaving the key out: `json` doesn't encode defaults, and
      `canWait`/`countsForLimit` default to true. Check the row or the sheet, not a grep for
      `"canWait":true` (a 2026-10-03 session took this for a bug).
@@ -459,6 +460,21 @@ Later phases, in order (each settled with the user before it starts):
 - **Norway**, once Norgespris' 2027 terms are known: its hourly top-three-days peak model.
 - Not planned: Czechia, Poland, Hungary, Slovenia (local currencies, uptake unknown); France,
   Italy, Portugal (see the research file).
+
+### Accurate preview and draw ahead [built 2026-10-04, unreleased]
+
+The user: "the data visualization must be ACCURATE". Details in CLAUDE.md (Projection, Preview)
+and [research/appliances.md](../../../research/appliances.md).
+1. ~~Red only above the limit~~ in the preview's stacked bars (`Scale` in `PeakWindow.kt`).
+   Seen on the phone 2026-10-04 with a temporary "Test 3.3 kW" (Counts for the limit off, so the
+   limit stayed 2.9): 3.4 at 11:00, red from the line, "0.5 kW over". The plain "now" bar stays
+   all red at the limit (user's choice).
+2. ~~Draw ahead~~ (`DrawAverage`, `Projection.aheadKw`, `peak_draw_average`, Settings → Mode;
+   `PeakNow.drawKw` dropped, the projection carries it). Help, README and the ⓘ updated.
+   **Open:** see it with the hob cycling (the later quarters steady on 2-min average, jumping on
+   Latest reading).
+3. **Open:** release as a patch (v0.12.1: versionName, `APP_VERSION`, changelog 16.txt). The
+   phone runs the debug build since this test, so the release needs another uninstall.
 
 ### Rainy day
 

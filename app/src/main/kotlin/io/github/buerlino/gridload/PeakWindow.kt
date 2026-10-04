@@ -43,7 +43,7 @@ private val APPLIANCE = Color(0xFF1E88E5)
  * limit ("1.3 kW free", [peakLine]), with the minutes left in this quarter hour if switched on;
  * open, the scale shows the past quarter hours, this one projected in the middle, room for the
  * coming ones, and the limit. The bar and the header turn red at the limit. Without one (no
- * goal, no appliance, nothing recorded yet) the header shows the draw now. The
+ * goal, no appliance, nothing recorded yet) the header shows the projection. The
  * warning and what's wrong with the recorder (tap it for Settings) show collapsed too, so the
  * alarm is never hidden. With a preview (an appliance row tapped), the coming quarter hours
  * show its run started now on top of the house, and the header the tightest of them.
@@ -105,7 +105,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
             if (preview != null) {
                 Note(buildAnnotatedString {
                     withStyle(SpanStyle(color = BAR)) { append("■") }
-                    append(" House as now   ")
+                    append(if (state.drawAverage) " House, 2-min average   " else " House as now   ")
                     withStyle(SpanStyle(color = APPLIANCE)) { append("■") }
                     append(" $preview")
                 })
@@ -207,7 +207,9 @@ private fun Scale(bars: List<Bar>, line: Double?, unit: PowerUnit) {
             val barTop = axis.y(bar.kw + bar.addedKw)
             if (bar.addedKw > 0) {
                 drawRect(BAR, Offset(x, houseTop), Size(barW, bottom - houseTop))
-                drawRect(if (bar.warning) RED else APPLIANCE, Offset(x, barTop), Size(barW, houseTop - barTop))
+                drawRect(APPLIANCE, Offset(x, barTop), Size(barW, houseTop - barTop))
+                // Red only above the limit, so it starts exactly at the line and shows how much is over.
+                lineYs.firstOrNull()?.takeIf { bar.warning && it > barTop }?.let { drawRect(RED, Offset(x, barTop), Size(barW, it - barTop)) }
             } else {
                 val color = if (!bar.current) PAST_BAR else if (bar.warning) RED else BAR
                 drawRect(color, Offset(x, barTop), Size(barW, bottom - barTop))

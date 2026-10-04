@@ -80,6 +80,8 @@ data class UiState(
     val countdown: Boolean = false,
     /** Vibrate at the limit in silent mode too, as an alarm; else as a notification, so not while the phone is silent. */
     val vibrateAlways: Boolean = false,
+    /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours); else the latest reading. */
+    val drawAverage: Boolean = true,
     /** Whether the peak window, the appliances and the history are expanded. */
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
@@ -182,6 +184,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             priceVat = prefs.getString(KEY_PRICE_VAT, null)?.let(::parseNonNegative),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
+            drawAverage = prefs.getBoolean(KEY_DRAW_AVERAGE, true),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
             appliancesOpen = prefs.getBoolean(KEY_APPLIANCES_OPEN, true),
@@ -249,8 +252,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val now = Instant.now()
         _state.update { s ->
             val projection = s.meter.projection
-            val kw = s.meter.kw
-            val peak = if (projection != null && kw != null) PeakNow(projection, kw, s.peakLine) else null
+            val peak = if (projection != null && s.meter.kw != null) PeakNow(projection, s.peakLine) else null
             // Gone without a reading, or when the appliance is deleted, renamed or measured again.
             val previewed = s.appliances.find { it.name == s.preview && it.name != s.measuring?.appliance?.name }
             val previewLoads = if (peak != null && previewed != null) previewed.quarterLoads(now, peak) else emptyList()
@@ -476,6 +478,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(vibrateAlways = always) }
     }
 
+    fun setDrawAverage(average: Boolean) {
+        prefs.edit { putBoolean(KEY_DRAW_AVERAGE, average) }
+        _state.update { it.copy(drawAverage = average) }
+    }
+
     /** Saves (or, blank, clears) the whatwatt device address. */
     fun setWhatwattAddress(address: String) {
         val trimmed = address.trim()
@@ -506,7 +513,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Called every few seconds while the app is visible: reads the whatwatt, if it's switched on. */
     suspend fun readMeter() {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
-        meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled)
+        meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled, averaged = _state.value.drawAverage)
         warnIfClose()
         derive()
     }
@@ -612,6 +619,7 @@ private const val KEY_PRICE_ADDON = "price_addon"
 private const val KEY_PRICE_VAT = "price_vat"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
+private const val KEY_DRAW_AVERAGE = "peak_draw_average"
 private const val KEY_PEAK_OPEN = "peak_open"
 private const val KEY_HISTORY_OPEN = "history_open"
 private const val KEY_APPLIANCES_OPEN = "appliances_open"

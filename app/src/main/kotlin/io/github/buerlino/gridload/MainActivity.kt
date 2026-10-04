@@ -470,6 +470,7 @@ fun HelpContent(country: Country?) {
         help.peakLines.forEach { Text(it) }
         Text("Switch it on in Settings → 📊 Mode. It needs the whatwatt with an SD card, and the recorder, which you install under Measurement.")
         Text("The scale shows the three quarter hours before, now in the middle, and the three coming.")
+        Text("Now is projected: what this quarter hour used so far, then your recent draw until it ends (Settings → 📊 Mode → Draw ahead).")
         Text("\"kW free\" is how much more you can switch on before the limit.")
         Text(help.limit)
         Text("Up to the month's highest is billed anyway, and the biggest appliance reaches its own peak alone. Only stacking costs extra.")
@@ -482,7 +483,7 @@ fun HelpContent(country: Country?) {
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
         Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")
         Text("OK: fine to switch on now. WAIT: it would reach the limit, or a later start is clearly cheaper. The row says when.")
-        Text("Tap a row to see its run on the scale. Hold it to edit.")
+        Text("Tap a row to see its run on the scale; red is what goes over the limit. Hold it to edit.")
         Text("Can wait: the price counts too, e.g. a dishwasher. Off, only the limit counts, e.g. a kettle.")
         Text("Counts for the limit: its heaviest quarter hour can raise the limit. Switch it off for one you rarely use.")
         Text("Start delay: if the appliance has one, WAIT says what to set.")
