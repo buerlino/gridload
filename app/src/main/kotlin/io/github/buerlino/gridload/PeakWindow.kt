@@ -53,11 +53,10 @@ private val APPLIANCE = Color(0xFF1E88E5)
 
 /**
  * Peak load's white panel under the spot price. Its header says how much more fits under the
- * limit ("1.3 kW free", [peakLine]), with the minutes left in this quarter hour if switched on;
+ * limit ("1.3 kW free", [UiState.peakLine]), with the minutes left in this quarter hour if switched on;
  * open, the scale shows the past quarter hours, this one projected in the middle, room for the
- * coming ones, and the limit. The bar and the header turn red at the limit. Without one (no
- * goal, no appliance, no minimum in the region, nothing recorded yet) the header shows the
- * projection. The warning, with Share to tell the household, and what's wrong with the
+ * coming ones, and the limit. The bar and the header turn red at the limit. Without one (no part
+ * of it on with a value) the header shows the projection. The warning, with Share to tell the household, and what's wrong with the
  * recorder (tap it for Settings) show collapsed too, so the alarm is never hidden. With a preview (an appliance row tapped), the coming quarter hours
  * show its run started now on top of the house, and the header the tightest of them.
  */

@@ -61,28 +61,93 @@ class QuartersTest {
         assertNull(average.add(at("16:04:05"), 50.0))
     }
 
+    private val all = LimitPart.entries.toSet()
+    private val defaults = setOf(LimitPart.HIGHEST, LimitPart.FLOOR, LimitPart.MINIMUM)
+    private val cooking = Floor(2.65, "Cooking")
+
+    /** The limit's kW with all parts on, and the appliances panel shown unless said. */
+    private fun kw(goal: Double?, floor: Double?, minimum: Double?, highest: Quarter?, on: Set<LimitPart> = all) =
+        (peakLimit(on, true, minimum, highest, floor?.let { Floor(it, "A") }, goal) as? Limit)?.kw
+
     @Test
-    fun theLineIsTheHighestOfGoalFloorMinimumAndMonthsHighest() {
+    fun theLimitIsTheHighestOfThePartsSwitchedOn() {
         val highest = Quarter(at("17:15:00"), 0.95)
         assertEquals(3.8, highest.kw, 1e-9)
-        assertEquals(3.8, peakLine(3.0, 2.6, 2.0, highest)!!, 1e-9)
-        assertEquals(4.5, peakLine(4.5, 2.6, 2.0, highest)!!, 1e-9)
-        assertEquals(4.2, peakLine(3.0, 4.2, 2.0, highest)!!, 1e-9)
-        assertEquals(5.0, peakLine(3.0, 2.6, 5.0, highest)!!, 1e-9)
+        assertEquals(3.8, kw(3.0, 2.6, 2.0, highest)!!, 1e-9)
+        assertEquals(4.5, kw(4.5, 2.6, 2.0, highest)!!, 1e-9)
+        assertEquals(4.2, kw(3.0, 4.2, 2.0, highest)!!, 1e-9)
+        assertEquals(5.0, kw(3.0, 2.6, 5.0, highest)!!, 1e-9)
         // Each one alone.
-        assertEquals(3.0, peakLine(3.0, null, null, null)!!, 1e-9)
-        assertEquals(2.6, peakLine(null, 2.6, null, null)!!, 1e-9)
-        assertEquals(2.5, peakLine(null, null, 2.5, null)!!, 1e-9)
-        assertEquals(3.8, peakLine(null, null, null, highest)!!, 1e-9)
-        assertNull(peakLine(null, null, null, null))
+        assertEquals(3.0, kw(3.0, null, null, null)!!, 1e-9)
+        assertEquals(2.6, kw(null, 2.6, null, null)!!, 1e-9)
+        assertEquals(2.5, kw(null, null, 2.5, null)!!, 1e-9)
+        assertEquals(3.8, kw(null, null, null, highest)!!, 1e-9)
+        assertNull(kw(null, null, null, null))
         // The minimum against each of the others: it counts only where it's higher.
-        assertEquals(2.5, peakLine(2.0, null, 2.5, null)!!, 1e-9)
-        assertEquals(2.65, peakLine(null, 2.65, 2.5, null)!!, 1e-9)
-        assertEquals(2.5, peakLine(null, null, 2.5, Quarter(at("17:15:00"), 0.525))!!, 1e-9)
+        assertEquals(2.5, kw(2.0, null, 2.5, null)!!, 1e-9)
+        assertEquals(2.65, kw(null, 2.65, 2.5, null)!!, 1e-9)
+        assertEquals(2.5, kw(null, null, 2.5, Quarter(at("17:15:00"), 0.525))!!, 1e-9)
         // A minimum of 0 (billed, but with no minimum) is no line.
-        assertNull(peakLine(null, null, 0.0, null))
-        assertEquals(2.6, peakLine(null, 2.6, 0.0, null)!!, 1e-9)
-        // Red at the line itself.
+        assertNull(kw(null, null, 0.0, null))
+        assertEquals(2.6, kw(null, 2.6, 0.0, null)!!, 1e-9)
+        // A part switched off doesn't count: the goal can sit below the month's highest.
+        assertEquals(3.0, kw(3.0, 2.6, 2.0, highest, on = setOf(LimitPart.GOAL))!!, 1e-9)
+        assertEquals(2.6, kw(1.0, 2.6, 2.0, highest, on = setOf(LimitPart.GOAL, LimitPart.FLOOR))!!, 1e-9)
+        assertEquals(2.0, kw(1.0, 2.6, 2.0, highest, on = setOf(LimitPart.GOAL, LimitPart.MINIMUM))!!, 1e-9)
+    }
+
+    @Test
+    fun theLimitSaysWhichPartSetsIt() {
+        val highest = Quarter(at("17:15:00"), 1.0)
+        assertEquals(Limit(4.0, LimitPart.HIGHEST), peakLimit(all, true, 2.0, highest, cooking, 3.0))
+        assertEquals(Limit(2.65, LimitPart.FLOOR, "Cooking"), peakLimit(all, true, 2.0, null, cooking, 1.0))
+        assertEquals(Limit(2.0, LimitPart.MINIMUM), peakLimit(all, true, 2.0, null, null, 1.0))
+        assertEquals(Limit(5.0, LimitPart.GOAL), peakLimit(all, true, 2.0, highest, cooking, 5.0))
+        // Ties name the first in order: the month's highest, the floor, the minimum, the goal.
+        val two = Quarter(at("17:15:00"), 0.5)
+        assertEquals(Limit(2.0, LimitPart.HIGHEST), peakLimit(all, true, 2.0, two, Floor(2.0, "A"), 2.0))
+        assertEquals(Limit(2.0, LimitPart.FLOOR, "A"), peakLimit(all, true, 2.0, null, Floor(2.0, "A"), 2.0))
+        assertEquals(Limit(2.0, LimitPart.MINIMUM), peakLimit(all, true, 2.0, null, null, 2.0))
+    }
+
+    @Test
+    fun onlyThePartsThatApplyCount() {
+        assertEquals(LimitPart.entries, limitParts(true, 2.0))
+        assertEquals(listOf(LimitPart.HIGHEST, LimitPart.MINIMUM, LimitPart.GOAL), limitParts(false, 2.0))
+        assertEquals(listOf(LimitPart.HIGHEST, LimitPart.FLOOR, LimitPart.GOAL), limitParts(true, 0.0))
+        assertEquals(listOf(LimitPart.HIGHEST, LimitPart.GOAL), limitParts(false, null))
+        // The floor while the appliances panel is hidden, the minimum where the region has none.
+        assertEquals(NoLimit.NOTHING_ON, peakLimit(setOf(LimitPart.FLOOR), false, 2.0, null, cooking, null))
+        assertEquals(NoLimit.NOTHING_ON, peakLimit(setOf(LimitPart.MINIMUM), true, null, null, cooking, null))
+        assertEquals(NoLimit.NOTHING_ON, peakLimit(setOf(LimitPart.MINIMUM), true, 0.0, null, cooking, null))
+        assertEquals(NoLimit.NOTHING_ON, peakLimit(emptySet(), true, 2.0, null, cooking, 3.0))
+    }
+
+    @Test
+    fun withoutALimitItSaysWhy() {
+        assertEquals(NoLimit.NOTHING_RECORDED, peakLimit(all, true, null, null, null, null))
+        assertEquals(NoLimit.NOTHING_RECORDED, peakLimit(setOf(LimitPart.HIGHEST), true, 2.0, null, cooking, 3.0))
+        assertEquals(NoLimit.NO_APPLIANCE, peakLimit(setOf(LimitPart.FLOOR, LimitPart.GOAL), true, null, null, null, null))
+        assertEquals(NoLimit.NO_GOAL, peakLimit(setOf(LimitPart.GOAL), true, 2.0, Quarter(at("17:15:00"), 1.0), cooking, null))
+        // A hidden floor doesn't name the reason: the goal is the part on that applies.
+        assertEquals(NoLimit.NO_GOAL, peakLimit(setOf(LimitPart.FLOOR, LimitPart.GOAL), false, null, null, null, null))
+    }
+
+    @Test
+    fun theDefaultsGiveTheLimitAsBeforeTheSwitches() {
+        val highests = listOf(null, Quarter(at("17:15:00"), 0.5), Quarter(at("17:15:00"), 1.2))
+        for (goalOn in listOf(false, true)) for (goal in listOf(null, 1.5, 3.0, 6.0)) for (shown in listOf(false, true))
+            for (floor in listOf(null, 1.0, 2.65, 4.4)) for (minimum in listOf(null, 0.0, 2.0, 2.5)) for (highest in highests) {
+                // peakLine up to v0.13: the goal when on, the floor while the panel shows, a minimum above 0, the month's highest.
+                val before = listOfNotNull(goal?.takeIf { goalOn }, floor?.takeIf { shown }, minimum?.takeIf { it > 0 }, highest?.kw).maxOrNull()
+                val on = if (goalOn) defaults + LimitPart.GOAL else defaults
+                val now = peakLimit(on, shown, minimum, highest, floor?.let { Floor(it, "A") }, goal)
+                assertEquals(before, (now as? Limit)?.kw)
+            }
+    }
+
+    @Test
+    fun redAtTheLimitItself() {
         assertFalse(isPeakWarning(3.79, 3.8))
         assertTrue(isPeakWarning(3.8, 3.8))
     }

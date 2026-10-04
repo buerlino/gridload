@@ -64,8 +64,11 @@ class AppliancesTest {
 
     @Test
     fun theFloorIsTheBiggestApplianceThatCountsPlus20Percent() {
-        assertEquals(2.4, peakFloor(listOf(kettle, dishwasher))!!, 1e-9)
-        assertEquals(0.528, peakFloor(listOf(kettle, dishwasher.copy(countsForLimit = false)))!!, 1e-9)
+        assertEquals(2.4, peakFloor(listOf(kettle, dishwasher))!!.kw, 1e-9)
+        assertEquals(dishwasher.name, peakFloor(listOf(kettle, dishwasher))!!.appliance)
+        val kettleAlone = peakFloor(listOf(kettle, dishwasher.copy(countsForLimit = false)))!!
+        assertEquals(0.528, kettleAlone.kw, 1e-9)
+        assertEquals(kettle.name, kettleAlone.appliance)
         assertEquals(null, peakFloor(listOf(dishwasher.copy(countsForLimit = false))))
         assertEquals(null, peakFloor(emptyList()))
     }

@@ -51,7 +51,8 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   Appliances), so only the user can say whether that rule is about watts or about appliances.
   Decide before the German phase, since it changes what the appliances panel is for.
 - **[Where the limit comes from](#where-the-limit-comes-from):** with four sources, a Cooking
-  row told to wait for a floor Cooking set itself looks like a bug.
+  row told to wait for a floor Cooking set itself looks like a bug. Decided 2026-10-04: a Limit
+  setting, see below.
 - **The classification on spot prices:** the known weak point (one spike sets `max`, `CLAUDE.md`,
   Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
   sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
@@ -65,7 +66,7 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   fetch it runs dry by evening and the timer button covers most of the need.
 
 Suggested order (confirmed by the user 2026-10-04): the timer and the saving on WAIT rows (both
-in v0.13.0), then the price curve, then where the limit comes from.
+in v0.13.0), then the price curve, then where the limit comes from (built as the Limit setting).
 
 ## Panels for the main screen
 
@@ -170,6 +171,13 @@ so the peak window keeps one short line (`CLAUDE.md`: each concept in one place)
 
 **Open questions:** a dialog on tap, or a short suffix in the scale ("2.6 limit · floor")? Show it
 in the help too?
+
+**Decided (user, 2026-10-04):** neither. The line stays not tappable; instead Settings → Mode →
+**Limit** has one switch per part (month's highest, biggest appliance + 20%, tariff minimum,
+goal), each with its value, and a result line, "Limit now: 2.7 kW, from Cooking + 20%", or why
+there's none. The last switch on is locked; nothing is switched on by itself. The defaults give
+the limit as before. `peakLimit` (`Quarters.kt`) returns the value and the part, with the floor's
+appliance. Design in `CLAUDE.md`, "The limit".
 
 ## Outside the main screen
 

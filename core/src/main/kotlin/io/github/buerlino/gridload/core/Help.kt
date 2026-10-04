@@ -11,7 +11,7 @@ import java.util.Locale
  * The help's lines that depend on the country, derived from its regions, so a new country needs
  * no help change. [price] completes "based on …"; [tomorrow] says when tomorrow's prices come out;
  * [priceLines] are the regions' notes and the market prices' attribution; [peakLines] say who
- * bills the peak; [limit] lists what the limit is the highest of.
+ * bills the peak; [limit] lists what the limit is the highest of by default.
  */
 data class CountryHelp(
     val price: String,
@@ -49,8 +49,9 @@ fun countryHelp(country: Country?, now: Instant, all: List<Region> = REGIONS): C
     )
     // Without a country, any tariff may have a minimum.
     val minimum = regions.isEmpty() || regions.any { (it.minimumKw ?: 0.0) > 0 }
-    val limit = "The limit is the highest of: the month's highest ¼ hour, your biggest appliance plus 20%, " +
-        if (minimum) "your goal, and the least your tariff bills." else "and your goal."
+    val parts = if (minimum) "highest of: the month's highest ¼ hour, your biggest appliance plus 20%, and the least your tariff bills."
+    else "higher of: the month's highest ¼ hour and your biggest appliance plus 20%."
+    val limit = "By default the limit is the $parts Change it, or add a goal, in Settings → 📊 Mode → Limit."
     return CountryHelp(price, tomorrow, priceLines, peakLines, limit)
 }
 

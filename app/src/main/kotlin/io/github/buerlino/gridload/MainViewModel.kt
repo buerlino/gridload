@@ -18,6 +18,9 @@ import io.github.buerlino.gridload.core.ApplianceFile
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.CachedPrices
 import io.github.buerlino.gridload.core.HttpException
+import io.github.buerlino.gridload.core.Limit
+import io.github.buerlino.gridload.core.LimitPart
+import io.github.buerlino.gridload.core.LimitResult
 import io.github.buerlino.gridload.core.Measurement
 import io.github.buerlino.gridload.core.Measuring
 import io.github.buerlino.gridload.core.PeakNow
@@ -43,7 +46,7 @@ import io.github.buerlino.gridload.core.parseNonNegative
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
 import io.github.buerlino.gridload.core.peakFloor
-import io.github.buerlino.gridload.core.peakLine
+import io.github.buerlino.gridload.core.peakLimit
 import io.github.buerlino.gridload.core.quarterLoads
 import io.github.buerlino.gridload.core.reachedServer
 import io.github.buerlino.gridload.core.wantsFetch
@@ -71,8 +74,8 @@ data class UiState(
     val meter: MeterState = MeterState(),
     /** The peak load switch; it counts only while the whatwatt is on. */
     val peakEnabled: Boolean = false,
-    /** The goal switch and its value in kW; off, or blank, it doesn't count for the limit. */
-    val goalEnabled: Boolean = false,
+    /** The limit's parts switched on (Settings → Mode → Limit; all but the goal by default), and the goal in kW: blank, it doesn't count. */
+    val limitOn: Set<LimitPart> = setOf(LimitPart.HIGHEST, LimitPart.FLOOR, LimitPart.MINIMUM),
     val goalKw: Double? = null,
     /** In a spot region: the add-on in the small unit per kWh excl. VAT (null until entered) and the VAT in % (null: the country's). */
     val priceAddOn: Double? = null,
@@ -116,9 +119,11 @@ data class UiState(
     /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
     val cooldownEnd: Instant? = null,
 ) {
-    /** The limit: the goal (when on), the floor from the appliances (while their panel shows), the region's minimum or the month's highest, whichever is highest. */
-    val peakLine: Double? get() =
-        peakLine(goalKw?.takeIf { goalEnabled }, peakFloor(appliances).takeIf { appliancesEnabled }, region.minimumKw, meter.highest)
+    /** The limit and the part that sets it, or why there's none: the highest of the parts switched on that apply (see the core [peakLimit]). */
+    val limit: LimitResult get() =
+        peakLimit(limitOn, appliancesEnabled, region.minimumKw, meter.highest, peakFloor(appliances), goalKw)
+    /** The limit's kW, what everything that reads the limit uses; null without one, so nothing turns red. */
+    val peakLine: Double? get() = (limit as? Limit)?.kw
     /** Whether this quarter hour's projection reaches the limit: the bar turns red. */
     val peakWarning: Boolean get() {
         val projection = meter.projection ?: return false
@@ -183,7 +188,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             whatwattAddress = prefs.getString(KEY_WHATWATT_ADDRESS, null),
             powerUnit = PowerUnit.of(prefs.getString(KEY_POWER_UNIT, null)),
             peakEnabled = prefs.getBoolean(KEY_PEAK_ENABLED, false),
-            goalEnabled = prefs.getBoolean(KEY_GOAL_ENABLED, false),
+            limitOn = LIMIT_KEYS.filter { (part, key) -> prefs.getBoolean(key, part != LimitPart.GOAL) }.keys,
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parsePositive),
             priceAddOn = prefs.getString(KEY_PRICE_ADDON, null)?.let(::parseNonNegative),
             priceVat = prefs.getString(KEY_PRICE_VAT, null)?.let(::parseNonNegative),
@@ -323,14 +328,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(peakEnabled = enabled) }
     }
 
-    /** The goal switch; switched on for the first time, the goal starts at last month's highest. */
-    fun setGoalEnabled(enabled: Boolean) {
-        val first = _state.value.meter.lastMonthHighest?.takeIf { enabled && !prefs.contains(KEY_GOAL_KW) }?.let { _state.value.powerUnit.round(it.kw) }
+    /** A part of the limit switched on or off; the goal, switched on for the first time, starts at last month's highest. */
+    fun setLimitPart(part: LimitPart, on: Boolean) {
+        val first = _state.value.meter.lastMonthHighest
+            ?.takeIf { part == LimitPart.GOAL && on && !prefs.contains(KEY_GOAL_KW) }?.let { _state.value.powerUnit.round(it.kw) }
         prefs.edit {
-            putBoolean(KEY_GOAL_ENABLED, enabled)
+            putBoolean(LIMIT_KEYS.getValue(part), on)
             first?.let { putString(KEY_GOAL_KW, it.toString()) }
         }
-        _state.update { it.copy(goalEnabled = enabled, goalKw = first ?: it.goalKw) }
+        _state.update { it.copy(limitOn = if (on) it.limitOn + part else it.limitOn - part, goalKw = first ?: it.goalKw) }
     }
 
     /** The goal in kW; null (a blank field) doesn't count for the limit. */
@@ -629,6 +635,16 @@ private const val KEY_WHATWATT_ADDRESS = "whatwatt_address"
 private const val KEY_PEAK_ENABLED = "peak_enabled"
 private const val KEY_GOAL_ENABLED = "peak_goal_enabled"
 private const val KEY_GOAL_KW = "peak_goal_kw"
+private const val KEY_LIMIT_HIGHEST = "limit_highest"
+private const val KEY_LIMIT_FLOOR = "limit_floor"
+private const val KEY_LIMIT_MINIMUM = "limit_minimum"
+/** Each part of the limit's switch; on by default, but the goal. */
+private val LIMIT_KEYS = mapOf(
+    LimitPart.HIGHEST to KEY_LIMIT_HIGHEST,
+    LimitPart.FLOOR to KEY_LIMIT_FLOOR,
+    LimitPart.MINIMUM to KEY_LIMIT_MINIMUM,
+    LimitPart.GOAL to KEY_GOAL_ENABLED,
+)
 private const val KEY_POWER_UNIT = "power_unit"
 /** Strings like the goal: the add-on in ct (or Rp) per kWh excl. VAT, the VAT in %. */
 private const val KEY_PRICE_ADDON = "price_addon"

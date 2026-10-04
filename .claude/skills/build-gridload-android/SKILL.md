@@ -238,8 +238,17 @@ settled with the user before it starts.
    below 0, the bars down), folding, the switch, the ⓘ, the help line, a preview scrolling to the
    peak window, and the curve alone (peak load off). To stage negative prices: copy a fetched
    `prices.json`, set some of tomorrow's `integrated` values below 0, restore it afterwards.
-4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says which
-   (floor from which appliance, goal, minimum, highest and when).
+4. **The Limit setting** [built 2026-10-04, not released]: decided with the user in place of a
+   tap on "2.6 limit" (the line stays not tappable): Settings → Mode → Limit, one switch per part
+   (month's highest, biggest appliance + 20%, tariff minimum, goal) with its value, a lock on the
+   last one on, and "Limit now: …, from …" or why there's none. Design in `CLAUDE.md` (Peak load,
+   The limit). Seen on the Fairphone 6 (2026-10-04): each switch moves the line in the peak
+   window and the history, the lock moves to the last one on, hiding the appliances hides the
+   floor ("No limit: none of these is on."), Austria's minimum (staged in the prefs with CKW's
+   `prices.json` backed up), a goal below the draw (red bar, the vibration issued as
+   NOTIFICATION) and no limit (no line, "0.5 kW now"). Open: with the month's highest off, the
+   warning ("This ¼ hour sets a new peak.") and the WAIT rows ("Sets a new peak") overstate a
+   personal cap; the wording is the user's call.
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
 - Small, any time: the base load line in the history panel.

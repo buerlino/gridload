@@ -19,7 +19,7 @@ data class Piece(val min: Double, val kw: Double)
  * A measured appliance; its name is the key. [curve] is its extra draw, piece after piece from
  * the start. [canWait]: the price counts too, not only the peak. [delayMinutes]: the step of the
  * appliance's start delay (0 = none), so the advice is a delay to set on it. [countsForLimit]:
- * its heaviest quarter hour can raise the limit ([peakFloor]).
+ * its heaviest quarter hour sets the floor, a part of the limit ([peakFloor]).
  */
 @Serializable
 data class Appliance(
@@ -46,13 +46,17 @@ val List<Piece>.heaviestQuarterKw: Double get() =
 /** The floor's margin above the biggest appliance, for the house's base draw and some variation. */
 const val FLOOR_MARGIN = 1.2
 
+/** The floor, [kw], and the [appliance] it comes from. */
+data class Floor(val kw: Double, val appliance: String)
+
 /**
- * The lowest the limit goes: the heaviest quarter hour of the biggest appliance that counts for
- * it, plus [FLOOR_MARGIN]. That appliance sets a peak this high by itself, so it shouldn't wait
- * for one; only stacking others on it should. Null with none.
+ * The floor, a part of the limit ([peakLimit]): the heaviest quarter hour of the biggest appliance
+ * that counts for it, plus [FLOOR_MARGIN]. That appliance sets a peak this high by itself, so it
+ * shouldn't wait for one; only stacking others on it should. Null with none.
  */
-fun peakFloor(appliances: List<Appliance>): Double? =
-    appliances.filter { it.countsForLimit }.maxOfOrNull { it.curve.heaviestQuarterKw }?.times(FLOOR_MARGIN)
+fun peakFloor(appliances: List<Appliance>): Floor? =
+    appliances.filter { it.countsForLimit }.maxByOrNull { it.curve.heaviestQuarterKw }
+        ?.let { Floor(it.curve.heaviestQuarterKw * FLOOR_MARGIN, it.name) }
 
 /** Tap water's temperature, for [waterShare]. */
 private const val TAP_CELSIUS = 15.0
@@ -213,7 +217,7 @@ internal fun measure(start: Instant, done: Instant, beforeKw: Double, baseKw: Do
 data class PeakNow(
     /** This quarter hour's projection, as the peak window shows it. */
     val projection: Projection,
-    /** From [peakLine]; null when there's no line, so the peak never blocks. */
+    /** The limit's kW ([peakLimit]); null when there's no limit, so the peak never blocks. */
     val line: Double?,
 )
 

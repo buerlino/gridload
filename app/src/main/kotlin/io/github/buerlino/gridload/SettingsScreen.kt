@@ -67,12 +67,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.COUNTRIES
 import io.github.buerlino.gridload.core.Country
+import io.github.buerlino.gridload.core.Limit
+import io.github.buerlino.gridload.core.LimitPart
+import io.github.buerlino.gridload.core.LimitResult
+import io.github.buerlino.gridload.core.NoLimit
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.REGIONS
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.countryOf
+import io.github.buerlino.gridload.core.limitParts
 import io.github.buerlino.gridload.core.parseNonNegative
+import io.github.buerlino.gridload.core.peakFloor
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -116,14 +122,24 @@ private val RECORDER_INFO = Info(
         "the app is closed, so the month's highest is complete when you open the app. It uses the whatwatt's one script " +
         "slot. Peak load needs it.",
 )
+private val LIMIT_INFO = Info(
+    "Limit",
+    "The ¼-hour average GridLoad warns at. The red bar, \"kW free\", the vibration and WAIT all use it.\n\n" +
+        "It's the highest of the parts switched on.\n\n" +
+        "Biggest appliance + 20%: it can run alone without a warning; only stacking others on it gets one.\n\n" +
+        "¼ hours up to the month's highest and your tariff's minimum are billed anyway. Switched off, they give " +
+        "warnings that save nothing. That suits a personal cap.",
+)
 private val GOAL_INFO = Info(
     "Goal",
-    "Raises the limit to this value, e.g. to what you expect to need this month anyway. It never lowers it: the " +
-        "month's highest is billed anyway.",
+    "A value of your own, e.g. what you expect to need this month anyway.\n\n" +
+        "With Month's highest on, the goal can only raise the limit. With it off, the goal can sit below it: a " +
+        "personal cap.",
 )
 private val APPLIANCES_INFO = Info(
     "Appliances",
-    "On: the main screen shows your measured appliances, each with OK or WAIT, and the biggest can raise the limit. " +
+    "On: the main screen shows your measured appliances, each with OK or WAIT, and the biggest is a part of the " +
+        "limit (Biggest appliance + 20%). " +
         "Off hides the panel; the appliances stay. " +
         "Export saves them to a file, so you don't have to measure them again on a new phone. Import adds them from such " +
         "a file; one with the same name is replaced.",
@@ -220,7 +236,7 @@ fun SetupGuide(
  * Three sections, each a light grey card that folds to a one-line summary: the region with the
  * own price and the price curve's switch; the
  * whatwatt with its connection, the power unit and, with peak load on, the recorder; and the
- * mode, peak load with its goal, countdown and appliances. [at] opens the region section with
+ * mode, peak load with its limit, countdown and appliances. [at] opens the region section with
  * its list or at the add-on.
  */
 @Composable
@@ -288,8 +304,7 @@ fun SettingsScreen(
         ) {
             PeakLoadSwitch(state, state.region, viewModel)
             if (state.peakEnabled) {
-                SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
-                if (state.goalEnabled) GoalField(state, viewModel::setGoal)
+                LimitGroup(state, viewModel)
                 SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 ChoiceRow("Vibrate at the limit", VIBRATE_INFO, listOf(false to "Unless silent", true to "Always"), state.vibrateAlways, viewModel::setVibrateAlways)
                 ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
@@ -496,6 +511,63 @@ private fun Appliances(state: UiState, viewModel: MainViewModel) {
 }
 
 /**
+ * The limit's parts, each with its switch and value, and the limit they give now. Only the parts
+ * that apply show ([limitParts]); the last one on among them can't be switched off, so nothing
+ * hidden is left to hold the limit. Nothing is ever switched on by itself.
+ */
+@Composable
+private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
+    val unit = state.powerUnit
+    val parts = limitParts(state.appliancesEnabled, state.region.minimumKw)
+    val locked = parts.singleOrNull { it in state.limitOn }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        InfoLabel("Limit", LIMIT_INFO)
+        parts.forEach { part ->
+            val on = part in state.limitOn
+            val onChange = { checked: Boolean -> viewModel.setLimitPart(part, checked) }
+            when (part) {
+                LimitPart.HIGHEST ->
+                    SwitchRow("Month's highest", null, on, onChange, state.meter.highest?.let { unit.format(it.kw) } ?: "Nothing recorded yet", part != locked)
+                LimitPart.FLOOR -> {
+                    val floor = peakFloor(state.appliances)
+                    SwitchRow("Biggest appliance + 20%", null, on, onChange, floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
+                }
+                LimitPart.MINIMUM -> SwitchRow("Tariff minimum", null, on, onChange, state.region.minimumKw?.let(unit::format), part != locked)
+                LimitPart.GOAL -> SwitchRow("Goal", GOAL_INFO, on, onChange, enabled = part != locked)
+            }
+            if (part == locked) Text("At least one must stay on.", color = MUTED)
+            if (part == LimitPart.GOAL && on) GoalField(state, viewModel::setGoal)
+        }
+        Text(limitLine(state.limit, state))
+    }
+}
+
+/** "Limit now: **2.7 kW**, from Cooking + 20%", or why there's none. */
+private fun limitLine(limit: LimitResult, state: UiState) = buildAnnotatedString {
+    when (limit) {
+        is Limit -> {
+            append("Limit now: ")
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(state.powerUnit.format(limit.kw)) }
+            append(", from ")
+            append(
+                when (limit.part) {
+                    LimitPart.HIGHEST -> "the month's highest" +
+                        state.meter.highest?.let { ", " + dayTimeFormat.format(it.start.atZone(state.region.zone)) }.orEmpty()
+                    // Kept on one line.
+                    LimitPart.FLOOR -> "${limit.appliance}\u00A0+\u00A020%"
+                    LimitPart.MINIMUM -> "your tariff's minimum"
+                    LimitPart.GOAL -> "your goal"
+                },
+            )
+        }
+        NoLimit.NOTHING_ON -> append("No limit: none of these is on.")
+        NoLimit.NOTHING_RECORDED -> append("No limit: nothing recorded this month yet.")
+        NoLimit.NO_APPLIANCE -> append("No limit: no appliance counts for it.")
+        NoLimit.NO_GOAL -> append("No limit: the goal is empty.")
+    }
+}
+
+/**
  * The add-on and the VAT that turn the market price into the user's own. The VAT field shows the
  * country's rate until another is typed; that rate is saved as blank, so it follows the country.
  * [focus] puts the cursor in the add-on (from the main screen's "Set your price").
@@ -622,11 +694,15 @@ private fun InfoDialog(info: Info, onDismiss: () -> Unit) {
     )
 }
 
+/** A setting's switch; [value], if any, in a muted line below the label (the limit's parts). */
 @Composable
-private fun SwitchRow(label: String, info: Info?, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchRow(label: String, info: Info?, checked: Boolean, onChange: (Boolean) -> Unit, value: String? = null, enabled: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f)) { if (info == null) Text(label) else InfoLabel(label, info) }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Column(Modifier.weight(1f)) {
+            if (info == null) Text(label) else InfoLabel(label, info)
+            value?.let { Text(it, color = MUTED) }
+        }
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 

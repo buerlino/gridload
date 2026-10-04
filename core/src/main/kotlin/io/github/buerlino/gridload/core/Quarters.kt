@@ -25,14 +25,62 @@ data class Projection(val kw: Double, val end: Instant, val time: Instant, val a
 private const val BASE_MINUTES = 5
 
 /**
- * The limit, the kW not to pass in this quarter hour: the highest of the goal, the floor
- * ([peakFloor]), the tariff's minimum ([Region.minimumKw]) and the month's highest quarter hour.
- * Anything up to the month's highest or the minimum is billed anyway, and the biggest appliance
- * sets a peak up to the floor by itself, so only stacking passes it. A minimum of 0 is no line.
- * Null with none of them.
+ * The parts the limit can come from, each with a switch in Settings → Mode → Limit, in the order
+ * that names one of a tie: the month's highest first, since it's billed anyway.
  */
-fun peakLine(goalKw: Double?, floorKw: Double?, minimumKw: Double?, highest: Quarter?): Double? =
-    listOfNotNull(goalKw, floorKw, minimumKw?.takeIf { it > 0 }, highest?.kw).maxOrNull()
+enum class LimitPart { HIGHEST, FLOOR, MINIMUM, GOAL }
+
+/**
+ * The parts that apply, so their switches show: the month's highest and the goal always, the
+ * floor while the appliances panel shows, the tariff's minimum where it's above 0.
+ */
+fun limitParts(appliancesShown: Boolean, minimumKw: Double?): List<LimitPart> = LimitPart.entries.filter {
+    when (it) {
+        LimitPart.FLOOR -> appliancesShown
+        LimitPart.MINIMUM -> (minimumKw ?: 0.0) > 0
+        else -> true
+    }
+}
+
+/** The limit, or why there's none. */
+sealed interface LimitResult
+
+/** The limit, the kW not to pass in this quarter hour, and the [part] that sets it; [appliance] is the floor's. */
+data class Limit(val kw: Double, val part: LimitPart, val appliance: String? = null) : LimitResult
+
+/**
+ * Why there's no limit: no part that applies is switched on, or none of those on has a value:
+ * nothing recorded this month, no appliance counting for the limit, or no goal typed in. Named by
+ * the first part on, in [LimitPart] order.
+ */
+enum class NoLimit : LimitResult { NOTHING_ON, NOTHING_RECORDED, NO_APPLIANCE, NO_GOAL }
+
+/**
+ * The limit: the highest of the parts switched on ([on]) that apply ([limitParts]) and have a
+ * value: the month's [highest] quarter hour, the [floor] ([peakFloor]), the tariff's minimum
+ * ([Region.minimumKw]) and the goal. Anything up to the month's highest or the minimum is billed
+ * anyway, and the biggest appliance sets a peak up to the floor by itself, so with those on only
+ * stacking passes it. Without them it's a personal cap.
+ */
+fun peakLimit(on: Set<LimitPart>, appliancesShown: Boolean, minimumKw: Double?, highest: Quarter?, floor: Floor?, goalKw: Double?): LimitResult {
+    val parts = limitParts(appliancesShown, minimumKw).filter { it in on }
+    val values = parts.mapNotNull { part ->
+        when (part) {
+            LimitPart.HIGHEST -> highest?.let { Limit(it.kw, part) }
+            LimitPart.FLOOR -> floor?.let { Limit(it.kw, part, it.appliance) }
+            LimitPart.MINIMUM -> minimumKw?.let { Limit(it, part) }
+            LimitPart.GOAL -> goalKw?.let { Limit(it, part) }
+        }
+    }
+    // The first of a tie, in the parts' order.
+    return values.maxByOrNull { it.kw } ?: when {
+        parts.isEmpty() -> NoLimit.NOTHING_ON
+        LimitPart.HIGHEST in parts -> NoLimit.NOTHING_RECORDED
+        LimitPart.FLOOR in parts -> NoLimit.NO_APPLIANCE
+        // The minimum applies only with a value above 0.
+        else -> NoLimit.NO_GOAL
+    }
+}
 
 /** Red at the limit: the bar, the vibration and an appliance's WAIT. */
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= line
