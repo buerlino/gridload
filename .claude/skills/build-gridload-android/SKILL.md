@@ -243,6 +243,16 @@ settled with the user before it starts.
 Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
 2-min average, jumping on Latest reading).
 
+### Household alerts [planned, user 2026-10-04]
+
+Telling the household when a quarter hour heads for a new peak. Research, design and sources in
+`research/household_alerts.md`; where it fits among the other phases is the user's call.
+1. **(a) Share link** (default): "Tell the household ›" under the peak warning opens the share
+   sheet with a ready text (WhatsApp, Signal, any messenger). No setting, no permission.
+2. ~~(b) ntfy~~: dropped 2026-10-04 (it sends only while GridLoad is open somewhere).
+3. Later, not planned: (b2) a background sender on a hub phone (phase 5) with ntfy, the only
+   way an automatic alert would be useful; see the research file.
+
 ### Later phases, in order (each settled with the user before it starts)
 
 - **German** (user, 2026-10-03): move the inline UI strings to `strings.xml`, add `values-de`,

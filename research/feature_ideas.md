@@ -192,6 +192,11 @@ the cache runs out.
 **Open questions:** fetch in the background (the cooldown and rate limit still apply), or only
 from the cache? The whatwatt stays out of it (no LAN access in the background).
 
+### Household alerts
+
+Planned (user, 2026-10-04): a share link under the peak warning. ntfy was dropped (it would send
+only while GridLoad is open). See [household_alerts.md](household_alerts.md).
+
 ### "Green from 11:00" notification
 
 **What:** one notification when the next good time starts, or one in the morning about today's
