@@ -125,11 +125,11 @@ reproducible-build check. The MR description says the APK has AndroidX's
 v0.3.1.
 
 Status (2026-10-04): the MR's head is 0.13.0 (`3ade4eee0`, versionCode 16, pipeline green).
-The move to 0.14.0 (versionCode 17, commit `758b0f3d459016dc5f4eb8ea1ae94d958a8750a3`, the
-annotated tag's commit) is prepared in `../fdroiddata`, not yet committed or pushed. Checked
-2026-10-04: the GitHub APK of v0.14.0 (sha256 `2a38f0cd…5e59a20`) is signed with the
+Checked 2026-10-04: the GitHub APK of v0.14.0 (sha256 `2a38f0cd…5e59a20`) is signed with the
 `AllowedAPKSigningKeys` certificate, and its 25 entries outside `META-INF/` equal an unsigned
-build of the tag (names and sha256). The NonFreeNet text, unchanged since 0.12.0:
+build of the tag. The recipe skips it for v0.14.1 (versionCode 18, the same app with new store
+screenshots and description, since F-Droid reads those from the built tag): to move once the
+v0.14.1 APK is out and checked the same way; then delete changelog 17. The NonFreeNet text, unchanged since 0.12.0:
 ```
 NonFreeNet:
   en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The

@@ -1,0 +1,6 @@
+- Price curve: the next 24 hours in their colours, and how long green lasts.
+- Limit (Settings → Mode): a switch per part of the limit, and where it comes from.
+- Base load: what your house always draws, below the history.
+- Share: tell the household when a ¼ hour heads for the limit.
+- Vibrate at the limit works with notification vibration off.
+- 0.14.1: new store screenshots and description; the app is the same as 0.14.0.
