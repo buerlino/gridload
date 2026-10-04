@@ -242,7 +242,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun recompute() {
         val now = Instant.now()
-        val status = classify(slots, now)
+        val status = classify(slots, now, _state.value.region.isSpot)
         _state.update { it.copy(status = status, notice = null, cooldownEnd = cooldownEnd(lastAttempt, now, status != null)) }
         derive()
     }
@@ -257,7 +257,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val previewed = s.appliances.find { it.name == s.preview && it.name != s.measuring?.appliance?.name }
             val previewLoads = if (peak != null && previewed != null) previewed.quarterLoads(now, peak) else emptyList()
             s.copy(
-                advice = peak?.let { s.appliances.mapNotNull { a -> advise(a, now, it, slots)?.let { a.name to it } }.toMap() }.orEmpty(),
+                advice = peak?.let { s.appliances.mapNotNull { a -> advise(a, now, it, slots, s.region.isSpot)?.let { a.name to it } }.toMap() }.orEmpty(),
                 preview = s.preview.takeIf { previewLoads.isNotEmpty() },
                 previewLoads = previewLoads,
                 measurement = s.measuring?.result(s.meter.quarters),

@@ -34,22 +34,22 @@ class CoreTest {
 
     @Test
     fun middayIsGreen() {
-        val status = classify(slots, at("13:05"))!!
+        val status = classify(slots, at("13:05"), spot = false)!!
         assertEquals(Level.GREEN, status.level)
         assertEquals(0.1513, status.slot.price)
     }
 
     @Test
-    fun morningPeakIsRed() = assertEquals(Level.RED, classify(slots, at("07:00"))!!.level)
+    fun morningPeakIsRed() = assertEquals(Level.RED, classify(slots, at("07:00"), spot = false)!!.level)
 
     @Test
-    fun nightIsOrange() = assertEquals(Level.ORANGE, classify(slots, at("02:30"))!!.level)
+    fun nightIsOrange() = assertEquals(Level.ORANGE, classify(slots, at("02:30"), spot = false)!!.level)
 
     @Test
     fun slotEndIsExclusive() {
         // 16:45-17:00 is 0.1759 (green), 17:00-17:15 is 0.2223 (orange).
-        assertEquals(Level.GREEN, classify(slots, at("16:59:59"))!!.level)
-        assertEquals(Level.ORANGE, classify(slots, at("17:00"))!!.level)
+        assertEquals(Level.GREEN, classify(slots, at("16:59:59"), spot = false)!!.level)
+        assertEquals(Level.ORANGE, classify(slots, at("17:00"), spot = false)!!.level)
     }
 
     @Test
@@ -63,29 +63,63 @@ class CoreTest {
 
     @Test
     fun staleDataGivesNoStatus() {
-        assertNull(classify(slots, at("23:59").plusSeconds(60)))
-        assertNull(classify(emptyList(), Instant.now()))
+        assertNull(classify(slots, at("23:59").plusSeconds(60), spot = false))
+        assertNull(classify(emptyList(), Instant.now(), spot = false))
     }
 
     @Test
     fun flatDayIsOrange() {
         val flat = slots.map { it.copy(price = 0.2) }
-        assertEquals(Level.ORANGE, classify(flat, at("13:00"))!!.level)
+        assertEquals(Level.ORANGE, classify(flat, at("13:00"), spot = false)!!.level)
     }
 
     @Test
     fun negativePricesClassifyLikeAnyOthers() {
         // 0.10 until 10:00, −0.05 until 16:00, then 0.20: thirds of −0.05 to 0.20 at 0.0333 and 0.1167.
         val day = slots.mapIndexed { i, slot -> slot.copy(price = if (i < 40) 0.10 else if (i < 64) -0.05 else 0.20) }
-        val morning = classify(day, at("06:00"))!!
+        val morning = classify(day, at("06:00"), spot = false)!!
         assertEquals(Level.ORANGE, morning.level)
         assertEquals(at("10:00"), morning.nextGreen!!.start.toInstant())
-        assertEquals(Level.GREEN, classify(day, at("12:00"))!!.level)
-        assertEquals(Level.RED, classify(day, at("18:00"))!!.level)
+        assertEquals(Level.GREEN, classify(day, at("12:00"), spot = false)!!.level)
+        assertEquals(Level.RED, classify(day, at("18:00"), spot = false)!!.level)
         // All below 0: the same colours as the day shifted up.
         val below = day.map { it.copy(price = it.price - 1.0) }
-        listOf("06:00", "12:00", "18:00").forEach { assertEquals(classify(day, at(it))!!.level, classify(below, at(it))!!.level) }
-        assertEquals(at("10:00"), classify(below, at("06:00"))!!.nextGreen!!.start.toInstant())
+        listOf("06:00", "12:00", "18:00").forEach { assertEquals(classify(day, at(it), spot = false)!!.level, classify(below, at(it), spot = false)!!.level) }
+        assertEquals(at("10:00"), classify(below, at("06:00"), spot = false)!!.nextGreen!!.start.toInstant())
+    }
+
+    @Test
+    fun aSpikeDoesntTurnDearMarketPricesGreen() {
+        // Real Austrian prices for 10 Sep 2026: 11.7 to 51.9 ct, with an evening spike above the
+        // 90th percentile (27.1 ct) from 18:45 to 20:45. With the highest, 83 of 96 quarters were
+        // green, 07:00 at 23.3 ct too, though 11.7 ct was known to be coming.
+        val sep10 = parseEnergyCharts(javaClass.getResource("/ec-at-2026-09-10.json")!!.readText())
+        fun at(time: String) = OffsetDateTime.parse("2026-09-10T$time+02:00").toInstant()
+        assertEquals(Level.GREEN, classify(sep10, at("07:00"), spot = false)!!.level)
+        val spot = classify(sep10, at("07:00"), spot = true)!!
+        assertEquals(Level.RED, spot.level)
+        assertEquals(at("09:45"), spot.nextGreen!!.start.toInstant())
+        // The spike itself is red either way.
+        assertEquals(Level.RED, classify(sep10, at("19:45"), spot = true)!!.level)
+        assertEquals(42, sep10.count { classify(sep10, it.start.toInstant(), spot = true)!!.level == Level.GREEN })
+    }
+
+    @Test
+    fun theColourTopIsThe90thPercentileOnlyForMarketPrices() {
+        val prices = (1..100).map { it.toDouble() }
+        assertEquals(100.0, colourTop(prices, spot = false))
+        assertEquals(91.0, colourTop(prices, spot = true))
+        assertEquals(91.0, colourTop(prices.shuffled(), spot = true))
+        assertEquals(-10.0, colourTop(prices.map { it - 101.0 }, spot = true))
+        // Too few prices to leave any out, and a single one.
+        assertEquals(3.0, colourTop(listOf(1.0, 2.0, 3.0), spot = true))
+        assertEquals(5.0, colourTop(listOf(5.0), spot = true))
+        // Flat apart from a few dear slots: the highest keeps them red rather than all orange.
+        val flat = slots.mapIndexed { i, slot -> slot.copy(price = if (i in 72 until 76) 0.30 else 0.10) }
+        assertEquals(0.30, colourTop(flat.map { it.price }, spot = true))
+        assertEquals(Level.GREEN, classify(flat, at("06:00"), spot = true)!!.level)
+        assertEquals(Level.RED, classify(flat, at("18:00"), spot = true)!!.level)
+        assertEquals(Level.ORANGE, classify(slots.map { it.copy(price = 0.2) }, at("13:00"), spot = true)!!.level)
     }
 
     @Test
@@ -98,7 +132,7 @@ class CoreTest {
     @Test
     fun eveningLooksAheadToTomorrow() {
         // 21:00 is 0.2356: orange within today and within the next 24 h. Tomorrow 10:00 is green.
-        val status = classify(twoDays, sep29("21:00"))!!
+        val status = classify(twoDays, sep29("21:00"), spot = false)!!
         assertEquals(Level.ORANGE, status.level)
         assertEquals(OffsetDateTime.parse("2026-09-30T10:00+02:00").toInstant(), status.nextGreen!!.start.toInstant())
     }
@@ -106,17 +140,17 @@ class CoreTest {
     @Test
     fun withoutTomorrowTheWindowIsToday() {
         // Same colour, but today's green hours are over, so there is no next good time to show.
-        val status = classify(sep29, sep29("21:00"))!!
+        val status = classify(sep29, sep29("21:00"), spot = false)!!
         assertEquals(Level.ORANGE, status.level)
         assertNull(status.nextGreen)
     }
 
     @Test
     fun nextGreenIsLaterToday() {
-        val status = classify(sep29, sep29("07:00"))!!
+        val status = classify(sep29, sep29("07:00"), spot = false)!!
         assertEquals(Level.RED, status.level)
         assertEquals(sep29("10:00"), status.nextGreen!!.start.toInstant())
-        assertNull(classify(twoDays, sep29("13:00"))!!.nextGreen)
+        assertNull(classify(twoDays, sep29("13:00"), spot = false)!!.nextGreen)
     }
 
     @Test
@@ -187,7 +221,7 @@ class CoreTest {
         assertTrue(at.zipWithNext().all { (a, b) -> a.end == b.start })
         // The last slot ends after the same length.
         assertEquals(OffsetDateTime.parse("2026-10-05T00:00+02:00").toInstant(), at.last().end.toInstant())
-        assertTrue(classify(at, OffsetDateTime.parse("2026-10-03T19:00+02:00").toInstant()) != null)
+        assertTrue(classify(at, OffsetDateTime.parse("2026-10-03T19:00+02:00").toInstant(), spot = true) != null)
     }
 
     @Test
@@ -328,11 +362,12 @@ class CoreTest {
 
     @Test
     fun ownPriceKeepsTheColourAndTheNextGoodTime() {
-        val own = twoDays.map { it.copy(price = ownPrice(it.price, 18.5, 20.0, AUSTRIA)) }
-        for (slot in twoDays) {
+        val market = parseEnergyCharts(javaClass.getResource("/ec-at-2026-10-03-to-04.json")!!.readText())
+        val own = market.map { it.copy(price = ownPrice(it.price, 18.5, 20.0, AUSTRIA)) }
+        for (spot in listOf(true, false)) for (slot in market) {
             val time = slot.start.toInstant()
-            assertEquals(classify(twoDays, time)?.level, classify(own, time)?.level)
-            assertEquals(classify(twoDays, time)?.nextGreen?.start, classify(own, time)?.nextGreen?.start)
+            assertEquals(classify(market, time, spot)?.level, classify(own, time, spot)?.level)
+            assertEquals(classify(market, time, spot)?.nextGreen?.start, classify(own, time, spot)?.nextGreen?.start)
         }
     }
 

@@ -270,18 +270,18 @@ sealed interface Advice {
 /**
  * Whether to start [appliance] now. A start is fine when no quarter hour of the run reaches the
  * limit and, if it can wait, its run price is in the cheapest third of all
- * candidate starts' (the main colour's thirds). Only runs within the known prices compete; when
+ * candidate starts' (the main colour's thirds, up to [colourTop]). Only runs within the known prices compete; when
  * even starting now runs past them, the price isn't judged. When every cheaper start sets a new
  * peak, now is the best that fits. With no prices at all, one that can wait gets no advice (null),
  * unless starting now sets a new peak.
  */
-fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceSlot>): Advice? {
+fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceSlot>, spot: Boolean): Advice? {
     val starts = appliance.candidateStarts(now)
     val prices = if (appliance.canWait) starts.associateWith { appliance.runPrice(it, slots) } else emptyMap()
     val known = prices.values.filterNotNull()
     val judgePrice = prices[now] != null
     // A small margin, so equal prices weighted in a different order still count as equal.
-    val cheapest = if (judgePrice) known.min() + (known.max() - known.min()) / 3 + 1e-9 else 0.0
+    val cheapest = if (judgePrice) known.min() + (colourTop(known, spot) - known.min()) / 3 + 1e-9 else 0.0
     fun fine(start: Instant) = (!judgePrice || prices.getValue(start).let { it != null && it <= cheapest }) && appliance.fitsPeak(start, peak)
     val first = starts.firstOrNull(::fine)
     return when {

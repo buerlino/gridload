@@ -1,5 +1,8 @@
 package io.github.buerlino.gridload
 
+import android.content.Context
+import android.content.Intent
+import android.provider.AlarmClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +19,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -35,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +90,9 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
         })
     }
     val measuring = state.measuring
+    val context = LocalContext.current
+    // Only where a clock app takes timers.
+    val timers = remember { Intent(AlarmClock.ACTION_SET_TIMER).resolveActivity(context.packageManager) != null }
     Panel(
         open = state.appliancesOpen,
         onToggle = { viewModel.setAppliancesOpen(!state.appliancesOpen) },
@@ -97,10 +107,12 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
                 MeasuringRow(state, viewModel)
             } else {
                 val previewed = appliance.name == state.preview
+                val advice = state.advice[appliance.name]
                 ApplianceRow(
-                    appliance, state.advice[appliance.name], previewed,
+                    appliance, advice, previewed,
                     onClick = { onPreview(appliance.name.takeUnless { previewed }) },
                     onLongClick = { sheet = appliance },
+                    onTimer = timerAt(appliance, advice)?.takeIf { timers }?.let { at -> { setTimer(context, appliance.name, at) } },
                 )
             }
         }
@@ -129,9 +141,35 @@ internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant): Str
     is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
 }
 
-/** [previewed]: its run shows in the peak window, so the row is tinted. */
+/**
+ * When a WAIT row's timer should ring: the start it names. None with a start delay, which is set
+ * on the appliance now, and none when no start in the window fits.
+ */
+private fun timerAt(appliance: Appliance, advice: Advice?): Instant? = when {
+    appliance.delayMinutes > 0 -> null
+    advice is Advice.Cheaper -> advice.at
+    advice is Advice.NewPeak -> advice.at
+    else -> null
+}
+
+/** Opens the clock app with a timer named after the appliance, running until [at]. */
+private fun setTimer(context: Context, name: String, at: Instant) {
+    // Rounded up, so it never rings before the start it names; a clock app takes up to 24 h.
+    val seconds = ((Duration.between(Instant.now(), at).toMillis() + 999) / 1000).coerceIn(1, 86_400).toInt()
+    context.startActivity(
+        Intent(AlarmClock.ACTION_SET_TIMER)
+            .putExtra(AlarmClock.EXTRA_LENGTH, seconds)
+            .putExtra(AlarmClock.EXTRA_MESSAGE, name)
+            .putExtra(AlarmClock.EXTRA_SKIP_UI, false),
+    )
+}
+
+/**
+ * [previewed]: its run shows in the peak window, so the row is tinted. [onTimer]: the timer
+ * button left of the chip, so the chips stay in one column.
+ */
 @Composable
-private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onTimer: (() -> Unit)?) {
     val line = advice?.let { adviceLine(appliance, it, Instant.now()) }
     Row(
         Modifier.fillMaxWidth()
@@ -148,6 +186,9 @@ private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boole
         Column(Modifier.weight(1f)) {
             Text(appliance.name, color = INK, fontSize = 16.sp)
             line?.let { Text(it, color = MUTED, fontSize = 13.sp) }
+        }
+        onTimer?.let {
+            IconButton(onClick = it) { Icon(painterResource(R.drawable.ic_timer), "Set a timer", tint = INK) }
         }
         when (advice) {
             null -> Text("–", color = MUTED, fontSize = 16.sp)

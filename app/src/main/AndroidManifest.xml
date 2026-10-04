@@ -8,6 +8,15 @@
     <!-- The in-app peak alarm. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- The timer on a WAIT row: clock apps take timers only from apps holding it (install-time, no prompt). -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- The clock app, for that timer. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+    </queries>
+
     <!-- Backup: phone-to-phone transfer only, no cloud (dataExtractionRules, Android 12+).
          Android 8 to 11 have no such split, so allowBackup turns both off there, and lint's
          wish for fullBackupContent doesn't apply. -->

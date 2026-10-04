@@ -419,22 +419,26 @@ Fairphone 6 with the user's prefs, appliances and recorded quarters restored aft
      and locale outside the list).
 
 Later phases, in order (each settled with the user before it starts):
-- **A percentile for `max` in market-price regions** (right after v0.12.0; the scores are in
-  `CLAUDE.md`, Classification): `classify` takes the window's 90th percentile in place of `max`
-  where `region.isSpot`, and so does the appliances' price OK (`advise` uses the same thirds).
-  Settle with the user first: the percentile (90th or 95th), and whether a slot above it is
-  simply red. Re-run `research/energy_charts/score.py` on the saved months for the numbers;
-  core tests on the saved AT month.
-- **Energy planning** (Claude's proposal, 2026-10-04, to confirm with the user: before German,
+- ~~**A percentile for `max` in market-price regions**~~: done 2026-10-04 (user: the 90th;
+  `colourTop`, `classify`/`advise` take `spot`; details and scores in `CLAUDE.md`,
+  Classification). Unreleased, goes into v0.13.0 with the accurate preview. **Open:** see it on
+  the phone in a market-price region (more red than before; the next good time later).
+- **Energy planning** (Claude's proposal, 2026-10-04, confirmed by the user the same day, in
+  this order: before German,
   so the new strings are translated once and wave 1's users, mostly without a whatwatt, get
   more than one colour; the reasoning is in `research/feature_ideas.md`, Review). Each step is
   its own release-sized piece, settled with the user before it starts:
-  1. **Timer or alarm on WAIT rows:** `AlarmClock.ACTION_SET_TIMER` / `ACTION_SET_ALARM`, a
-     `<queries>` entry, no permission. Open: timer, alarm or both; the appliance's name as the
-     message.
+  1. **A timer on WAIT rows** (user, 2026-10-04: a timer, no setting; Claude advised against
+     a setting): `AlarmClock.ACTION_SET_TIMER` for the minutes until the row's time, a
+     `<queries>` entry. Only on rows with a time ("at 14:15", "tomorrow 10:00");
+     a Start delay row needs none, since the delay is set on the appliance now. Built
+     2026-10-04 (user: the button left of WAIT, opening the clock app; the name as the
+     message). It needs `com.android.alarm.permission.SET_ALARM` (install-time; DeskClock's
+     `HandleSetAlarmApiCalls` requires it; confirmed by the user 2026-10-04). Seen on the Fairphone 6 with a faked `prices.json`
+     (restored): "Cheaper at 12:30" → DeskClock's "Dishwasher 65°C" timer at 1:00:51.
   2. **The saving on WAIT rows:** "Cheaper at 11:00 · saves 0.09 CHF", from `advise`'s prices ×
-     the appliance's kWh, in spot regions × (1 + VAT) and only with an add-on. Open: hide below
-     0.01.
+     the appliance's kWh, in spot regions × (1 + VAT) and only with an add-on. Settled
+     2026-10-04 (user): hidden below 0.01, only on "Cheaper" rows.
   3. **The price curve panel:** the window's slots in their colours, a marker for now, the
      collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
      peak load too (then the panel layout is everyone's), hourly or per slot, prices on the
@@ -473,8 +477,9 @@ and [research/appliances.md](../../../research/appliances.md).
    `PeakNow.drawKw` dropped, the projection carries it). Help, README and the ⓘ updated.
    **Open:** see it with the hob cycling (the later quarters steady on 2-min average, jumping on
    Latest reading).
-3. **Open:** release as a patch (v0.12.1: versionName, `APP_VERSION`, changelog 16.txt). The
-   phone runs the debug build since this test, so the release needs another uninstall.
+3. **Open:** release as v0.13.0 together with the 90th percentile (user, 2026-10-04; versionName,
+   `APP_VERSION`, changelog 16.txt). The phone runs the debug build since this test, so the
+   release needs another uninstall.
 
 ### Rainy day
 
