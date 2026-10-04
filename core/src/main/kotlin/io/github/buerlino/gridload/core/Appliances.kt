@@ -8,7 +8,7 @@ import java.time.Instant
 /*
  * The appliances panel (design in CLAUDE.md, "Appliances"): each appliance is measured once, from
  * the recorder's quarter hours plus the jump in the live draw at its start. For each, the app says
- * whether starting it now sets a new monthly peak or a later start is clearly cheaper.
+ * whether starting it now reaches the limit or a later start is clearly cheaper.
  */
 
 /** [min] minutes at [kw] above the household's base draw. */
@@ -219,6 +219,8 @@ data class PeakNow(
     val projection: Projection,
     /** The limit's kW ([peakLimit]); null when there's no limit, so the peak never blocks. */
     val line: Double?,
+    /** The month's highest recorded quarter hour's kW, whether or not it's part of the limit ([isNewPeak]). */
+    val highestKw: Double? = null,
 )
 
 /** A quarter hour of a run: the household's average ([houseKw]) and the appliance's on top ([addedKw]). */
@@ -243,6 +245,12 @@ fun Appliance.quarterLoads(start: Instant, peak: PeakNow): List<QuarterLoad> {
 internal fun Appliance.fitsPeak(start: Instant, peak: PeakNow): Boolean {
     val line = peak.line ?: return true
     return quarterLoads(start, peak).none { isPeakWarning(it.kw, line) }
+}
+
+/** Whether starting at [start] has a quarter hour that reaches both the limit and the month's highest. */
+private fun Appliance.setsNewPeak(start: Instant, peak: PeakNow): Boolean {
+    val line = peak.line ?: return false
+    return quarterLoads(start, peak).any { isPeakWarning(it.kw, line) && isNewPeak(it.kw, peak.highestKw) }
 }
 
 /** The run's price for a start at [start], weighted by its kWh; null unless the whole run lies within [slots]. */
@@ -270,8 +278,8 @@ sealed interface Advice {
     data class Ok(val pricesMissing: Boolean = false) : Advice {
         override val at: Instant? get() = null
     }
-    /** Starting now sets a new monthly peak. */
-    data class NewPeak(override val at: Instant?) : Advice
+    /** Starting now reaches the limit; [newPeak] when it also reaches the month's highest ([isNewPeak]). */
+    data class OverLimit(override val at: Instant?, val newPeak: Boolean = true) : Advice
     /** A later start is clearly cheaper; [saving] is what waiting for it saves, in the slots' prices. */
     data class Cheaper(override val at: Instant, val saving: Double) : Advice
 }
@@ -280,9 +288,9 @@ sealed interface Advice {
  * Whether to start [appliance] now. A start is fine when no quarter hour of the run reaches the
  * limit and, if it can wait, its run price is in the cheapest third of all
  * candidate starts' (the main colour's thirds, up to [colourTop]). Only runs within the known prices compete; when
- * even starting now runs past them, the price isn't judged. When every cheaper start sets a new
- * peak, now is the best that fits. With no prices at all, one that can wait gets no advice (null),
- * unless starting now sets a new peak.
+ * even starting now runs past them, the price isn't judged. When every cheaper start reaches the
+ * limit, now is the best that fits. With no prices at all, one that can wait gets no advice (null),
+ * unless starting now reaches the limit.
  */
 fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceSlot>, spot: Boolean): Advice? {
     val starts = appliance.candidateStarts(now)
@@ -295,7 +303,7 @@ fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceS
     val first = starts.firstOrNull(::fine)
     return when {
         first == now -> if (appliance.canWait && slots.isEmpty()) null else Advice.Ok(pricesMissing = appliance.canWait && !judgePrice)
-        !appliance.fitsPeak(now, peak) -> Advice.NewPeak(first)
+        !appliance.fitsPeak(now, peak) -> Advice.OverLimit(first, appliance.setsNewPeak(now, peak))
         first != null -> Advice.Cheaper(first, (prices.getValue(now)!! - prices.getValue(first)!!) * appliance.curve.kwh)
         else -> Advice.Ok()
     }

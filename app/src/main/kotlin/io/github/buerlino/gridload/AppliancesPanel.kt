@@ -141,7 +141,9 @@ internal fun UiState.adviceLine(appliance: Appliance, advice: Advice): String? {
     val now = Instant.now()
     return when (advice) {
         is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
-        is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak right now"
+        is Advice.OverLimit -> (if (advice.newPeak) "Sets a new peak" else "Reaches the limit").let { why ->
+            advice.at?.let { "$why · ${whenToStart(appliance, it, now)}" } ?: "$why right now"
+        }
         is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" } +
             yourSaving(advice.saving)?.let { " · saves ${region.country.currency.amount(it)}" }.orEmpty()
     }

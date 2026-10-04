@@ -37,6 +37,7 @@ import io.github.buerlino.gridload.core.classify
 import io.github.buerlino.gridload.core.cooldownEnd
 import io.github.buerlino.gridload.core.doneAt
 import io.github.buerlino.gridload.core.fetchPrices
+import io.github.buerlino.gridload.core.isNewPeak
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.measuringJson
@@ -129,6 +130,8 @@ data class UiState(
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
     }
+    /** Whether the warning is a new month's highest, so billed; with the month's highest switched off, only the limit may be reached. */
+    val newPeak: Boolean get() = peakWarning && isNewPeak(meter.projection!!.kw, meter.highest?.kw)
     /** What a slot's [price] costs the user (see the core [yourPrice]); null in a spot region until the add-on is entered. */
     fun yourPrice(price: Double): Double? = yourPrice(price, region, priceAddOn, priceVat)
     /** What waiting saves the user (see the core [yourSaving]); null in a spot region without the add-on and below 0.005. */
@@ -263,7 +266,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun derive() {
         val now = Instant.now()
         _state.update { s ->
-            val peak = s.meter.projection?.let { PeakNow(it, s.peakLine) }
+            val peak = s.meter.projection?.let { PeakNow(it, s.peakLine, s.meter.highest?.kw) }
             // Gone without a reading, or when the appliance is deleted, renamed or measured again.
             val previewed = s.appliances.find { it.name == s.preview && it.name != s.measuring?.appliance?.name }
             val previewLoads = if (peak != null && previewed != null) previewed.quarterLoads(now, peak) else emptyList()

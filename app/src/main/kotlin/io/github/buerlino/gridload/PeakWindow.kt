@@ -130,17 +130,17 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                 }
                 state.advice[preview]?.let { advice ->
                     val text = state.adviceLine(state.appliances.first { it.name == preview }, advice) ?: "OK to start now."
-                    if (advice is Advice.NewPeak) Warning(text, Modifier) else Text(text, color = INK, fontSize = 14.sp)
+                    if (advice is Advice.OverLimit) Warning(text, Modifier) else Text(text, color = INK, fontSize = 14.sp)
                 }
             } else if (projection != null && line != null) {
-                Over(red, projection, line, unit)
+                Over(red, state.newPeak, projection, line, unit)
             }
             // In its first minute the recorder's line for the quarter before may still be on its way.
             if (projection?.estimated == true && Duration.between(projection.start, Instant.now()).seconds >= 60) {
                 Note("Estimated: the recorder has no start for this ¼ hour.")
             }
         } else if (red) {
-            Over(true, projection, line, unit)
+            Over(true, state.newPeak, projection, line, unit)
         }
         meter.recorder?.takeIf { meter.problem == null }?.let { check ->
             val text = meter.recorderAction ?: recorderLine(check)
@@ -153,16 +153,15 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
     }
 }
 
-private const val OVER = "This ¼ hour sets a new peak."
-
 /**
- * The warning that this quarter hour sets a new peak, with Share right of it to tell the household.
- * Laid out also when not [shown], so the panel keeps its height when the warning comes or goes.
+ * The warning that this quarter hour reaches the limit, or sets a [newPeak] when it also reaches
+ * the month's highest, with Share right of it to tell the household. Laid out also when not
+ * [shown], so the panel keeps its height when the warning comes or goes.
  */
 @Composable
-private fun Over(shown: Boolean, projection: Projection?, line: Double?, unit: PowerUnit) {
+private fun Over(shown: Boolean, newPeak: Boolean, projection: Projection?, line: Double?, unit: PowerUnit) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Warning(OVER, Modifier.weight(1f).then(if (shown) Modifier else Modifier.alpha(0f).clearAndSetSemantics {}))
+        Warning(if (newPeak) "This ¼ hour sets a new peak." else "This ¼ hour reaches the limit.", Modifier.weight(1f).then(if (shown) Modifier else Modifier.alpha(0f).clearAndSetSemantics {}))
         if (shown && projection != null && line != null) {
             // Overhangs the line rather than making it taller.
             Box(Modifier.height(0.dp)) { TellHousehold(projection, line, unit) }

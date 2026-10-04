@@ -147,6 +147,30 @@ class QuartersTest {
     }
 
     @Test
+    fun withTheMonthsHighestOnEveryWarningIsANewPeak() {
+        // As before the switches: the limit is at least the month's highest, so reaching it is billed.
+        for (shown in listOf(true, false)) for (goal in listOf(null, 1.0, 5.0)) for (floor in listOf(null, 2.65))
+            for (minimum in listOf(null, 2.0)) for (highest in listOf(null, Quarter(at("17:15:00"), 0.725))) {
+                val limit = peakLimit(defaults + LimitPart.GOAL, shown, minimum, highest, floor?.let { Floor(it, "A") }, goal) as? Limit ?: continue
+                for (kw in listOf(limit.kw, limit.kw + 0.01, 9.0)) assertTrue(isNewPeak(kw, highest?.kw))
+            }
+    }
+
+    @Test
+    fun belowTheMonthsHighestIsNoNewPeak() {
+        // The phone test: a goal of 0.3 kW with Month's highest off, 0.5 kW drawn, the month's highest 2.9 kW.
+        val highest = Quarter(at("09:45:00"), 0.725)
+        val limit = peakLimit(setOf(LimitPart.GOAL), true, null, highest, null, 0.3) as Limit
+        assertTrue(isPeakWarning(0.5, limit.kw))
+        assertFalse(isNewPeak(0.5, highest.kw))
+        // Austria with only the tariff minimum on: 2.1 kW is over its 2.0, but not the month's 2.9.
+        assertFalse(isNewPeak(2.1, 2.9))
+        assertTrue(isNewPeak(2.9, 2.9))
+        // Nothing recorded this month: any quarter is the month's highest.
+        assertTrue(isNewPeak(0.1, null))
+    }
+
+    @Test
     fun redAtTheLimitItself() {
         assertFalse(isPeakWarning(3.79, 3.8))
         assertTrue(isPeakWarning(3.8, 3.8))

@@ -246,9 +246,11 @@ settled with the user before it starts.
    window and the history, the lock moves to the last one on, hiding the appliances hides the
    floor ("No limit: none of these is on."), Austria's minimum (staged in the prefs with CKW's
    `prices.json` backed up), a goal below the draw (red bar, the vibration issued as
-   NOTIFICATION) and no limit (no line, "0.5 kW now"). Open: with the month's highest off, the
-   warning ("This ¼ hour sets a new peak.") and the WAIT rows ("Sets a new peak") overstate a
-   personal cap; the wording is the user's call.
+   NOTIFICATION) and no limit (no line, "0.5 kW now"). Fixed 2026-10-04: with the month's highest
+   off, the warning and the WAIT rows claimed a new peak below it; they now say "sets a new peak"
+   only above the month's highest (`isNewPeak`), else "reaches the limit". To see on the phone: a
+   goal below the draw with Month's highest off ("This ¼ hour reaches the limit.", rows "Reaches
+   the limit right now"), and with it on as before.
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
 - Small, any time: the base load line in the history panel.

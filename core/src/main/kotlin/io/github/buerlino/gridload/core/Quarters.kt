@@ -85,6 +85,13 @@ fun peakLimit(on: Set<LimitPart>, appliancesShown: Boolean, minimumKw: Double?, 
 /** Red at the limit: the bar, the vibration and an appliance's WAIT. */
 fun isPeakWarning(projectedKw: Double, line: Double) = projectedKw >= line
 
+/**
+ * Whether a quarter hour at [kw] reaches the month's highest ([highestKw], null before anything
+ * is recorded), so it's billed. With the month's highest in the limit, every warning is one; with
+ * it switched off, the limit can sit below it, and a warning only says the limit is reached.
+ */
+fun isNewPeak(kw: Double, highestKw: Double?) = highestKw == null || kw >= highestKw
+
 /** A typed number (kW, W, minutes, litres), with a decimal point or comma; null unless it's above 0. */
 fun parsePositive(text: String): Double? = parseNonNegative(text)?.takeIf { it > 0 }
 

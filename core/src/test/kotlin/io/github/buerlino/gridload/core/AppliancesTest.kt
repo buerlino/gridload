@@ -278,8 +278,8 @@ class AppliancesTest {
         assertEquals(listOf(kettle, dishwasher), store.load())
     }
 
-    private fun peak(projectionKw: Double, drawKw: Double, line: Double?, now: String = "10:07") =
-        PeakNow(Projection(projectionKw, quarterStart(at(now)).plusSeconds(QUARTER_SECONDS), at(now), drawKw), line)
+    private fun peak(projectionKw: Double, drawKw: Double, line: Double?, now: String = "10:07", highest: Double? = null) =
+        PeakNow(Projection(projectionKw, quarterStart(at(now)).plusSeconds(QUARTER_SECONDS), at(now), drawKw), line, highest)
 
     @Test
     fun theKettleFitsWhenItsQuarterStaysBelowTheLimit() {
@@ -388,10 +388,10 @@ class AppliancesTest {
     fun withoutPricesOnlyANewPeakIsSaid() {
         // None fetched, or the fetch failed: no advice for one that can wait ("–"), but a new peak is still said.
         assertEquals(null, advise(dishwasher, at("06:00"), peak(0.5, 0.5, 3.6, now = "06:00"), emptyList(), spot = false))
-        assertEquals(Advice.NewPeak(at("06:15")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), emptyList(), spot = false))
+        assertEquals(Advice.OverLimit(at("06:15")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), emptyList(), spot = false))
         // One that can't wait is judged by the peak alone, as always.
         assertEquals(Advice.Ok(), advise(kettle, at("06:00"), peak(0.5, 0.5, 3.6, now = "06:00"), emptyList(), spot = false))
-        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), emptyList(), spot = false))
+        assertEquals(Advice.OverLimit(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), emptyList(), spot = false))
     }
 
     @Test
@@ -420,11 +420,21 @@ class AppliancesTest {
     @Test
     fun aNewPeakSaysWhenItFits() {
         // The kettle sets a peak in this busy quarter (3.2 + 0.44 ≥ 3.6), but fits from 10:15 at 0.5 kW.
-        assertEquals(Advice.NewPeak(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), slots, spot = false))
+        assertEquals(Advice.OverLimit(at("10:15")), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6), slots, spot = false))
         // Drawing 2.0 kW all along against a 1.0 line: no quarter fits.
-        assertEquals(Advice.NewPeak(null), advise(kettle, at("10:07"), peak(2.0, 2.0, 1.0), slots, spot = false))
+        assertEquals(Advice.OverLimit(null), advise(kettle, at("10:07"), peak(2.0, 2.0, 1.0), slots, spot = false))
         // The dishwasher at 06:00: a new peak now, and the first start that's cheap and fits is 09:45.
-        assertEquals(Advice.NewPeak(at("09:45")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), slots, spot = false))
+        assertEquals(Advice.OverLimit(at("09:45")), advise(dishwasher, at("06:00"), peak(3.2, 0.5, 3.6, now = "06:00"), slots, spot = false))
+    }
+
+    @Test
+    fun belowTheMonthsHighestItOnlyReachesTheLimit() {
+        // A personal cap of 1.0 kW, the month's highest 2.9 kW: drawing 2.0, the kettle reaches the cap, not a new peak.
+        assertEquals(Advice.OverLimit(null, newPeak = false), advise(kettle, at("10:07"), peak(2.0, 2.0, 1.0, highest = 2.9), slots, spot = false))
+        // Its quarter (2.0 + 0.44) passes a highest of 2.4: a new peak.
+        assertEquals(Advice.OverLimit(null, newPeak = true), advise(kettle, at("10:07"), peak(2.0, 2.0, 1.0, highest = 2.4), slots, spot = false))
+        // With the month's highest in the limit (3.6 ≥ 3.2), reaching it is always a new peak.
+        assertEquals(Advice.OverLimit(at("10:15"), newPeak = true), advise(kettle, at("10:07"), peak(3.2, 0.5, 3.6, highest = 3.2), slots, spot = false))
     }
 
     @Test

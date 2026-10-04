@@ -128,7 +128,8 @@ private val LIMIT_INFO = Info(
         "It's the highest of the parts switched on.\n\n" +
         "Biggest appliance + 20%: it can run alone without a warning; only stacking others on it gets one.\n\n" +
         "¼ hours up to the month's highest and your tariff's minimum are billed anyway. Switched off, they give " +
-        "warnings that save nothing. That suits a personal cap.",
+        "warnings that save nothing. That suits a personal cap. Only above the month's highest does a warning say it " +
+        "sets a new peak.",
 )
 private val GOAL_INFO = Info(
     "Goal",
