@@ -8,6 +8,9 @@ data class Currency(val symbol: String, val small: String) {
     /** A price in [symbol] per kWh, shown in [small]: "22.7 Rp/kWh", "−1.2 ct/kWh". */
     fun perKwh(price: Double, locale: Locale = Locale.getDefault()): String = "${signed(price * 100, 1, locale)} $small/kWh"
 
+    /** An amount: "0.09 CHF", "0.31 €". */
+    fun amount(value: Double, locale: Locale = Locale.getDefault()): String = "${signed(value, 2, locale)} $symbol"
+
     /** A cost per hour: "0.34 CHF/h", "0.34 €/h". */
     fun perHour(cost: Double, locale: Locale = Locale.getDefault()): String = "${signed(cost, 2, locale)} $symbol/h"
 
@@ -24,7 +27,12 @@ data class Currency(val symbol: String, val small: String) {
  * on the spot price, since the add-on is often larger than it and the spot price can be negative.
  */
 fun ownPrice(spot: Double, addOn: Double, vat: Double?, country: Country): Double =
-    (spot + addOn / 100) * (1 + (vat ?: country.vat ?: 0.0) / 100)
+    (spot + addOn / 100) * withVat(vat, country)
+
+/** What a [saving] in spot prices saves the household: the add-on cancels out, VAT stays (see [ownPrice]). */
+fun ownSaving(saving: Double, vat: Double?, country: Country): Double = saving * withVat(vat, country)
+
+private fun withVat(vat: Double?, country: Country) = 1 + (vat ?: country.vat ?: 0.0) / 100
 
 /** [value] with [decimals], a real minus sign when it's below 0 as shown, and no "−0.0". */
 private fun signed(value: Double, decimals: Int, locale: Locale): String {

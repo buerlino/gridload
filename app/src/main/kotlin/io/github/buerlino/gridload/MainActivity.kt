@@ -482,7 +482,7 @@ fun HelpContent(country: Country?) {
         Text("Tap a panel's top line to fold it.")
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
         Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")
-        Text("OK: fine to switch on now. WAIT: it would reach the limit, or a later start is clearly cheaper. The row says when.")
+        Text("OK: fine to switch on now. WAIT: it would reach the limit, or a later start is clearly cheaper. The row says when, and what waiting saves.")
         Text("Tap a row to see its run on the scale; red is what goes over the limit. Hold it to edit.")
         Text("Can wait: the price counts too, e.g. a dishwasher. Off, only the limit counts, e.g. a kettle.")
         Text("Counts for the limit: its heaviest quarter hour can raise the limit. Switch it off for one you rarely use.")

@@ -314,6 +314,8 @@ class CoreTest {
         assertEquals("0.34 CHF/h", Currency.CHF.perHour(1.3 * 0.2615, Locale.ROOT))
         assertEquals("11.3 ct/kWh", Currency.EUR.perKwh(0.11268, Locale.ROOT))
         assertEquals("0.34 €/h", Currency.EUR.perHour(0.34, Locale.ROOT))
+        assertEquals("0.09 CHF", Currency.CHF.amount(0.0925, Locale.ROOT))
+        assertEquals("0.31 €", Currency.EUR.amount(0.31, Locale.ROOT))
         assertEquals("22,7 Rp/kWh", Currency.CHF.perKwh(0.227, Locale.GERMANY))
         assertEquals(Currency.CHF, SWITZERLAND.currency)
     }
@@ -342,6 +344,16 @@ class CoreTest {
         assertEquals(-0.03, ownPrice(-0.035, 0.5, 0.0, AUSTRIA), 1e-9)
         // No VAT where the country has none.
         assertEquals(0.30, ownPrice(0.113, 18.7, null, SWITZERLAND), 1e-9)
+    }
+
+    @Test
+    fun aSavingIsTheDifferenceOfTheOwnPrices() {
+        // The add-on cancels out: 2 kWh at 0.30 against 0.1875 in Austria saves 0.225 × 1.2.
+        val addOn = 18.7
+        val saving = 2 * (ownPrice(0.30, addOn, null, AUSTRIA) - ownPrice(0.1875, addOn, null, AUSTRIA))
+        assertEquals(saving, ownSaving(0.225, null, AUSTRIA), 1e-9)
+        assertEquals(0.27, ownSaving(0.225, 20.0, AUSTRIA), 1e-9)
+        assertEquals(0.225, ownSaving(0.225, 0.0, AUSTRIA), 1e-9)
     }
 
     @Test

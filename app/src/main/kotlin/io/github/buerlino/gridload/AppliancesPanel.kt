@@ -109,7 +109,7 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
                 val previewed = appliance.name == state.preview
                 val advice = state.advice[appliance.name]
                 ApplianceRow(
-                    appliance, advice, previewed,
+                    appliance, advice, state.saving(advice), previewed,
                     onClick = { onPreview(appliance.name.takeUnless { previewed }) },
                     onLongClick = { sheet = appliance },
                     onTimer = timerAt(appliance, advice)?.takeIf { timers }?.let { at -> { setTimer(context, appliance.name, at) } },
@@ -134,11 +134,12 @@ private fun summary(state: UiState): String? {
     return listOfNotNull(ok.takeIf { it > 0 }?.let { "$it OK" }, (state.advice.size - ok).takeIf { it > 0 }?.let { "$it wait" }).joinToString(" · ")
 }
 
-/** The row's line under the name: why WAIT and when, or that only the peak was judged. */
-internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant): String? = when (advice) {
+/** The row's line under the name: why WAIT, when and what waiting [saves], or that only the peak was judged. */
+internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant, saves: String?): String? = when (advice) {
     is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
     is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak right now"
-    is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" }
+    is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" } +
+        saves?.let { " · saves $it" }.orEmpty()
 }
 
 /**
@@ -169,8 +170,8 @@ private fun setTimer(context: Context, name: String, at: Instant) {
  * button left of the chip, so the chips stay in one column.
  */
 @Composable
-private fun ApplianceRow(appliance: Appliance, advice: Advice?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onTimer: (() -> Unit)?) {
-    val line = advice?.let { adviceLine(appliance, it, Instant.now()) }
+private fun ApplianceRow(appliance: Appliance, advice: Advice?, saves: String?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onTimer: (() -> Unit)?) {
+    val line = advice?.let { adviceLine(appliance, it, Instant.now(), saves) }
     Row(
         Modifier.fillMaxWidth()
             .background(if (previewed) PREVIEWED else Color.Transparent, RoundedCornerShape(8.dp))

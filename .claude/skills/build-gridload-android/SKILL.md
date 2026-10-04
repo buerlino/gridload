@@ -438,7 +438,13 @@ Later phases, in order (each settled with the user before it starts):
      (restored): "Cheaper at 12:30" → DeskClock's "Dishwasher 65°C" timer at 1:00:51.
   2. **The saving on WAIT rows:** "Cheaper at 11:00 · saves 0.09 CHF", from `advise`'s prices ×
      the appliance's kWh, in spot regions × (1 + VAT) and only with an add-on. Settled
-     2026-10-04 (user): hidden below 0.01, only on "Cheaper" rows.
+     2026-10-04 (user): hidden below 0.01, only on "Cheaper" rows. Built 2026-10-04
+     (`Advice.Cheaper.saving`, `ownSaving`, `Currency.amount`, `UiState.saving`; core tests).
+     Seen on the Fairphone 6 (2026-10-04 11:53, debug build, CKW, a staged `prices.json` with
+     11:45–12:30 at 0.40 and today copied as tomorrow so nothing fetched; restored byte-identical):
+     "Dishwasher 65°C" → "Cheaper at 12:30 · saves 0.14 CHF" in the row (wraps to two lines)
+     and the preview, matching a hand calculation (0.137). **Open:** a market-price region with
+     an add-on on the phone (`ownSaving` is covered by a core test).
   3. **The price curve panel:** the window's slots in their colours, a marker for now, the
      collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
      peak load too (then the panel layout is everyone's), hourly or per slot, prices on the

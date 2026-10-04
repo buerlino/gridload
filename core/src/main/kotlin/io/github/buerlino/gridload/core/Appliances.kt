@@ -263,8 +263,8 @@ sealed interface Advice {
     data class Ok(val pricesMissing: Boolean = false) : Advice
     /** Starting now sets a new monthly peak; [at] is the first start that's fine, null if none is within the window. */
     data class NewPeak(val at: Instant?) : Advice
-    /** A later start is clearly cheaper; [at] is the first that's fine. */
-    data class Cheaper(val at: Instant) : Advice
+    /** A later start is clearly cheaper; [at] is the first that's fine, [saving] what waiting for it saves, in the slots' prices. */
+    data class Cheaper(val at: Instant, val saving: Double) : Advice
 }
 
 /**
@@ -287,7 +287,7 @@ fun advise(appliance: Appliance, now: Instant, peak: PeakNow, slots: List<PriceS
     return when {
         first == now -> if (appliance.canWait && slots.isEmpty()) null else Advice.Ok(pricesMissing = appliance.canWait && !judgePrice)
         !appliance.fitsPeak(now, peak) -> Advice.NewPeak(first)
-        first != null -> Advice.Cheaper(first)
+        first != null -> Advice.Cheaper(first, (prices.getValue(now)!! - prices.getValue(first)!!) * appliance.curve.kwh)
         else -> Advice.Ok()
     }
 }

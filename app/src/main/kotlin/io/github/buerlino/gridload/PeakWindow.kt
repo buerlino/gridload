@@ -116,7 +116,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                     if (later.any { warns(it.kw) }) Warning(text, Modifier) else Note(text)
                 }
                 state.advice[preview]?.let { advice ->
-                    val text = adviceLine(state.appliances.first { it.name == preview }, advice, Instant.now()) ?: "OK to start now."
+                    val text = adviceLine(state.appliances.first { it.name == preview }, advice, Instant.now(), state.saving(advice)) ?: "OK to start now."
                     if (advice is Advice.NewPeak) Warning(text, Modifier) else Text(text, color = INK, fontSize = 14.sp)
                 }
             } else if (projection != null && line != null) {

@@ -302,6 +302,11 @@ class AppliancesTest {
         assertEquals(2.5, loads[1].kw, 1e-9)
     }
 
+    private fun assertCheaper(at: Instant, saving: Double, advice: Advice?) {
+        assertEquals(at, (advice as Advice.Cheaper).at)
+        assertEquals(saving, advice.saving, 1e-9)
+    }
+
     /** Today's quarter-hour slots at 0.30, with 0.15 from 10:00 to 16:00. */
     private val slots = (0 until 96).map { i ->
         val start = OffsetDateTime.parse("2026-10-03T00:00+02:00").plusMinutes(15L * i)
@@ -329,16 +334,17 @@ class AppliancesTest {
         val spiked = slots.mapIndexed { i, slot -> if (i in 76 until 80) slot.copy(price = 0.90) else slot }
         val calm = peak(0.5, 0.5, 3.6, now = "06:00")
         assertEquals(Advice.Ok(), advise(dishwasher, at("06:00"), calm, spiked, spot = false))
-        assertEquals(Advice.Cheaper(at("09:30")), advise(dishwasher, at("06:00"), calm, spiked, spot = true))
+        assertCheaper(at("09:30"), 0.15, advise(dishwasher, at("06:00"), calm, spiked, spot = true))
     }
 
     @Test
     fun aRunThatCanWaitWaitsForTheCheapestThird() {
         val calm = peak(0.5, 0.5, 3.6, now = "06:00")
         // Thirds of 0.15 to 0.30: cheap up to 0.20. From 09:45 a quarter of the run is at 0.30: 0.1875.
-        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, slots, spot = false))
+        // Waiting saves 0.30 − 0.1875 on each of its 2 kWh.
+        assertCheaper(at("09:45"), 0.225, advise(dishwasher, at("06:00"), calm, slots, spot = false))
         // With a 1 h start delay, the steps are 07:00, 08:00, ...: 10:00 is the first cheap one.
-        assertEquals(Advice.Cheaper(at("10:00")), advise(dishwasher.copy(delayMinutes = 60), at("06:00"), calm, slots, spot = false))
+        assertCheaper(at("10:00"), 0.30, advise(dishwasher.copy(delayMinutes = 60), at("06:00"), calm, slots, spot = false))
         assertEquals(Advice.Ok(), advise(dishwasher, at("11:00"), peak(0.5, 0.5, 3.6, now = "11:00"), slots, spot = false))
         // A kettle doesn't wait for the price; nor does anything on a flat day.
         assertEquals(Advice.Ok(), advise(kettle, at("06:00"), calm, slots, spot = false))
@@ -351,10 +357,10 @@ class AppliancesTest {
         // −0.05 from 10:00 to 16:00, else 0.10: cheap up to 0.00. From 09:45: 0.25 × 0.10 + 0.75 × −0.05 = −0.0125.
         val negative = slots.map { it.copy(price = if (it.price < 0.2) -0.05 else 0.10) }
         assertEquals(-0.0125, dishwasher.runPrice(at("09:45"), negative)!!, 1e-9)
-        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, negative, spot = false))
+        assertCheaper(at("09:45"), 0.225, advise(dishwasher, at("06:00"), calm, negative, spot = false))
         assertEquals(Advice.Ok(), advise(dishwasher, at("11:00"), peak(0.5, 0.5, 3.6, now = "11:00"), negative, spot = false))
         // All below 0: the same advice as the day shifted up.
-        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), calm, slots.map { it.copy(price = it.price - 1.0) }, spot = false))
+        assertCheaper(at("09:45"), 0.225, advise(dishwasher, at("06:00"), calm, slots.map { it.copy(price = it.price - 1.0) }, spot = false))
     }
 
     @Test
@@ -369,7 +375,7 @@ class AppliancesTest {
         // Cheap from 22:00 to midnight, and nothing known after it: with a 1 h delay, 22:00 is "Delay 2 h".
         val evening = slots.map { if (it.start.hour >= 22) it.copy(price = 0.15) else it }
         val delayed = dishwasher.copy(delayMinutes = 60)
-        assertEquals(Advice.Cheaper(at("22:00")), advise(delayed, at("20:00"), peak(0.5, 0.5, 3.6, now = "20:00"), evening, spot = false))
+        assertCheaper(at("22:00"), 0.30, advise(delayed, at("20:00"), peak(0.5, 0.5, 3.6, now = "20:00"), evening, spot = false))
         // At 22:30 a delay of 1 h runs past midnight: only now competes.
         assertEquals(Advice.Ok(), advise(delayed, at("22:30"), peak(0.5, 0.5, 3.6, now = "22:30"), evening, spot = false))
         assertEquals(Advice.Ok(pricesMissing = true), advise(delayed, at("23:30"), peak(0.5, 0.5, 3.6, now = "23:30"), evening, spot = false))
@@ -387,7 +393,7 @@ class AppliancesTest {
 
     @Test
     fun withoutALineOnlyThePriceCounts() {
-        assertEquals(Advice.Cheaper(at("09:45")), advise(dishwasher, at("06:00"), peak(9.0, 9.0, null, now = "06:00"), slots, spot = false))
+        assertCheaper(at("09:45"), 0.225, advise(dishwasher, at("06:00"), peak(9.0, 9.0, null, now = "06:00"), slots, spot = false))
         assertEquals(Advice.Ok(), advise(kettle, at("06:00"), peak(9.0, 9.0, null, now = "06:00"), slots, spot = false))
     }
 
@@ -403,7 +409,7 @@ class AppliancesTest {
         val now = OffsetDateTime.parse("2026-10-25T01:50+02:00").toInstant()
         val calm = PeakNow(Projection(0.5, quarterStart(now).plusSeconds(QUARTER_SECONDS), now, 0.5), 3.6)
         // Cheap up to 0.20: from 10:45, 15 min at 0.30 and 45 at 0.15 is 0.1875.
-        assertEquals(Advice.Cheaper(OffsetDateTime.parse("2026-10-25T10:45+01:00").toInstant()), advise(dishwasher, now, calm, dst, spot = false))
+        assertCheaper(OffsetDateTime.parse("2026-10-25T10:45+01:00").toInstant(), 0.225, advise(dishwasher, now, calm, dst, spot = false))
         // Through the repeated hour: 02:30 summer time to 02:30 winter time is one hour.
         assertEquals(0.30, dishwasher.runPrice(OffsetDateTime.parse("2026-10-25T02:30+02:00").toInstant(), dst)!!, 1e-9)
     }

@@ -40,6 +40,7 @@ import io.github.buerlino.gridload.core.measuringJson
 import io.github.buerlino.gridload.core.mergeAppliances
 import io.github.buerlino.gridload.core.parseAppliances
 import io.github.buerlino.gridload.core.ownPrice
+import io.github.buerlino.gridload.core.ownSaving
 import io.github.buerlino.gridload.core.parseNonNegative
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
@@ -127,6 +128,12 @@ data class UiState(
      */
     fun yourPrice(price: Double): Double? =
         if (!region.isSpot) price else priceAddOn?.let { ownPrice(price, it, priceVat, region.country) }
+    /** What waiting saves, "0.09 CHF", like [yourPrice]: none in a spot region without the add-on, nor below 0.01. */
+    fun saving(advice: Advice?): String? {
+        val saving = (advice as? Advice.Cheaper)?.saving ?: return null
+        val yours = if (!region.isSpot) saving else priceAddOn?.let { ownSaving(saving, priceVat, region.country) } ?: return null
+        return region.country.currency.amount(yours).takeIf { yours >= 0.005 }
+    }
     /** Whether the main screen shows the panels: the peak window, the appliances and the history. */
     val showPeak: Boolean get() = peakEnabled && whatwattEnabled
 }
