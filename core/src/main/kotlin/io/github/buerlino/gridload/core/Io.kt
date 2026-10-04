@@ -14,7 +14,7 @@ class HttpException(val code: Int) : IOException("HTTP $code")
 internal val json = Json { ignoreUnknownKeys = true }
 
 /** The app's `versionName`; bump it with each release (`IoTest` checks they match). */
-internal const val APP_VERSION = "0.13.0"
+internal const val APP_VERSION = "0.14.0"
 
 /** Sent with every request, so API operators can see which client calls them and reach the project. */
 internal const val USER_AGENT = "GridLoad/$APP_VERSION (+https://github.com/buerlino/gridload)"

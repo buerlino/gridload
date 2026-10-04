@@ -103,8 +103,8 @@ what's still open and the how-tos later work needs; the history is in git.
 - **v0.7 / v0.8:** the whatwatt (phases 1 to 3) and the recorder (phase 4), below.
 - **v0.9 to v0.11:** the panels and the history, the appliances, the limit with its floor,
   Settings as sections, the neutral theme, a time zone per country, the full-screen history.
-- **v0.12 / v0.13:** wave 1 of the regions outside Switzerland; the energy-planning steps 1 and
-  2, the 90th percentile and Draw ahead.
+- **v0.12 to v0.14:** wave 1 of the regions outside Switzerland; the energy-planning steps 1 to 4
+  (the price curve, the Limit setting), the 90th percentile, Draw ahead and Share.
 - **Declutter passes:** see [declutter.md](declutter.md), which also holds the reusable
   checklist for the next pass.
 
@@ -219,7 +219,7 @@ Finland and the Baltics. A source that is neither VSE/AES nor Energy-Charts need
 `PriceSource` (its request in `pricesRequestUrl`, its parser in `pricesFrom`); a currency other
 than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Energy planning [steps 1 and 2 released in v0.13.0]
+### Energy planning [steps 1 and 2 released in v0.13.0, 3 and 4 in v0.14.0]
 
 Claude's proposal, confirmed by the user 2026-10-04, before German, so the new strings are
 translated once and wave 1's users, mostly without a whatwatt, get more than one colour; the
@@ -229,7 +229,7 @@ settled with the user before it starts.
    (design in `CLAUDE.md`, OK or WAIT). To stage a "Cheaper at" row: a `prices.json` with a few
    dear quarters now and today copied as tomorrow, so nothing is fetched; restore it
    byte-identical afterwards.
-3. **The price curve panel** [built 2026-10-04, not released]: decided with the user: for
+3. **The price curve panel** [released in v0.14.0]: decided with the user: for
    everyone, per slot, with a price axis (short unit), the first panel, a switch to hide it
    (Settings → Region). Design in `CLAUDE.md` (UI, Price curve). Seen on the Fairphone 6
    (2026-10-04): CKW's hourly bars, the window from midnight with the past slots faded (before
@@ -245,7 +245,7 @@ settled with the user before it starts.
    cheap from now. With tomorrow's whole day the window starts at now, so every slot of a green
    run to its end would be green and the range 0: "Green for now" only shows while the window
    starts before now (before tomorrow's prices, or after midnight).
-4. **The Limit setting** [built 2026-10-04, not released]: decided with the user in place of a
+4. **The Limit setting** [released in v0.14.0]: decided with the user in place of a
    tap on "2.6 limit" (the line stays not tappable): Settings → Mode → Limit, one switch per part
    (month's highest, biggest appliance + 20%, tariff minimum, goal) with its value, a lock on the
    last one on, and "Limit now: …, from …" or why there's none. Design in `CLAUDE.md` (Peak load,
@@ -295,7 +295,7 @@ settled with the user before it starts.
 Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
 2-min average, jumping on Latest reading).
 
-### Household alerts [(a) built 2026-10-04, not released]
+### Household alerts [(a) released in v0.14.0]
 
 Telling the household when a quarter hour heads for a new peak. Research, design and sources in
 `research/household_alerts.md`; the design in `CLAUDE.md` (the peak window).
