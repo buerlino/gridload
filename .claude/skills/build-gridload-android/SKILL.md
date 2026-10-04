@@ -128,8 +128,10 @@ Status (2026-10-04): the MR's head is 0.13.0 (`3ade4eee0`, versionCode 16, pipel
 Checked 2026-10-04: the GitHub APK of v0.14.0 (sha256 `2a38f0cd…5e59a20`) is signed with the
 `AllowedAPKSigningKeys` certificate, and its 25 entries outside `META-INF/` equal an unsigned
 build of the tag. The recipe skips it for v0.14.1 (versionCode 18, the same app with new store
-screenshots and description, since F-Droid reads those from the built tag): to move once the
-v0.14.1 APK is out and checked the same way; then delete changelog 17. The NonFreeNet text, unchanged since 0.12.0:
+screenshots and description, since F-Droid reads those from the built tag): its GitHub APK
+(sha256 `26e26618…59343c3a`, signer as above) equals an unsigned build of the tag outside
+`META-INF/` (checked 2026-10-04), and the recipe's move to it is committed in `../fdroiddata`
+(`a8e76070c`, commit `199bdb65cacdee7aac71d1a757168704901bf1a0`); changelog 17 is deleted. The NonFreeNet text, unchanged since 0.12.0:
 ```
 NonFreeNet:
   en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
