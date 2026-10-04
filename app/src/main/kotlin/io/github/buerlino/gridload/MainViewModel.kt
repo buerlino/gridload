@@ -89,6 +89,10 @@ data class UiState(
     val vibrateAlways: Boolean = false,
     /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours); else the latest reading. */
     val drawAverage: Boolean = true,
+    /** Show the base load in the history panel, the median from [baseLoadFrom] to [baseLoadTo] o'clock (the region's clock). */
+    val baseLoadEnabled: Boolean = true,
+    val baseLoadFrom: Int = 2,
+    val baseLoadTo: Int = 5,
     /** Whether the main screen shows the price curve at all (Settings → Region), and whether it's expanded. */
     val curveEnabled: Boolean = true,
     val curveOpen: Boolean = true,
@@ -202,6 +206,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
             drawAverage = prefs.getBoolean(KEY_DRAW_AVERAGE, true),
+            baseLoadEnabled = prefs.getBoolean(KEY_BASE_LOAD_ENABLED, true),
+            baseLoadFrom = prefs.getInt(KEY_BASE_LOAD_FROM, 2),
+            baseLoadTo = prefs.getInt(KEY_BASE_LOAD_TO, 5),
             curveEnabled = prefs.getBoolean(KEY_CURVE_ENABLED, true),
             curveOpen = prefs.getBoolean(KEY_CURVE_OPEN, true),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
@@ -514,6 +521,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(drawAverage = average) }
     }
 
+    fun setBaseLoadEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_BASE_LOAD_ENABLED, enabled) }
+        _state.update { it.copy(baseLoadEnabled = enabled) }
+    }
+
+    /** The base load's hours, each 0 to 23. */
+    fun setBaseLoadHours(from: Int, to: Int) {
+        prefs.edit { putInt(KEY_BASE_LOAD_FROM, from); putInt(KEY_BASE_LOAD_TO, to) }
+        _state.update { it.copy(baseLoadFrom = from, baseLoadTo = to) }
+    }
+
     /** Saves (or, blank, clears) the whatwatt device address. */
     fun setWhatwattAddress(address: String) {
         val trimmed = address.trim()
@@ -669,6 +687,9 @@ private const val KEY_PRICE_VAT = "price_vat"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
 private const val KEY_DRAW_AVERAGE = "peak_draw_average"
+private const val KEY_BASE_LOAD_ENABLED = "base_load_enabled"
+private const val KEY_BASE_LOAD_FROM = "base_load_from"
+private const val KEY_BASE_LOAD_TO = "base_load_to"
 private const val KEY_CURVE_ENABLED = "curve_enabled"
 private const val KEY_CURVE_OPEN = "curve_open"
 private const val KEY_PEAK_OPEN = "peak_open"

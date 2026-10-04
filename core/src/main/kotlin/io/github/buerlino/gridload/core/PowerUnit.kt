@@ -19,6 +19,10 @@ enum class PowerUnit(val id: String) {
     /** "1.3 kW" or "1340 W". */
     fun format(kw: Double): String = "${number(kw)} $id"
 
+    /** A small value, like the base load, with two decimals in kW: "0.08 kW" or "80 W". */
+    fun formatSmall(kw: Double, locale: Locale = Locale.getDefault()): String =
+        "${if (this == KW) String.format(locale, "%.2f", kw) else number(kw, locale)} $id"
+
     /** [kw] rounded as it's shown, so differences of shown values add up on screen. */
     fun round(kw: Double): Double = number(kw, Locale.ROOT).toDouble() / if (this == W) 1000 else 1
 

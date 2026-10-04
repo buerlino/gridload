@@ -495,6 +495,7 @@ fun HelpContent(country: Country?) {
         Text("¼ hours it misses are missing from the month's highest. Open Recorder in Settings → Measurement to see them.")
         Text("The history shows each day's highest ¼ hour this month.")
         Text("Tap its chart to see a day's ¼ hours, and last month.")
+        Text("Below it, your base load: what draws all the time, like the fridge, the router and standby.")
         Text("Tap a panel's top line to fold it.")
         Text("🔌 Appliances", fontWeight = FontWeight.Bold)
         Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")

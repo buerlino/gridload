@@ -36,6 +36,39 @@ class RecorderTest {
     }
 
     @Test
+    fun baseLoadIsTheMedianOfTheChosenHours() {
+        // Local 02:00–05:00 in Zurich (UTC+2 in October) is 00:00–03:00 UTC.
+        fun night(day: Int, kwhs: List<Double>) = kwhs.mapIndexed { i, kwh ->
+            Quarter(Instant.parse("2026-10-0${day}T00:00:00Z").plusSeconds(i * QUARTER_SECONDS), kwh)
+        }
+        // A fridge cycling: 0.05 and 0.025 kWh (0.2 and 0.1 kW); 03:00 UTC (05:00 local) is outside.
+        val quarters = night(1, List(6) { 0.05 } + List(6) { 0.025 }) +
+            Quarter(Instant.parse("2026-10-01T03:00:00Z"), 1.0) +
+            Quarter(Instant.parse("2026-10-01T12:00:00Z"), 1.0) +
+            night(2, List(12) { 0.025 })
+        val recording = Recording(quarters.sortedBy { it.start })
+        val now = Instant.parse("2026-10-02T10:00:00Z")
+        assertEquals(0.1, baseLoadKw(recording, now, zurich, 2, 5)!!, 1e-9)
+        // Only the first night: an even count, the two middle ones averaged.
+        assertEquals(0.15, baseLoadKw(recording, Instant.parse("2026-10-01T20:00:00Z"), zurich, 2, 5)!!, 1e-9)
+        // Past midnight: 23:00–03:00 local.
+        assertEquals(0.2, baseLoadKw(Recording(night(1, List(4) { 0.05 })), now, zurich, 23, 3)!!, 1e-9)
+        // Equal hours: the whole day, the noon quarter too.
+        assertEquals(0.1, baseLoadKw(recording, now, zurich, 0, 0)!!, 1e-9)
+        // Older than a week, or nothing in the hours: none.
+        assertNull(baseLoadKw(recording, now.plus(java.time.Duration.ofDays(9)), zurich, 2, 5))
+        assertNull(baseLoadKw(recording, now, zurich, 6, 7))
+    }
+
+    @Test
+    fun baseLoadPerYearIsRounded() {
+        assertEquals(700, kwhPerYear(0.08))
+        assertEquals(2200, kwhPerYear(0.25))
+        assertEquals(88, kwhPerYear(0.01))
+        assertEquals(4, kwhPerYear(0.0005))
+    }
+
+    @Test
     fun parsesAndMergesDayFiles() {
         val recording = parseRecording(
             listOf(

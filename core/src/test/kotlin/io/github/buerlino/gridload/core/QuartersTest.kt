@@ -193,6 +193,8 @@ class QuartersTest {
         assertEquals("1.3", PowerUnit.KW.number(1.26, Locale.ROOT))
         assertEquals("1260", PowerUnit.W.number(1.2649, Locale.ROOT))
         assertEquals("1,3", PowerUnit.KW.number(1.26, Locale.GERMANY))
+        assertEquals("0.08 kW", PowerUnit.KW.formatSmall(0.0812, Locale.ROOT))
+        assertEquals("80 W", PowerUnit.W.formatSmall(0.0812, Locale.ROOT))
         assertEquals(0.9, PowerUnit.KW.round(0.94))
         assertEquals(0.94, PowerUnit.W.round(0.9449))
         // "0.9" line and "0.8" bar give "0.1 free", whatever the exact values.

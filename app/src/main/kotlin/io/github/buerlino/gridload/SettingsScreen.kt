@@ -165,6 +165,14 @@ private val DRAW_INFO = Info(
         "Latest reading: the last reading, every 5 seconds. It follows a switch at once, but jumps with every on and off.",
 )
 
+private val BASE_LOAD_INFO = Info(
+    "Base load",
+    "On: the history shows your base load, what draws all the time (fridge, router, standby), and what it comes to " +
+        "in a year.\n\n" +
+        "It's the median of the ¼ hours between these hours over the last 7 days. Pick hours when nothing else " +
+        "usually runs: an appliance on a night timer would count.",
+)
+
 /** Where Settings opens: at the top, at the region list (from the top bar), or at the own price's add-on (from the main screen). */
 enum class SettingsAt { TOP, REGION_LIST, PRICE }
 
@@ -309,6 +317,7 @@ fun SettingsScreen(
                 SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
                 ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
+                BaseLoad(state, viewModel)
                 Appliances(state, viewModel)
             }
         }
@@ -509,6 +518,19 @@ private fun Appliances(state: UiState, viewModel: MainViewModel) {
         OutlinedButton(onClick = { import.launch(arrayOf("*/*")) }) { Text("Import") }
     }
     state.applianceFileResult?.let { Text(it) }
+}
+
+/** The base load's switch and, when on, its hours. */
+@Composable
+private fun BaseLoad(state: UiState, viewModel: MainViewModel) {
+    SwitchRow("Base load", BASE_LOAD_INFO, state.baseLoadEnabled, viewModel::setBaseLoadEnabled)
+    if (state.baseLoadEnabled) {
+        val hours = (0..23).toList()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Picker("From ${hourText(state.baseLoadFrom)}", hours, ::hourText, { viewModel.setBaseLoadHours(it, state.baseLoadTo) }, modifier = Modifier.weight(1f))
+            Picker("To ${hourText(state.baseLoadTo)}", hours, ::hourText, { viewModel.setBaseLoadHours(state.baseLoadFrom, it) }, modifier = Modifier.weight(1f))
+        }
+    }
 }
 
 /**
@@ -753,9 +775,16 @@ private fun OptionCard(selected: Boolean, onClick: () -> Unit, content: @Composa
 
 /** A dropdown showing [selected]; tapping it, or [initiallyOpen], opens the list of [options]. */
 @Composable
-private fun <T> Picker(selected: String, options: List<T>, label: (T) -> String, onSelect: (T) -> Unit, initiallyOpen: Boolean = false) {
+private fun <T> Picker(
+    selected: String,
+    options: List<T>,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    initiallyOpen: Boolean = false,
+) {
     var open by remember { mutableStateOf(initiallyOpen) }
-    Box {
+    Box(modifier) {
         OutlinedCard(onClick = { open = true }, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp)) {
                 Text(selected)

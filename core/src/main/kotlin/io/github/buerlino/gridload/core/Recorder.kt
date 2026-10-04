@@ -102,6 +102,40 @@ fun dailyHighest(recording: Recording, month: YearMonth, zone: ZoneId): List<Pai
         .map { (day, quarters) -> day to quarters.maxBy { it.kwh } }
         .sortedBy { it.first }
 
+/** How many days back the base load looks. */
+const val BASE_LOAD_DAYS = 7L
+
+/**
+ * The base load: the median of the quarter hours recorded in the [BASE_LOAD_DAYS] days before
+ * [now] that start from [fromHour] to before [toHour] on the clock of [zone] (past midnight when
+ * [toHour] is earlier; the whole day when they're equal). The median, not the lowest: a fridge
+ * cycles, so the lowest quarters miss it. Null with none recorded there.
+ */
+fun baseLoadKw(recording: Recording, now: Instant, zone: ZoneId, fromHour: Int, toHour: Int): Double? {
+    val since = now.minus(Duration.ofDays(BASE_LOAD_DAYS))
+    val kws = recording.quarters
+        .filter { it.start >= since && it.start < now && inHours(it.start.atZone(zone).hour, fromHour, toHour) }
+        .map { it.kw }
+        .sorted()
+    if (kws.isEmpty()) return null
+    val mid = kws.size / 2
+    return if (kws.size % 2 == 1) kws[mid] else (kws[mid - 1] + kws[mid]) / 2
+}
+
+private fun inHours(hour: Int, from: Int, to: Int) = when {
+    from == to -> true
+    from < to -> hour in from until to
+    else -> hour >= from || hour < to
+}
+
+/** [kw] drawn all year, in kWh, to two significant figures: "about 700 kWh a year". */
+fun kwhPerYear(kw: Double): Long {
+    val kwh = kw * 24 * 365
+    if (kwh < 10) return Math.round(kwh)
+    val step = Math.pow(10.0, Math.floor(Math.log10(kwh)) - 1)
+    return Math.round(Math.round(kwh / step) * step)
+}
+
 /**
  * The recorded quarter hours of [date], a day in [zone], each in its slot from midnight: 96
  * slots, or 92 and 100 on the DST days, so a missed quarter leaves its slot empty.

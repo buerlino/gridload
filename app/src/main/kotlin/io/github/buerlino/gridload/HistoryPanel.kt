@@ -38,7 +38,12 @@ import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.DayQuarters
 import io.github.buerlino.gridload.core.Quarter
 import io.github.buerlino.gridload.core.Recording
+import io.github.buerlino.gridload.core.BASE_LOAD_DAYS
+import io.github.buerlino.gridload.core.baseLoadKw
 import io.github.buerlino.gridload.core.dailyHighest
+import io.github.buerlino.gridload.core.kwhPerYear
+import java.text.NumberFormat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -73,9 +78,36 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
                 state.meter.days, highest, line, maxOf(line ?: 0.0, highest.kw), unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
                 Modifier.clickable(onClickLabel = "Open the history", onClick = onOpen),
             )
+            if (state.baseLoadEnabled) BaseLoadLine(state)
         }
     }
 }
+
+/** "Base load **80 W** · about 700 kWh a year", or that none was recorded in its hours. */
+@Composable
+private fun BaseLoadLine(state: UiState) {
+    val quarters = state.meter.quarters
+    val from = state.baseLoadFrom
+    val to = state.baseLoadTo
+    val zone = state.region.zone
+    val kw = remember(quarters, from, to, zone) { baseLoadKw(Recording(quarters), Instant.now(), zone, from, to) }
+    if (kw == null) {
+        Text("Base load: no ¼ hours ${hourText(from)}–${hourText(to)} in the last $BASE_LOAD_DAYS days", color = MUTED, fontSize = 14.sp)
+    } else {
+        Text(
+            buildAnnotatedString {
+                append("Base load ")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(state.powerUnit.formatSmall(kw)) }
+                append(" · about ${NumberFormat.getIntegerInstance().format(kwhPerYear(kw))} kWh a year")
+            },
+            color = INK,
+            fontSize = 14.sp,
+        )
+    }
+}
+
+/** An hour as a time: "02:00". */
+internal fun hourText(hour: Int) = "%02d:00".format(hour)
 
 /**
  * The history on its own screen: this month's or last month's day bars, and below them the

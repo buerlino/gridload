@@ -1,5 +1,6 @@
-- Price curve: the next 24 hours as bars in their colours, with how long green lasts or when it comes (Settings → Region can hide it).
-- Limit (Settings → Mode): one switch per part of the limit, with its value and where the limit comes from.
+- Price curve: the next 24 hours in their colours, with how long green lasts or when it comes.
+- Limit (Settings → Mode): a switch per part of the limit, and where the limit comes from.
+- Base load: what your house always draws, below the history.
 - Share: tell the household when a ¼ hour heads for the limit.
-- "Sets a new peak" only above the month's highest, else "Reaches the limit".
+- "Sets a new peak" only above the month's highest.
 - Vibrate at the limit works with notification vibration off; tap a choice to try it.

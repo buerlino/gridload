@@ -202,6 +202,9 @@ Open:
    region (more red than before, the next good time later); the saving with an add-on
    (`ownSaving` is covered by a core test); the help's general version (needs a phone whose SIM
    and locale aren't in the list).
+   Tried 2026-10-04 19:43 on the debug build (Austria and a 15 ct add-on staged, a Can-wait
+   "Test 1 h" in `appliances.json`): Energy-Charts answered 503 (curl too), so only the failure
+   showed: "No prices", "The price server answered with error 503.", the row "–". Restored after.
 
 A new region: test the request with the app's code (a request of up to 31 days, past days too,
 gives plenty of data to analyse in one call; mind CKW's 4 per window), add it to `REGIONS` with
@@ -290,7 +293,14 @@ settled with the user before it starts.
    `dumpsys audio | grep -A2 '^Ringer mode'`.
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
-- Small, any time: the base load line in the history panel.
+- **The base load line** [released in v0.14.0]: decided with the user: the median
+  (not each night's lowest), between hours set in Settings → Mode → Base load (02:00–05:00 by
+  default), with a switch; kWh a year, no CHF. Design in `CLAUDE.md` (History). Seen on the
+  Fairphone 6 (debug build, 2026-10-04): the line ("0.15 kW · about 1,300 kWh a year" from only
+  two nights, 3 Oct at ~0.23 kW and 4 Oct at ~0.07 kW, checked against the day files), the
+  Settings row and a From pick saved. Still open: the line settling over 7 nights; the "no ¼
+  hours" line; W; the line in the R8 release build (v0.14.0 was pushed without it, the phone being
+  away).
 
 Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
 2-min average, jumping on Latest reading).

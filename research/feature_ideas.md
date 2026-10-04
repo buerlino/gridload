@@ -107,7 +107,11 @@ theirs, and it's the easiest saving (old fridge, network gear, standby).
 A `:core` function, e.g. the median of the quarters between 02:00 and 05:00 over the last 7 days.
 Use the median, not the minimum: a fridge cycles, so the minimum underestimates.
 
-**Open questions:** CHF per year too? (`CLAUDE.md` keeps peak CHF amounts out of the code, but
+**Decided (user, 2026-10-04):** the median, since a fridge cycles over a longer stretch; the
+hours are a setting (From, To) so a household picks its own quiet hours, with a switch to hide
+it; kWh a year only. Built as in `CLAUDE.md` (History).
+
+**Open questions (before the decision):** CHF per year too? (`CLAUDE.md` keeps peak CHF amounts out of the code, but
 this is kWh × the average price, which the app knows.) Is "02:00–05:00" right for a household
 whose night isn't quiet (e.g. a dishwasher on a timer)? Then the lowest hour of each night is
 safer.
