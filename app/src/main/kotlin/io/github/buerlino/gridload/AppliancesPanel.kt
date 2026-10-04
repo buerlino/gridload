@@ -246,7 +246,7 @@ private fun MeasuringRow(state: UiState, viewModel: MainViewModel) {
             measuring.done == null -> state.meter.kw?.let { "+${unit.format((it - measuring.beforeKw).coerceAtLeast(0.0))} now. Tap Done when it has finished." }
                 ?: state.meter.problem
             result is Measurement.Pending -> "Result at ${timeFormat.format(result.at)}."
-            result == Measurement.Gap -> "A quarter hour of the run is missing. Measure again."
+            result == Measurement.Gap -> "A ¼ hour of the run is missing. Measure again."
             result == Measurement.NoDraw -> "Nothing measured above the draw before the start. Measure again."
             result is Measurement.Result -> runSummary(result.curve, unit)
             else -> null

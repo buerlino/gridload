@@ -7,8 +7,8 @@ import kotlin.test.assertEquals
 class HelpTest {
     private val now = Instant.parse("2026-10-04T10:00:00Z")
     private val attribution = "Market prices: Bundesnetzagentur | SMARD.de, via energy-charts.info (CC BY 4.0)."
-    private val withMinimum = "The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, your goal, and the least your tariff bills."
-    private val noMinimum = "The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, and your goal."
+    private val withMinimum = "The limit is the highest of: the month's highest ¼ hour, your biggest appliance plus 20%, your goal, and the least your tariff bills."
+    private val noMinimum = "The limit is the highest of: the month's highest ¼ hour, your biggest appliance plus 20%, and your goal."
 
     @Test
     fun switzerland() {

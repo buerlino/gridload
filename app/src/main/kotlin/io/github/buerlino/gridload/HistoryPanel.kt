@@ -57,19 +57,20 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
     val unit = state.powerUnit
     val zone = state.region.zone
     val highest = state.meter.highest
-    // Never null while there is a highest: the limit is at least that.
+    // Never null while there is a highest: the limit is at least that. The scale still takes
+    // both, so the bars stay inside it if that ever changes (the canvas doesn't clip).
     val line = state.peakLine
     Panel(
         open = state.historyOpen,
         onToggle = onToggle,
         header = {
-            val text = if (highest == null) AnnotatedString("No quarter hours recorded yet") else highestText(highest, unit, zone)
+            val text = if (highest == null) AnnotatedString("No ¼ hours recorded yet") else highestText(highest, unit, zone)
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
         if (state.historyOpen && highest != null && line != null) {
             DayBars(
-                state.meter.days, highest, line, line, unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
+                state.meter.days, highest, line, maxOf(line, highest.kw), unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
                 Modifier.clickable(onClickLabel = "Open the history", onClick = onOpen),
             )
         }
@@ -107,7 +108,7 @@ fun HistoryScreen(state: UiState, onBack: () -> Unit) {
             TextButton(onClick = { lastMonth = false }, enabled = lastMonth) { Text("›", fontSize = 22.sp) }
         }
         if (highest == null) {
-            Text("No quarter hours recorded.", color = MUTED)
+            Text("No ¼ hours recorded.", color = MUTED)
         } else {
             Text(highestText(highest, unit, zone), color = INK)
             DayBars(days, highest, line, maxKw, unit, month, today, selected, height = 200.dp, onDay = { selectedDay = it.toEpochDay() })

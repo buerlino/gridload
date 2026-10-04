@@ -340,9 +340,9 @@ fun recorderLine(check: RecorderCheck): String? = when (check) {
         "The recorder is stopped" + (check.state?.takeIf { it != "IDLE" }?.let { " ($it)." } ?: ".")
     RecorderCheck.NoAutoRun -> "The recorder won't start again after the whatwatt restarts."
     is RecorderCheck.Silent ->
-        if (check.started) "The recorder started at ${shortTime(check.since)}, but hasn't saved a quarter hour."
-        else "The recorder hasn't saved a quarter hour since ${shortTime(check.since)}."
-    is RecorderCheck.Waiting -> "Recorder started. First quarter hour at ${shortTime(check.firstAt)}."
+        if (check.started) "The recorder started at ${shortTime(check.since)}, but hasn't saved a ¼ hour."
+        else "The recorder hasn't saved a ¼ hour since ${shortTime(check.since)}."
+    is RecorderCheck.Waiting -> "Recorder started. First ¼ hour at ${shortTime(check.firstAt)}."
     RecorderCheck.Ok -> null
 }
 

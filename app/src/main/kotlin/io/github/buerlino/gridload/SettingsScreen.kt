@@ -99,14 +99,14 @@ private val MEASUREMENT_INFO = Info(
 private val MODE_INFO = Info(
     "Mode",
     "Without peak load, GridLoad shows the price and what you use now.\n\n" +
-        "Peak load: some grid tariffs also charge for the month's highest quarter hour. GridLoad then shows how much you " +
+        "Peak load: some grid tariffs also charge for the month's highest ¼ hour. GridLoad then shows how much you " +
         "can still switch on, your appliances and the month so far. The help (?) explains it. It needs GridLoad's " +
         "recorder on the whatwatt, and an SD card in it.\n\n" +
         "Where your region doesn't bill a peak, the limit is a personal cap: nothing is billed for it.",
 )
 private val RECORDER_INFO = Info(
     "Recorder",
-    "A small script GridLoad puts on the whatwatt. It records every quarter hour on the whatwatt's SD card, also while " +
+    "A small script GridLoad puts on the whatwatt. It records every ¼ hour on the whatwatt's SD card, also while " +
         "the app is closed, so the month's highest is complete when you open the app. It uses the whatwatt's one script " +
         "slot. Peak load needs it.",
 )
@@ -123,20 +123,20 @@ private val APPLIANCES_INFO = Info(
         "a file; one with the same name is replaced.",
 )
 private val COUNTDOWN_INFO = Info(
-    "Quarter-hour countdown",
-    "Shows the minutes left in this quarter hour. Waiting a few minutes before switching on a big appliance can keep it " +
+    "¼-hour countdown",
+    "Shows the minutes left in this ¼ hour. Waiting a few minutes before switching on a big appliance can keep it " +
         "out of the current one.",
 )
 private val VIBRATE_INFO = Info(
     "Vibrate at the limit",
-    "When this quarter hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: like a " +
+    "When this ¼ hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: like a " +
         "notification, so not while the phone is silent. Always: like an alarm, in silent mode too.",
 )
 
 private val DRAW_INFO = Info(
     "Draw ahead",
-    "What GridLoad assumes your house draws for the rest of this quarter hour and, when you tap an appliance, the " +
-        "quarter hours after it.\n\n" +
+    "What GridLoad assumes your house draws for the rest of this ¼ hour and, when you tap an appliance, the " +
+        "¼ hours after it.\n\n" +
         "2-min average: the meter's average over the last 2 minutes, so an appliance switching on and off (a hob, an " +
         "oven) counts at what it really uses. One just switched on shows fully after 2 minutes.\n\n" +
         "Latest reading: the last reading, every 5 seconds. It follows a switch at once, but jumps with every on and off.",
@@ -282,7 +282,7 @@ fun SettingsScreen(
             if (state.peakEnabled) {
                 SwitchRow("Goal", GOAL_INFO, state.goalEnabled, viewModel::setGoalEnabled)
                 if (state.goalEnabled) GoalField(state, viewModel::setGoal)
-                SwitchRow("Quarter-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
+                SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 ChoiceRow("Vibrate at the limit", VIBRATE_INFO, listOf(false to "Unless silent", true to "Always"), state.vibrateAlways, viewModel::setVibrateAlways)
                 ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
                 Appliances(state, viewModel)
@@ -434,8 +434,8 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
             title = { Text("Remove the recorder?") },
             text = {
                 Text(
-                    "GridLoad then records no quarter hours. Peak load and its alarm stop working, on every phone that uses " +
-                        "this whatwatt, until you install it again. Quarter hours while it's removed are lost for good. " +
+                    "GridLoad then records no ¼ hours. Peak load and its alarm stop working, on every phone that uses " +
+                        "this whatwatt, until you install it again. ¼ hours while it's removed are lost for good. " +
                         "Those already recorded stay.",
                 )
             },
@@ -461,7 +461,7 @@ private fun Recorder(state: UiState, viewModel: MainViewModel) {
     if (meter.missing.isNotEmpty()) {
         val count = meter.missing.size
         val restart = meter.restartAfterGap?.let { " (restart at ${shortTime(it)})" }.orEmpty()
-        Text("$count quarter ${if (count == 1) "hour" else "hours"} missing this month, the last ${shortTime(meter.missing.last())}$restart.")
+        Text("$count ¼ ${if (count == 1) "hour" else "hours"} missing this month, the last ${shortTime(meter.missing.last())}$restart.")
     }
     if (meter.recorderInstalled && meter.recorderAction == null && check != null) {
         OutlinedButton(onClick = { confirmRemove = true }) { Text("Remove the recorder") }

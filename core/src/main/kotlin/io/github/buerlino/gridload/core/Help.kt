@@ -49,7 +49,7 @@ fun countryHelp(country: Country?, now: Instant, all: List<Region> = REGIONS): C
     )
     // Without a country, any tariff may have a minimum.
     val minimum = regions.isEmpty() || regions.any { (it.minimumKw ?: 0.0) > 0 }
-    val limit = "The limit is the highest of: the month's highest quarter hour, your biggest appliance plus 20%, " +
+    val limit = "The limit is the highest of: the month's highest ¼ hour, your biggest appliance plus 20%, " +
         if (minimum) "your goal, and the least your tariff bills." else "and your goal."
     return CountryHelp(price, tomorrow, priceLines, peakLines, limit)
 }

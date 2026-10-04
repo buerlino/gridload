@@ -1,17 +1,29 @@
 package io.github.buerlino.gridload
 
+import android.content.Intent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -24,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.Advice
 import io.github.buerlino.gridload.core.PowerUnit
+import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.quarterStart
@@ -44,8 +57,8 @@ private val APPLIANCE = Color(0xFF1E88E5)
  * open, the scale shows the past quarter hours, this one projected in the middle, room for the
  * coming ones, and the limit. The bar and the header turn red at the limit. Without one (no
  * goal, no appliance, no minimum in the region, nothing recorded yet) the header shows the
- * projection. The warning and what's wrong with the recorder (tap it for Settings) show
- * collapsed too, so the alarm is never hidden. With a preview (an appliance row tapped), the coming quarter hours
+ * projection. The warning, with Share to tell the household, and what's wrong with the
+ * recorder (tap it for Settings) show collapsed too, so the alarm is never hidden. With a preview (an appliance row tapped), the coming quarter hours
  * show its run started now on top of the house, and the header the tightest of them.
  */
 @Composable
@@ -112,7 +125,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                 // A run longer than the columns: the rest in one line.
                 val later = state.previewLoads.filter { it.start > current.plusSeconds(QUARTER_SECONDS * FUTURE_BARS) }
                 if (later.isNotEmpty()) {
-                    val text = "Then ${later.size} more quarter ${if (later.size == 1) "hour" else "hours"}, up to ${unit.format(later.maxOf { it.kw })}."
+                    val text = "Then ${later.size} more ¼ ${if (later.size == 1) "hour" else "hours"}, up to ${unit.format(later.maxOf { it.kw })}."
                     if (later.any { warns(it.kw) }) Warning(text, Modifier) else Note(text)
                 }
                 state.advice[preview]?.let { advice ->
@@ -120,15 +133,14 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
                     if (advice is Advice.NewPeak) Warning(text, Modifier) else Text(text, color = INK, fontSize = 14.sp)
                 }
             } else if (projection != null && line != null) {
-                // Always laid out, so the panel keeps its height when the warning comes or goes.
-                Warning(OVER, if (red) Modifier else Modifier.alpha(0f).clearAndSetSemantics {})
+                Over(red, projection, line, unit)
             }
             // In its first minute the recorder's line for the quarter before may still be on its way.
             if (projection?.estimated == true && Duration.between(projection.start, Instant.now()).seconds >= 60) {
-                Note("Estimated: the recorder has no start for this quarter hour.")
+                Note("Estimated: the recorder has no start for this ¼ hour.")
             }
         } else if (red) {
-            Warning(OVER, Modifier)
+            Over(true, projection, line, unit)
         }
         meter.recorder?.takeIf { meter.problem == null }?.let { check ->
             val text = meter.recorderAction ?: recorderLine(check)
@@ -141,7 +153,39 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
     }
 }
 
-private const val OVER = "This quarter hour sets a new peak."
+private const val OVER = "This ¼ hour sets a new peak."
+
+/**
+ * The warning that this quarter hour sets a new peak, with Share right of it to tell the household.
+ * Laid out also when not [shown], so the panel keeps its height when the warning comes or goes.
+ */
+@Composable
+private fun Over(shown: Boolean, projection: Projection?, line: Double?, unit: PowerUnit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Warning(OVER, Modifier.weight(1f).then(if (shown) Modifier else Modifier.alpha(0f).clearAndSetSemantics {}))
+        if (shown && projection != null && line != null) {
+            // Overhangs the line rather than making it taller.
+            Box(Modifier.height(0.dp)) { TellHousehold(projection, line, unit) }
+        }
+    }
+}
+
+/** Shares the warning through Android's share sheet (the household's messenger group). */
+@Composable
+private fun TellHousehold(projection: Projection, line: Double, unit: PowerUnit) {
+    val context = LocalContext.current
+    val text = "⚡ GridLoad: ${unit.format(projection.kw)} this ¼ hour, the limit is ${unit.format(line)}.\n" +
+        "Please wait with big appliances until ${timeFormat.format(projection.end)}."
+    val shape = RoundedCornerShape(8.dp)
+    Box(
+        Modifier.requiredHeight(30.dp).clip(shape).border(1.dp, INK, shape)
+            .clickable(onClickLabel = "Tell the household", role = Role.Button) {
+                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
+            }
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text("Share", color = INK, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+}
 
 @Composable
 private fun Warning(text: String, modifier: Modifier) = Text(text, modifier, color = RED, fontSize = 14.sp, fontWeight = FontWeight.Medium)
