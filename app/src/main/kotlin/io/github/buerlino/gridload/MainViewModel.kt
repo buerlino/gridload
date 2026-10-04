@@ -3,6 +3,7 @@ package io.github.buerlino.gridload
 import android.app.Application
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.VibrationAttributes
@@ -84,7 +85,7 @@ data class UiState(
     val priceVat: Double? = null,
     /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
-    /** Vibrate at the limit in silent mode too, as an alarm; else as a notification, so not while the phone is silent. */
+    /** Vibrate at the limit in silent mode too; else not while the phone is silent. */
     val vibrateAlways: Boolean = false,
     /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours); else the latest reading. */
     val drawAverage: Boolean = true,
@@ -501,9 +502,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(countdown = show) }
     }
 
-    fun setVibrateAlways(always: Boolean) {
+    /** Saves the choice and vibrates once with it, so you feel what the limit will do. False: skipped, the phone is silent. */
+    fun setVibrateAlways(always: Boolean): Boolean {
         prefs.edit { putBoolean(KEY_VIBRATE_ALWAYS, always) }
         _state.update { it.copy(vibrateAlways = always) }
+        return vibrate(always)
     }
 
     fun setDrawAverage(average: Boolean) {
@@ -552,22 +555,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val end = state.meter.projection?.end ?: return
         if (!state.peakEnabled || !state.peakWarning || warnedFor == end) return
         warnedFor = end
+        vibrate(state.vibrateAlways)
+    }
+
+    /**
+     * Vibrates once (400 ms), unless the phone is silent and [always] is off; returns whether it did.
+     * Always as an alarm: as a notification, Android also drops it while notification vibration is
+     * off, which "Unless silent" doesn't say. Without a usage it counts as touch feedback.
+     */
+    private fun vibrate(always: Boolean): Boolean {
         val app = getApplication<Application>()
+        if (!always && app.getSystemService(AudioManager::class.java)?.ringerMode == AudioManager.RINGER_MODE_SILENT) return false
         val vibrator = if (Build.VERSION.SDK_INT >= 31) {
             app.getSystemService(VibratorManager::class.java)?.defaultVibrator
         } else {
             app.getSystemService(Vibrator::class.java)
         }
         val effect = VibrationEffect.createOneShot(400, VibrationEffect.DEFAULT_AMPLITUDE)
-        // Without a usage, Android takes it for touch feedback, which silent mode turns off.
         if (Build.VERSION.SDK_INT >= 33) {
-            val usage = if (state.vibrateAlways) VibrationAttributes.USAGE_ALARM else VibrationAttributes.USAGE_NOTIFICATION
-            vibrator?.vibrate(effect, VibrationAttributes.createForUsage(usage))
+            vibrator?.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM))
         } else {
-            val usage = if (state.vibrateAlways) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION
             @Suppress("DEPRECATION")
-            vibrator?.vibrate(effect, AudioAttributes.Builder().setUsage(usage).build())
+            vibrator?.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build())
         }
+        return true
     }
 
     fun refresh() {

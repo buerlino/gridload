@@ -237,6 +237,14 @@ settled with the user before it starts.
    below 0, the bars down), folding, the switch, the ⓘ, the help line, a preview scrolling to the
    peak window, and the curve alone (peak load off). To stage negative prices: copy a fetched
    `prices.json`, set some of tomorrow's `integrated` values below 0, restore it afterwards.
+   Seen in the test session (2026-10-04, at `ae4c5fe`): the header's four texts, staged: "Green
+   for now", "Green until 18:45", "Green from 18:15", "No green time ahead"; folding (saved as
+   `curve_open`) and the switch again; no prices at all (no `prices.json`, airplane mode): no
+   panel, "No prices", no crash; the curve in the R8 release build. To stage the header: a
+   `prices.json` ending at tomorrow 00:15 local (so `wantsFetch` stays false), dear before now and
+   cheap from now. With tomorrow's whole day the window starts at now, so every slot of a green
+   run to its end would be green and the range 0: "Green for now" only shows while the window
+   starts before now (before tomorrow's prices, or after midnight).
 4. **The Limit setting** [built 2026-10-04, not released]: decided with the user in place of a
    tap on "2.6 limit" (the line stays not tappable): Settings → Mode → Limit, one switch per part
    (month's highest, biggest appliance + 20%, tariff minimum, goal) with its value, a lock on the
@@ -250,6 +258,36 @@ settled with the user before it starts.
    only above the month's highest (`isNewPeak`), else "reaches the limit". Seen on the Fairphone 6
    (2026-10-04): a goal below the draw with Month's highest off gives "This ¼ hour reaches the
    limit." and rows "Reaches the limit right now"; with it on, not yet seen since the fix.
+   Seen in the test session (2026-10-04, at `ae4c5fe`): the floor's value and appliance
+   (`UiState.floor`: "2.6 kW, Cooking", "1.6 kW, Dishwasher 65°C" with Cooking's Counts for the
+   limit off; the kettle's heaviest ¼ hour is only ~0.4 kW); the lock moving (floor → goal); each
+   "No limit" reason: none on (only the floor on, the appliances hidden), nothing recorded (the
+   copied day files removed, the address at `192.0.2.1` so nothing syncs), no appliance counts
+   (all `countsForLimit` false in a staged `appliances.json`), the goal empty; hiding the
+   appliances moves the line in the peak window, the history and the History screen; the
+   Limit group in the R8 release build. With real cooking (17:33, hob + kettle, the default
+   limit = the month's highest 2.9 kW): a 3.2 kW projection gives "This ¼ hour sets a new peak."
+   with Share, and the rows "Sets a new peak right now". Still open: a row "Reaches the limit · at
+   hh:mm" (a goal below the base draw can't give one), last month's History without a line
+   (September has nothing recorded).
+   **Vibrate at the limit**, seen in the same session (`dumpsys vibrator_manager`, "Recent
+   vibrations", grouped by usage): Always gives ALARM, `finished`, 400 ms, in silent and normal
+   mode; Unless silent gives NOTIFICATION, `ignored_for_ringer_mode` in silent mode and `finished`
+   in normal mode, but only with Android's notification vibration on. On the user's Fairphone 6
+   it's off (`settings get system notification_vibration_intensity` = 0), so Unless silent is
+   `ignored_for_settings` in every ringer mode, the real alarm at 17:31 too. Once per ¼ hour: one
+   at 16:52, none for 8 minutes, one at 17:00:08; none while in the background past 17:15, one
+   on reopening at 17:15:50.
+   Fixed 2026-10-04 (user): both choices vibrate as ALARM and Unless silent checks
+   `AudioManager.ringerMode` itself; tapping a choice in Settings vibrates once with it, or shows
+   "The phone is silent, so it didn't vibrate." Seen on the Fairphone 6 (release build,
+   notification vibration off): silent + Unless silent: nothing in the log, the line shows;
+   silent + Always, normal + either, vibrate + Unless silent: ALARM `finished`. Not yet seen
+   since the fix: the real alarm at a red bar (the same `vibrate` function). Ringer mode over
+   adb: `cmd media_session volume` doesn't change it; open the volume panel and use its chooser
+   in one go, `adb shell "input keyevent KEYCODE_VOLUME_DOWN; sleep 0.4; input tap 1008 900;
+   sleep 0.6; input tap 1008 <y>"` (y: 648 vibrate, 775 silent, 898 sound), check with
+   `dumpsys audio | grep -A2 '^Ringer mode'`.
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
 - Small, any time: the base load line in the history panel.
@@ -265,7 +303,8 @@ Telling the household when a quarter hour heads for a new peak. Research, design
    collapsed, only while it shows) opens the share sheet with a ready text (WhatsApp, Signal, any
    messenger). No setting, no permission. Seen on the Fairphone 6 (2026-10-04, a goal staged
    below the draw): the button beside the warning, open and collapsed, and the share sheet with
-   the text. Open: a message actually sent to a messenger group.
+   the text. Open: a message actually sent to a messenger group (the user sends one when wanted;
+   the 2026-10-04 test session didn't send anything).
 2. ~~(b) ntfy~~: dropped 2026-10-04 (it sends only while GridLoad is open somewhere).
 3. Later, not planned: (b2) a background sender on a hub phone (phase 5) with ntfy, the only
    way an automatic alert would be useful; see the research file.
@@ -294,11 +333,6 @@ Telling the household when a quarter hour heads for a new peak. Research, design
 Little tasks for when there's nothing else (user, 2026-10-03: skipped for now).
 - **Liechtenstein in CHF**: its market price comes in EUR from Energy-Charts, while households
   pay CHF; show it in CHF (an exchange rate, or a CHF source for zone `CH`).
-- **Vibrate at the limit on the phone:** a vibration without a usage counts as touch feedback,
-  which silent mode drops (seen 2026-10-03: `ignored_for_settings`). After a real limit alarm,
-  check `adb shell dumpsys vibrator_manager` for GridLoad's 400 ms vibration with usage
-  NOTIFICATION (Unless silent) or ALARM (Always) and that it was played. Try both settings, in
-  silent mode too.
 
 ## Conventions
 

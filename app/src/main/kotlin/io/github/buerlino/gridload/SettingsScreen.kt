@@ -151,8 +151,9 @@ private val COUNTDOWN_INFO = Info(
 )
 private val VIBRATE_INFO = Info(
     "Vibrate at the limit",
-    "When this ¼ hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: like a " +
-        "notification, so not while the phone is silent. Always: like an alarm, in silent mode too.",
+    "When this ¼ hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: not while " +
+        "the phone is silent. Always: in silent mode too.\n\nTapping a choice vibrates once with it, so you can feel " +
+        "it works.",
 )
 
 private val DRAW_INFO = Info(
@@ -306,7 +307,7 @@ fun SettingsScreen(
             if (state.peakEnabled) {
                 LimitGroup(state, viewModel)
                 SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
-                ChoiceRow("Vibrate at the limit", VIBRATE_INFO, listOf(false to "Unless silent", true to "Always"), state.vibrateAlways, viewModel::setVibrateAlways)
+                VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
                 ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
                 Appliances(state, viewModel)
             }
@@ -619,6 +620,18 @@ private fun UnitRow(unit: PowerUnit, onUnit: (PowerUnit) -> Unit) {
                 ) { Text(u.id) }
             }
         }
+    }
+}
+
+/** Vibrate at the limit: tapping a choice vibrates once with it, or says why it didn't. */
+@Composable
+private fun VibrateRow(always: Boolean, onSelect: (Boolean) -> Boolean) {
+    var skipped by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ChoiceRow("Vibrate at the limit", VIBRATE_INFO, listOf(false to "Unless silent", true to "Always"), always) {
+            skipped = !onSelect(it)
+        }
+        if (skipped) Text("The phone is silent, so it didn't vibrate.", color = MUTED)
     }
 }
 
