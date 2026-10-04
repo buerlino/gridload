@@ -44,15 +44,15 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   runtime permission, no background work). Built in v0.13.0.
 - **Users without a whatwatt get one colour and the next good time.** That's most users, and
   most of wave 1's. The [price curve](#1-price-curve-for-the-next-24-hours) shows how long green
-  lasts, which they need to plan a long run.
+  lasts, which they need to plan a long run. Built in v0.14.0.
 - **Appliances by run time, without a whatwatt** (open, the user's decision): a run time read
   off the appliance's display ("2 h 30") isn't a guess the way typed watts were. With a flat
   curve it gives price-only OK/WAIT rows. It touches the "measured only" rule (`CLAUDE.md`,
   Appliances), so only the user can say whether that rule is about watts or about appliances.
   Decide before the German phase, since it changes what the appliances panel is for.
 - **[Where the limit comes from](#where-the-limit-comes-from):** with four sources, a Cooking
-  row told to wait for a floor Cooking set itself looks like a bug. Decided 2026-10-04: a Limit
-  setting, see below.
+  row told to wait for a floor Cooking set itself looks like a bug. Built in v0.14.0 as the Limit
+  setting.
 - **The classification on spot prices:** the known weak point (one spike sets `max`, `CLAUDE.md`,
   Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
   sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
@@ -61,60 +61,27 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   green too generous; the 90th percentile for market-price regions shipped in v0.13.0.
 - Smaller: the [saving on WAIT rows](#savings-on-each-wait-row) (built in v0.13.0); the
   [base load](#2-base-load) is the biggest number in the data
-  (~700 kWh a year, far above the peak), one line in the history panel; the
+  (~700 kWh a year, far above the peak), one line in the history panel (built in v0.14.0); the
   [widget](#home-screen-widget-or-a-quick-settings-tile) can wait, since without a background
   fetch it runs dry by evening and the timer button covers most of the need.
 
-Suggested order (confirmed by the user 2026-10-04): the timer and the saving on WAIT rows (both
-in v0.13.0), then the price curve, then where the limit comes from (built as the Limit setting).
+The suggested order (confirmed by the user 2026-10-04) is built: the timer and the saving in
+v0.13.0, the price curve, the Limit setting and the base load in v0.14.0.
 
 ## Panels for the main screen
 
 ### 1. Price curve for the next 24 hours
 
-**What:** a white panel (the existing `Panel` in `Charts.kt`) with one bar per slot or hour over
-the classification window, each in its colour (green/orange/red), a marker for now, and time
-labels every few hours. The collapsed header could say how long the current colour lasts:
-"Green until 16:00" or "Green from 11:00 to 15:00".
+Built in v0.14.0 as the first panel, for everyone, one bar per slot with a price axis and a
+switch to hide it: see `CLAUDE.md`, "Price curve".
 
-**Why:** today the screen says when green *starts* ("● tomorrow 10:00") but not how long it
-lasts, nor whether it's 1 hour or 5. With the curve you can plan a long run (washing machine,
-then dryer) without trial and error.
-
-**Data:** already there. These are the cached slots and the window from `classify`
-(`Classify.kt`). The levels need `level(price)` for every slot, which today is a local function
-inside `classify`. Moving it out of `classify` (e.g. a `levels(slots, now)` returning
-slot → level for the window) is a small `:core` change with unit tests.
-
-**Open questions:**
-- Show it without peak load too? Right now the panels exist only with peak load on, and
-  without peak load the spot part is centred with larger text. A price panel would make the
-  panel layout the default for everyone.
-- Hourly bars (24) or slots (96 for the 15-min utilities)? Bars per hour, averaged, read better
-  on a phone. EKZ and Groupe E are 15-min, CKW and Primeo hourly.
-- Show prices on the axis (Rp/kWh), or only the colours? Fewer numbers fits the UI rules.
-- Where: above the peak window or below the history?
 
 ### 2. Base load
 
-**What:** in the history panel or a small panel of its own: "Base load 80 W · about 700 kWh a
-year". It could also compare with last month.
+Built in v0.14.0 as a line in the history panel: the median of the quarters between hours set
+in Settings (02:00 to 05:00 by default) over the last 7 days, in kWh a year, no CHF: see
+`CLAUDE.md`, "History".
 
-**Why:** a quarter of the use, and it runs every hour of the year. Most households don't know
-theirs, and it's the easiest saving (old fridge, network gear, standby).
-
-**Data:** the recorder's day files the app already copies (`RecorderFiles`, `parseRecording`).
-A `:core` function, e.g. the median of the quarters between 02:00 and 05:00 over the last 7 days.
-Use the median, not the minimum: a fridge cycles, so the minimum underestimates.
-
-**Decided (user, 2026-10-04):** the median, since a fridge cycles over a longer stretch; the
-hours are a setting (From, To) so a household picks its own quiet hours, with a switch to hide
-it; kWh a year only. Built as in `CLAUDE.md` (History).
-
-**Open questions (before the decision):** CHF per year too? (`CLAUDE.md` keeps peak CHF amounts out of the code, but
-this is kWh × the average price, which the app knows.) Is "02:00–05:00" right for a household
-whose night isn't quiet (e.g. a dishwasher on a timer)? Then the lowest hour of each night is
-safer.
 
 ### 3. Month so far
 
@@ -158,30 +125,9 @@ since clock apps take timers only from apps holding it.
 
 ### Where the limit comes from
 
-**What:** the peak window's limit line can come from four places: the floor (the biggest
-appliance × 1.2), the goal, the tariff's minimum (`Region.minimumKw`, e.g. 2 kW in Austria) or
-the month's highest quarter hour. Right now the screen says only "2.6 limit". A tap on the limit
-label would say which one sets it: "Floor from Cooking (2.21 kW × 1.2)", "Goal", "Your tariff's
-minimum", or "Highest this month, 2 Oct 18:30".
+Built in v0.14.0 as Settings → Mode → Limit, one switch per part with its value and a "Limit
+now" line, in place of a tap on the limit label: see `CLAUDE.md`, "The limit".
 
-**Why:** when the peak window tells Cooking to wait for a limit it set itself, nothing on screen
-explains why. Someone who doesn't know the floor would think the app is broken, which is what the
-floor was meant to fix.
-
-**How:** `peakLine` (`Quarters.kt`) returns only the maximum of the four, so it would need to
-return the winning source with the value (a small pair or a label), and its tests would cover
-which one wins. The explanation goes in a dialog, like the ⓘ ones (`Info` in `SettingsScreen.kt`),
-so the peak window keeps one short line (`CLAUDE.md`: each concept in one place).
-
-**Open questions:** a dialog on tap, or a short suffix in the scale ("2.6 limit · floor")? Show it
-in the help too?
-
-**Decided (user, 2026-10-04):** neither. The line stays not tappable; instead Settings → Mode →
-**Limit** has one switch per part (month's highest, biggest appliance + 20%, tariff minimum,
-goal), each with its value, and a result line, "Limit now: 2.7 kW, from Cooking + 20%", or why
-there's none. The last switch on is locked; nothing is switched on by itself. The defaults give
-the limit as before. `peakLimit` (`Quarters.kt`) returns the value and the part, with the floor's
-appliance. Design in `CLAUDE.md`, "The limit".
 
 ## Outside the main screen
 

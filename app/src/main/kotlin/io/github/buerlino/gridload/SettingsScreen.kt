@@ -65,6 +65,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.buerlino.gridload.core.BASE_LOAD_DAYS
 import io.github.buerlino.gridload.core.COUNTRIES
 import io.github.buerlino.gridload.core.Country
 import io.github.buerlino.gridload.core.Limit
@@ -169,7 +170,7 @@ private val BASE_LOAD_INFO = Info(
     "Base load",
     "On: the history shows your base load, what draws all the time (fridge, router, standby), and what it comes to " +
         "in a year.\n\n" +
-        "It's the median of the ¼ hours between these hours over the last 7 days. Pick hours when nothing else " +
+        "It's the median of the ¼ hours between these hours over the last $BASE_LOAD_DAYS days. Pick hours when nothing else " +
         "usually runs: an appliance on a night timer would count.",
 )
 

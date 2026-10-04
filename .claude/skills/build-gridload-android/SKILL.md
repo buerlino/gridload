@@ -55,8 +55,13 @@ in git.
 - Screenshots: `adb exec-out screencap -p > file.png`. For store screenshots, use SystemUI demo
   mode (`settings put global sysui_demo_allowed 1`, then `am broadcast -a
   com.android.systemui.demo -e command enter|clock|notifications|status|exit ...`) so the user's
-  status bar icons don't show, with the clock set to match "Updated". Afterwards exit demo mode
-  and set `sysui_demo_allowed` back to 0.
+  status bar icons don't show, with the clock set to match "Updated" (pull to refresh first).
+  On the Fairphone 6, `network -e mobile hide -e sims 0` and `network -e wifi show -e level 4
+  -e fully true` leave only Wi-Fi and the battery. Afterwards exit demo mode and set
+  `sysui_demo_allowed` back to 0. The six store screenshots (v0.14.0, 2026-10-04, real state, no
+  staging): the main screen with the price curve and the peak window; Cooking's preview; the
+  appliances and the history with the base load; the History screen; the help; Settings → Mode
+  with the Limit group.
 - A helper that taps the first node containing a text can hit a label instead of a button;
   match whole texts for buttons.
 - If the phone is locked, don't try to unlock it; ask the user.
@@ -119,8 +124,12 @@ reproducible-build check. The MR description says the APK has AndroidX's
 `libandroidx.graphics.path.so` (~10 KB per ABI); the reviewer's R8 request was answered with
 v0.3.1.
 
-Status (2026-10-04): the recipe is at 0.13.0 (`3ade4eee0`, versionCode 16, pushed: the MR's
-head, pipeline green). The NonFreeNet text, unchanged since 0.12.0:
+Status (2026-10-04): the MR's head is 0.13.0 (`3ade4eee0`, versionCode 16, pipeline green).
+The move to 0.14.0 (versionCode 17, commit `758b0f3d459016dc5f4eb8ea1ae94d958a8750a3`, the
+annotated tag's commit) is prepared in `../fdroiddata`, not yet committed or pushed. Checked
+2026-10-04: the GitHub APK of v0.14.0 (sha256 `2a38f0cd…5e59a20`) is signed with the
+`AllowedAPKSigningKeys` certificate, and its 25 entries outside `META-INF/` equal an unsigned
+build of the tag (names and sha256). The NonFreeNet text, unchanged since 0.12.0:
 ```
 NonFreeNet:
   en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
@@ -131,7 +140,12 @@ Auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) builds later ta
 
 Moving the recipe to a new version: check that the GitHub APK's signer matches
 `AllowedAPKSigningKeys` and that its contents equal an unsigned build of the tag (all entries
-outside `META-INF/`), then commit in the clone at `../fdroiddata`. `fdroid rewritemeta` wraps
+outside `META-INF/`), then commit in the clone at `../fdroiddata`. Build the tag in a scratch git
+worktree. A local build's `META-INF/version-control-info.textproto` can say
+`NO_VALID_GIT_FOUND` instead of the commit (seen 2026-10-04 in the worktree and in the working
+tree); CI's and F-Droid's checkouts of the tag write the commit, as the GitHub APK has, and
+F-Droid's reproducible check passed with it. The recipe's `commit` is the tag's commit
+(`git rev-parse vX.Y.Z^{commit}`), not the annotated tag object's hash. `fdroid rewritemeta` wraps
 long text values at about 80 columns with continuation lines indented 2 more, so write them
 wrapped that way. Pushing to the fork needs a GitLab token (`write_repository`) as the password;
 the fork has no credential helper. The user pushes and posts on GitLab (it's public under their
@@ -205,6 +219,7 @@ Open:
    Tried 2026-10-04 19:43 on the debug build (Austria and a 15 ct add-on staged, a Can-wait
    "Test 1 h" in `appliances.json`): Energy-Charts answered 503 (curl too), so only the failure
    showed: "No prices", "The price server answered with error 503.", the row "–". Restored after.
+   The v0.14.0 release test (2026-10-04 20:20) skipped this: Energy-Charts still answered 503.
 
 A new region: test the request with the app's code (a request of up to 31 days, past days too,
 gives plenty of data to analyse in one call; mind CKW's 4 per window), add it to `REGIONS` with
@@ -222,85 +237,43 @@ Finland and the Baltics. A source that is neither VSE/AES nor Energy-Charts need
 `PriceSource` (its request in `pricesRequestUrl`, its parser in `pricesFrom`); a currency other
 than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Energy planning [steps 1 and 2 released in v0.13.0, 3 and 4 in v0.14.0]
+### Energy planning [steps 1 and 2 released in v0.13.0, 3 and 4 and the base load in v0.14.0]
 
 Claude's proposal, confirmed by the user 2026-10-04, before German, so the new strings are
 translated once and wave 1's users, mostly without a whatwatt, get more than one colour; the
-reasoning in `research/feature_ideas.md` (Review). Each step is its own release-sized piece,
-settled with the user before it starts.
-1. ~~A timer on WAIT rows~~ and 2. ~~the saving on WAIT rows~~: built and seen on the Fairphone 6
-   (design in `CLAUDE.md`, OK or WAIT). To stage a "Cheaper at" row: a `prices.json` with a few
-   dear quarters now and today copied as tomorrow, so nothing is fetched; restore it
-   byte-identical afterwards.
-3. **The price curve panel** [released in v0.14.0]: decided with the user: for
-   everyone, per slot, with a price axis (short unit), the first panel, a switch to hide it
-   (Settings → Region). Design in `CLAUDE.md` (UI, Price curve). Seen on the Fairphone 6
-   (2026-10-04): CKW's hourly bars, the window from midnight with the past slots faded (before
-   tomorrow's fetch) and the 24 hours from now after it, negative prices (staged: the axis goes
-   below 0, the bars down), folding, the switch, the ⓘ, the help line, a preview scrolling to the
-   peak window, and the curve alone (peak load off). To stage negative prices: copy a fetched
-   `prices.json`, set some of tomorrow's `integrated` values below 0, restore it afterwards.
-   Seen in the test session (2026-10-04, at `ae4c5fe`): the header's four texts, staged: "Green
-   for now", "Green until 18:45", "Green from 18:15", "No green time ahead"; folding (saved as
-   `curve_open`) and the switch again; no prices at all (no `prices.json`, airplane mode): no
-   panel, "No prices", no crash; the curve in the R8 release build. To stage the header: a
-   `prices.json` ending at tomorrow 00:15 local (so `wantsFetch` stays false), dear before now and
-   cheap from now. With tomorrow's whole day the window starts at now, so every slot of a green
-   run to its end would be green and the range 0: "Green for now" only shows while the window
-   starts before now (before tomorrow's prices, or after midnight).
-4. **The Limit setting** [released in v0.14.0]: decided with the user in place of a
-   tap on "2.6 limit" (the line stays not tappable): Settings → Mode → Limit, one switch per part
-   (month's highest, biggest appliance + 20%, tariff minimum, goal) with its value, a lock on the
-   last one on, and "Limit now: …, from …" or why there's none. Design in `CLAUDE.md` (Peak load,
-   The limit). Seen on the Fairphone 6 (2026-10-04): each switch moves the line in the peak
-   window and the history, the lock moves to the last one on, hiding the appliances hides the
-   floor ("No limit: none of these is on."), Austria's minimum (staged in the prefs with CKW's
-   `prices.json` backed up), a goal below the draw (red bar, the vibration issued as
-   NOTIFICATION) and no limit (no line, "0.5 kW now"). Fixed 2026-10-04: with the month's highest
-   off, the warning and the WAIT rows claimed a new peak below it; they now say "sets a new peak"
-   only above the month's highest (`isNewPeak`), else "reaches the limit". Seen on the Fairphone 6
-   (2026-10-04): a goal below the draw with Month's highest off gives "This ¼ hour reaches the
-   limit." and rows "Reaches the limit right now"; with it on, not yet seen since the fix.
-   Seen in the test session (2026-10-04, at `ae4c5fe`): the floor's value and appliance
-   (`UiState.floor`: "2.6 kW, Cooking", "1.6 kW, Dishwasher 65°C" with Cooking's Counts for the
-   limit off; the kettle's heaviest ¼ hour is only ~0.4 kW); the lock moving (floor → goal); each
-   "No limit" reason: none on (only the floor on, the appliances hidden), nothing recorded (the
-   copied day files removed, the address at `192.0.2.1` so nothing syncs), no appliance counts
-   (all `countsForLimit` false in a staged `appliances.json`), the goal empty; hiding the
-   appliances moves the line in the peak window, the history and the History screen; the
-   Limit group in the R8 release build. With real cooking (17:33, hob + kettle, the default
-   limit = the month's highest 2.9 kW): a 3.2 kW projection gives "This ¼ hour sets a new peak."
-   with Share, and the rows "Sets a new peak right now". Still open: a row "Reaches the limit · at
-   hh:mm" (a goal below the base draw can't give one), last month's History without a line
-   (September has nothing recorded).
-   **Vibrate at the limit**, seen in the same session (`dumpsys vibrator_manager`, "Recent
-   vibrations", grouped by usage): Always gives ALARM, `finished`, 400 ms, in silent and normal
-   mode; Unless silent gives NOTIFICATION, `ignored_for_ringer_mode` in silent mode and `finished`
-   in normal mode, but only with Android's notification vibration on. On the user's Fairphone 6
-   it's off (`settings get system notification_vibration_intensity` = 0), so Unless silent is
-   `ignored_for_settings` in every ringer mode, the real alarm at 17:31 too. Once per ¼ hour: one
-   at 16:52, none for 8 minutes, one at 17:00:08; none while in the background past 17:15, one
-   on reopening at 17:15:50.
-   Fixed 2026-10-04 (user): both choices vibrate as ALARM and Unless silent checks
-   `AudioManager.ringerMode` itself; tapping a choice in Settings vibrates once with it, or shows
-   "The phone is silent, so it didn't vibrate." Seen on the Fairphone 6 (release build,
-   notification vibration off): silent + Unless silent: nothing in the log, the line shows;
-   silent + Always, normal + either, vibrate + Unless silent: ALARM `finished`. Not yet seen
-   since the fix: the real alarm at a red bar (the same `vibrate` function). Ringer mode over
-   adb: `cmd media_session volume` doesn't change it; open the volume panel and use its chooser
-   in one go, `adb shell "input keyevent KEYCODE_VOLUME_DOWN; sleep 0.4; input tap 1008 900;
-   sleep 0.6; input tap 1008 <y>"` (y: 648 vibrate, 775 silent, 898 sound), check with
-   `dumpsys audio | grep -A2 '^Ringer mode'`.
+reasoning in `research/feature_ideas.md` (Review). Each step was settled with the user before it
+started; the designs are in `CLAUDE.md`. All of them were seen on the Fairphone 6 and in the R8
+release build (the v0.14.0 release test, 2026-10-04, the signed GitHub APK).
+1. ~~A timer on WAIT rows~~ and 2. ~~the saving on WAIT rows~~ (`CLAUDE.md`, OK or WAIT). To
+   stage a "Cheaper at" row: a `prices.json` with a few dear quarters now and today copied as
+   tomorrow, so nothing is fetched; restore it byte-identical afterwards.
+3. ~~The price curve panel~~ (`CLAUDE.md`, Price curve). To stage negative prices: copy a
+   fetched `prices.json` and set some of tomorrow's `integrated` values below 0. To stage the
+   header: a `prices.json` ending at tomorrow 00:15 local (so `wantsFetch` stays false), dear
+   before now and cheap from now. With tomorrow's whole day the window starts at now, so a green
+   run to its end makes the range 0: "Green for now" only shows while the window starts before
+   now (before tomorrow's prices, or after midnight). Restore the file afterwards.
+4. ~~The Limit setting~~ (`CLAUDE.md`, The limit), with "sets a new peak" only above the month's
+   highest (`isNewPeak`). To stage each "No limit" reason: only the floor on with the appliances
+   hidden (none on); the copied day files removed and the address at `192.0.2.1`, so nothing
+   syncs (nothing recorded); every `countsForLimit` false in a staged `appliances.json` (no
+   appliance counts); the goal empty. A goal below the draw gives a red bar and "reaches the
+   limit". Still open: a row "Reaches the limit · at hh:mm" (a goal below the base draw can't give
+   one); last month's History without a line (September has nothing recorded).
+   **Vibrate at the limit** (both choices as ALARM, Unless silent checks the ringer mode itself):
+   check with `dumpsys vibrator_manager`, "Recent vibrations", grouped by usage (`finished`,
+   `ignored_for_ringer_mode`, `ignored_for_settings`). As NOTIFICATION it depended on Android's
+   notification vibration, which is off on the user's Fairphone 6
+   (`settings get system notification_vibration_intensity` = 0). Ringer mode over adb:
+   `cmd media_session volume` doesn't change it; open the volume panel and use its chooser in one
+   go, `adb shell "input keyevent KEYCODE_VOLUME_DOWN; sleep 0.4; input tap 1008 900; sleep 0.6;
+   input tap 1008 <y>"` (y: 648 vibrate, 775 silent, 898 sound; the key also lowers the media
+   volume by a step), check with `dumpsys audio | grep -A2 '^Ringer mode'`.
+- ~~The base load line~~ (`CLAUDE.md`, History). Checked against the day files: the median of the
+  quarters in the hours matches the line, past midnight too. Still open: the line settling over
+  7 nights; the "no ¼ hours" line (every hour has quarters in the last 7 days now).
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
-- **The base load line** [released in v0.14.0]: decided with the user: the median
-  (not each night's lowest), between hours set in Settings → Mode → Base load (02:00–05:00 by
-  default), with a switch; kWh a year, no CHF. Design in `CLAUDE.md` (History). Seen on the
-  Fairphone 6 (debug build, 2026-10-04): the line ("0.15 kW · about 1,300 kWh a year" from only
-  two nights, 3 Oct at ~0.23 kW and 4 Oct at ~0.07 kW, checked against the day files), the
-  Settings row and a From pick saved. Still open: the line settling over 7 nights; the "no ¼
-  hours" line; W; the line in the R8 release build (v0.14.0 was pushed without it, the phone being
-  away).
 
 Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
 2-min average, jumping on Latest reading).
@@ -309,12 +282,10 @@ Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarter
 
 Telling the household when a quarter hour heads for a new peak. Research, design and sources in
 `research/household_alerts.md`; the design in `CLAUDE.md` (the peak window).
-1. **(a) Share** [built, commit `0c85de7`]: a Share button right of the peak warning (open and
-   collapsed, only while it shows) opens the share sheet with a ready text (WhatsApp, Signal, any
-   messenger). No setting, no permission. Seen on the Fairphone 6 (2026-10-04, a goal staged
-   below the draw): the button beside the warning, open and collapsed, and the share sheet with
-   the text. Open: a message actually sent to a messenger group (the user sends one when wanted;
-   the 2026-10-04 test session didn't send anything).
+1. ~~(a) Share~~: the button beside the warning, open and collapsed, and the share sheet's text,
+   seen in the release build (closed without sending). Open: a message actually sent to a
+   messenger group (the user sends one when wanted); the Share text with "sets a new peak" in the
+   release build (no real peak happened).
 2. ~~(b) ntfy~~: dropped 2026-10-04 (it sends only while GridLoad is open somewhere).
 3. Later, not planned: (b2) a background sender on a hub phone (phase 5) with ntfy, the only
    way an automatic alert would be useful; see the research file.

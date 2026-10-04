@@ -1,5 +1,0 @@
-- A WAIT row with a time has a timer button: it opens the clock app with a timer until then.
-- A cheaper start says what waiting saves ("saves 0.14 CHF").
-- Market prices: a single price spike no longer turns dear hours green.
-- Draw ahead (Settings → Mode): later quarter hours use the 2-minute average draw, so a cycling hob doesn't make the bars jump.
-- The appliance preview shows red only above the limit.

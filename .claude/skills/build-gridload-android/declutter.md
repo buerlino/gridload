@@ -550,3 +550,46 @@ rows, the Share text) this pass left alone.
   and collapsed; Share opens the share sheet with the text (closed without sending); the rows say
   "Reaches the limit right now". The app's data (backed up with `run-as … tar`, app stopped) was
   restored byte-identical, contents and modes, no extra files.
+
+## Pass 2026-10-04 (after v0.14.0)
+
+Report (at `758b0f3`, the v0.14.0 tag; range `ae4c5fe..758b0f3`: the vibration fix and the base
+load line): 118 tests green, lint "No issues found", no `w:` lines, no unused declarations, the
+only deprecation AGP's `setVisible` (AGP 9.5.0 still alpha08), workflows on `checkout@v7` /
+`setup-java@v6`. The code was lean; the clutter was in the docs. The user approved all items.
+
+### Code
+- [x] C1. `BASE_LOAD_INFO` said "last 7 days" as a literal while `BaseLoadLine` uses
+  `$BASE_LOAD_DAYS`: both use the constant now (same text).
+
+### Docs
+- [x] D1. `research/feature_ideas.md`: the built price curve, base load and "where the limit
+  comes from" sections shrunk to a line each pointing to `CLAUDE.md`; the Review's order marked
+  built (−69 lines).
+- [x] D2. The skill's Energy planning and Household alerts (374 → 316 lines): the
+  phone and release-test logs of steps 3 and 4, Vibrate at the limit, the base load and Share
+  condensed to status, open items and the how-tos (staging, `dumpsys vibrator_manager`, ringer
+  mode over adb).
+- [x] D3. `CLAUDE.md` Current state: the F-Droid recipe's move to 0.14.0 prepared.
+- [x] D4. The base load was in changelog 17 but not in the README (History) or the store
+  description (3202 → 3289 characters).
+
+### Repo
+- [x] R1. Changelog 16 deleted: with the recipe moving to 17, F-Droid never builds 16 (the
+  v0.13.0 tag keeps its copy). Assumes the 0.14.0 recipe commit is pushed.
+- [x] R2. `git gc` (141 loose objects, 808 KiB → 0).
+
+### No change
+- The base load's defaults (2 and 5) appear in `UiState` and the prefs read, as for every pref.
+- `hourText`'s `"%02d:00"` beside the `HH:mm` formatters: the same idiom as the hour labels.
+
+### Done (2026-10-04)
+- F-Droid: the GitHub APK of v0.14.0 equals an unsigned build of the tag outside `META-INF/`
+  (25 entries); the recipe's move to 0.14.0 prepared in `../fdroiddata` (see the skill).
+- Verified: `:core:test :app:lintDebug :app:assembleDebug :app:assembleRelease` green, 118
+  tests, lint "No issues found". The unsigned release APK went from `ec54b697…` to
+  `4efe5266…` with C1: `dexdump` of both is identical apart from R8's `r8-map-id` (the added
+  import moves source lines), which also changes `baseline.prof`; no code change. Two clean
+  `assembleRelease` builds both `4efe5266423f980744300d39ba78b821b2b6e47fbd812879b151dce25b71a2c3`.
+- New store screenshots (v0.14.0, on the Fairphone 6, 20:45): the price curve, the base load and
+  the Limit group show; the old ones were from v0.11.1.
