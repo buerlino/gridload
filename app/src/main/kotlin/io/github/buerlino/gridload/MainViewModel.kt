@@ -39,8 +39,6 @@ import io.github.buerlino.gridload.core.mayFetch
 import io.github.buerlino.gridload.core.measuringJson
 import io.github.buerlino.gridload.core.mergeAppliances
 import io.github.buerlino.gridload.core.parseAppliances
-import io.github.buerlino.gridload.core.ownPrice
-import io.github.buerlino.gridload.core.ownSaving
 import io.github.buerlino.gridload.core.parseNonNegative
 import io.github.buerlino.gridload.core.parsePositive
 import io.github.buerlino.gridload.core.parseMeasuring
@@ -49,6 +47,8 @@ import io.github.buerlino.gridload.core.peakLine
 import io.github.buerlino.gridload.core.quarterLoads
 import io.github.buerlino.gridload.core.reachedServer
 import io.github.buerlino.gridload.core.wantsFetch
+import io.github.buerlino.gridload.core.yourPrice
+import io.github.buerlino.gridload.core.yourSaving
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,19 +121,10 @@ data class UiState(
         val projection = meter.projection ?: return false
         return isPeakWarning(projection.kw, peakLine ?: return false)
     }
-    /**
-     * What a slot's [price] costs the user: the price itself, or in a spot region the own price
-     * from the add-on and VAT; null there until the add-on is entered. Only for showing it: the
-     * colour and the appliances' advice use the price itself, which ranks the slots the same.
-     */
-    fun yourPrice(price: Double): Double? =
-        if (!region.isSpot) price else priceAddOn?.let { ownPrice(price, it, priceVat, region.country) }
-    /** What waiting saves, "0.09 CHF", like [yourPrice]: none in a spot region without the add-on, nor below 0.01. */
-    fun saving(advice: Advice?): String? {
-        val saving = (advice as? Advice.Cheaper)?.saving ?: return null
-        val yours = if (!region.isSpot) saving else priceAddOn?.let { ownSaving(saving, priceVat, region.country) } ?: return null
-        return region.country.currency.amount(yours).takeIf { yours >= 0.005 }
-    }
+    /** What a slot's [price] costs the user (see the core [yourPrice]); null in a spot region until the add-on is entered. */
+    fun yourPrice(price: Double): Double? = yourPrice(price, region, priceAddOn, priceVat)
+    /** What waiting saves the user (see the core [yourSaving]); null in a spot region without the add-on and below 0.005. */
+    fun yourSaving(saving: Double): Double? = yourSaving(saving, region, priceAddOn, priceVat)
     /** Whether the main screen shows the panels: the peak window, the appliances and the history. */
     val showPeak: Boolean get() = peakEnabled && whatwattEnabled
 }
@@ -258,8 +249,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun derive() {
         val now = Instant.now()
         _state.update { s ->
-            val projection = s.meter.projection
-            val peak = if (projection != null && s.meter.kw != null) PeakNow(projection, s.peakLine) else null
+            val peak = s.meter.projection?.let { PeakNow(it, s.peakLine) }
             // Gone without a reading, or when the appliance is deleted, renamed or measured again.
             val previewed = s.appliances.find { it.name == s.preview && it.name != s.measuring?.appliance?.name }
             val previewLoads = if (peak != null && previewed != null) previewed.quarterLoads(now, peak) else emptyList()

@@ -357,6 +357,30 @@ class CoreTest {
     }
 
     @Test
+    fun yourPriceNeedsTheAddOnOnlyInSpotRegions() {
+        val at = REGIONS.first { it.id == "at" }
+        // A utility's tariff is the household's price; the add-on and VAT don't apply.
+        assertEquals(0.227, yourPrice(0.227, CKW, null, null))
+        assertEquals(0.227, yourPrice(0.227, CKW, 18.7, 20.0))
+        // A market price needs the add-on first.
+        assertNull(yourPrice(0.113, at, null, 20.0))
+        assertEquals(0.36, yourPrice(0.113, at, 18.7, null)!!, 1e-9)
+    }
+
+    @Test
+    fun yourSavingHidesWhatWouldShowAsZero() {
+        val at = REGIONS.first { it.id == "at" }
+        assertEquals(0.09, yourSaving(0.09, CKW, null, null))
+        assertEquals(0.27, yourSaving(0.225, at, 18.7, null)!!, 1e-9)
+        assertNull(yourSaving(0.225, at, null, null))
+        // Below 0.005 it would show as "0.00 CHF"; 0.005 itself shows as 0.01.
+        assertNull(yourSaving(0.0049, CKW, null, null))
+        assertEquals(0.005, yourSaving(0.005, CKW, null, null))
+        // VAT can lift a saving over the threshold: 0.0045 × 1.2 = 0.0054.
+        assertEquals(0.0054, yourSaving(0.0045, at, 18.7, 20.0)!!, 1e-9)
+    }
+
+    @Test
     fun defaultVatPerCountry() {
         assertNull(SWITZERLAND.vat)
         // Every country with a market-price region has a VAT to start from.

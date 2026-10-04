@@ -43,8 +43,9 @@ fun classify(slots: List<PriceSlot>, now: Instant, spot: Boolean): Status? {
 
 /**
  * The top of the colour range over [prices]. In market-price regions ([spot]) it's the 90th
- * percentile (nearest rank), since one spike there stretches the range and turns clearly dear
- * slots green (scored in CLAUDE.md, Classification); prices above it are simply red. Where that
+ * percentile (the sorted value at index ⌊0.9 n⌋, as in `research/energy_charts/score.py`), since
+ * one spike there stretches the range and turns clearly dear slots green (scored in
+ * `research/classification.md`); prices above it are simply red. Where that
  * is the lowest price too (a flat window with a few dear slots), the highest keeps those red.
  * Elsewhere the highest.
  */

@@ -192,15 +192,16 @@ fun SetupGuide(
                 }
             } else {
                 val skip = state.whatwattAddress.isNullOrBlank()
-                Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, REGIONS.first { it.id == chosenRegion }, viewModel) }
+                val region = REGIONS.first { it.id == chosenRegion }
+                Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, region, viewModel) }
                 if (state.meter.connected) {
-                    Section("📊 Mode", MODE_INFO) { PeakLoadSwitch(state, REGIONS.first { it.id == chosenRegion }, viewModel) }
+                    Section("📊 Mode", MODE_INFO) { PeakLoadSwitch(state, region, viewModel) }
                 }
                 Button(
                     onClick = {
                         viewModel.setWhatwattEnabled(!skip)
                         if (skip) viewModel.setPeakEnabled(false)
-                        onDone(REGIONS.first { it.id == chosenRegion })
+                        onDone(region)
                     },
                     modifier = Modifier.align(Alignment.End),
                 ) { Text(if (skip) "Skip" else "Done") }
@@ -229,7 +230,7 @@ fun SettingsScreen(
         TitleRow("Settings", onBack) { OutlinedButton(onClick = onOpenGuide) { Text("Setup guide") } }
         val closed = state.closedSections
         val toggle = { id: String -> viewModel.setSectionOpen(id, id in closed) }
-        val addOn = state.priceAddOn?.takeIf { state.region.isSpot }?.let { " · + ${amount(it)} ${state.region.country.currency.small}" }
+        val addOn = state.priceAddOn?.takeIf { state.region.isSpot }?.let { " · + ${typed(it)} ${state.region.country.currency.small}" }
         Section("⚡ Region", REGION_INFO, REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label + addOn.orEmpty()) }) {
             // Only the region is saved; another country shows its regions until one is picked.
             var country by rememberSaveable { mutableStateOf(state.region.country.code) }
@@ -506,7 +507,7 @@ private fun PriceFields(state: UiState, viewModel: MainViewModel, focus: Boolean
 /** A field for a number of 0 or more; [onValue] gets null when it's blank, and nothing while it isn't a number. */
 @Composable
 private fun NumberField(value: Double?, label: String, modifier: Modifier, onValue: (Double?) -> Unit) {
-    var text by rememberSaveable { mutableStateOf(value?.let(::amount).orEmpty()) }
+    var text by rememberSaveable { mutableStateOf(value?.let(::typed).orEmpty()) }
     OutlinedTextField(
         value = text,
         onValueChange = {
@@ -523,7 +524,7 @@ private fun NumberField(value: Double?, label: String, modifier: Modifier, onVal
 }
 
 /** An add-on or a VAT rate as typed: "18.5", "20", "8.1", in the phone's decimal separator. */
-private fun amount(value: Double): String =
+private fun typed(value: Double): String =
     NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2; isGroupingUsed = false }.format(value)
 
 /** kW or W, for everything the whatwatt shows. */

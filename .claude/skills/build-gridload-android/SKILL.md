@@ -49,6 +49,9 @@ in git.
   `EAP_T` at the boundaries); it's off since the validation, so turn it on first
   (`services.sd.enable`) and off again afterwards. For a long test with the app open,
   `adb shell svc power stayon usb` keeps the screen on; `svc power stayon false` afterwards.
+- JSON in the prefs (e.g. `measuring`): pull `shared_prefs/settings.xml` with the app stopped,
+  edit it locally and `cat` it back through `/data/local/tmp` (sed's `&` breaks the `&quot;`
+  entities). Back up what you stage and restore it byte-identical.
 - Screenshots: `adb exec-out screencap -p > file.png`. For store screenshots, use SystemUI demo
   mode (`settings put global sysui_demo_allowed 1`, then `am broadcast -a
   com.android.systemui.demo -e command enter|clock|notifications|status|exit ...`) so the user's
@@ -89,25 +92,19 @@ mask merges letters, cables and mast into one blob. If the SVGs change, regenera
 
 ## Roadmap
 
-Work phase by phase and update the status in brackets.
+Work phase by phase and update the status in brackets. Finished phases keep only their status,
+what's still open and the how-tos later work needs; the history is in git.
 
 ### Done
 
-- **v0.2:** Settings and first start, app icon.
-- **v0.3:** today + tomorrow and the 24-hour window with the next good time; seven regions from
-  four utilities (all VSE/AES). To analyse prices again, a request of up to 31 days (past days
-  work) gives plenty of data in one call; mind CKW's rate limit of 4 per window. A new region:
-  test the request with the app's code, add it to `REGIONS` with its `Country` and `source`
-  (`PriceSource.Vse(url)` for a utility, `market(...)` for a market price), the table in
-  `CLAUDE.md`, `README.md` and the store description. Set `minimumKw` where it bills a peak (0.0
-  with no minimum, null where none is billed), `peakFrom` where that billing starts later, and
-  `priceNote`/`peakNote` only for what the help must say about it alone. A region gets its
-  country's time zone; pass `zone` only if it differs (e.g. the Canaries in Spain).
-- **v0.4 / v0.5:** peak load with manual appliances and a CKW Excel import, dropped in v0.6.0
-  (commit `71f954f`; reasons in `CLAUDE.md`).
-- **v0.6:** back to the lean core.
-- **v0.7:** the whatwatt (phases 1 to 3) and the UI rework: no modes, Settings as Region then
-  Measurement, ⓘ dialogs. Details in `CLAUDE.md`.
+- **v0.2 to v0.6:** Settings and first start, the icon; today + tomorrow, the 24-hour window and
+  the seven Swiss regions (v0.3); peak load from manual appliances and a CKW Excel import (v0.4,
+  v0.5), dropped in v0.6.0 (commit `71f954f`; reasons in `CLAUDE.md`).
+- **v0.7 / v0.8:** the whatwatt (phases 1 to 3) and the recorder (phase 4), below.
+- **v0.9 to v0.11:** the panels and the history, the appliances, the limit with its floor,
+  Settings as sections, the neutral theme, a time zone per country, the full-screen history.
+- **v0.12 / v0.13:** wave 1 of the regions outside Switzerland; the energy-planning steps 1 and
+  2, the 90th percentile and Draw ahead.
 - **Declutter passes:** see [declutter.md](declutter.md), which also holds the reusable
   checklist for the next pass.
 
@@ -115,355 +112,149 @@ Work phase by phase and update the status in brackets.
 
 Merge request https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50583, from the user's fork
 `buerlino/fdroiddata`, branch `io.github.buerlino.gridload`, file
-`metadata/io.github.buerlino.gridload.yml`. Recipe choices: `NonFreeNet` anti-feature (the
-utilities' APIs), category `Market & Price`, `GPL-3.0-only`, `Binaries` +
-`AllowedAPKSigningKeys` for reproducible builds. The pipeline is green: `fdroid build` (Debian
-13, JDK 21 by default, so no `sudo` block) and the reproducible-build check.
+`metadata/io.github.buerlino.gridload.yml`. Recipe choices: `NonFreeNet` anti-feature, category
+`Market & Price`, `GPL-3.0-only`, `Binaries` + `AllowedAPKSigningKeys` for reproducible builds.
+The pipeline is green: `fdroid build` (Debian 13, JDK 21 by default, so no `sudo` block) and the
+reproducible-build check. The MR description says the APK has AndroidX's
+`libandroidx.graphics.path.so` (~10 KB per ABI); the reviewer's R8 request was answered with
+v0.3.1.
 
-The recipe is at v0.10.0 (versionCode 12, the user's fork commits `cb4172fe1` and `87bc0a2d7`,
-2026-10-03: the first failed only `fdroid rewritemeta`, which wraps long text values at about 80
-columns with continuation lines indented 2 more, so write them wrapped that way); the reviewer's
-R8 request was answered with v0.3.1. The second review (2026-10-03) asked for a current version
-and corrected "no native code" (the APK has AndroidX's `libandroidx.graphics.path.so`, ~10 KB
-per ABI; the MR description now says so). The NonFreeNet text now also names the whatwatt and
-its paid Plus licence. Auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) builds
-later tags once merged. Before moving the recipe to a new version:
-check that the GitHub APK's signer matches `AllowedAPKSigningKeys` and that its contents equal
-an unsigned build of the tag (all entries outside `META-INF/`), then commit in the clone at
-`../fdroiddata`. Pushing to the fork needs a GitLab token (`write_repository`) as the password;
-the fork has no credential helper.
+Status (2026-10-04): the recipe is at 0.12.0 (pushed, the MR's head `8a9053d72`); the 0.13.0
+commit (`3ade4eee0`, versionCode 16) is prepared in `../fdroiddata`, not pushed. The NonFreeNet
+text, unchanged since 0.12.0:
+```
+NonFreeNet:
+  en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
+    optional peak load reads a whatwatt Go meter reader on the local network, which
+    needs its paid Plus licence.
+```
+Auto update (`UpdateCheckMode: Tags`, `AutoUpdateMode: Version`) builds later tags once merged.
 
-Next: on-device testing by the reviewer; answer further comments. The user posts on GitLab (it's public under their name);
-Claude drafts the answers and any recipe changes, and can check the merge request and
-pipelines through GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
+Moving the recipe to a new version: check that the GitHub APK's signer matches
+`AllowedAPKSigningKeys` and that its contents equal an unsigned build of the tag (all entries
+outside `META-INF/`), then commit in the clone at `../fdroiddata`. `fdroid rewritemeta` wraps
+long text values at about 80 columns with continuation lines indented 2 more, so write them
+wrapped that way. Pushing to the fork needs a GitLab token (`write_repository`) as the password;
+the fork has no credential helper. The user pushes and posts on GitLab (it's public under their
+name); Claude drafts the answers and recipe changes, and can check the MR and pipelines through
+GitLab's public API (`/api/v4/projects/fdroid%2Ffdroiddata/merge_requests/50583`).
+
+Next: on-device testing by the reviewer; answer further comments.
 
 ### whatwatt [phases 0 to 3 released in v0.7.0; phase 4, the recorder, in v0.8.0; script frozen at v2]
 
-The design, the verified API facts and the phases are in `CLAUDE.md` under "Peak load with
-whatwatt" (the recorder: "The recorder (phase 4)"); the Berry tests, the script's history and the
-download measurements are in `research/whatwatt_berry_script.md`. The whatwatt runs on meter
-power: poll it gently (every 5 s while visible), and never download big SD files at full speed
-(it rebooted twice; ≤ 8 KB/s held). The Settings sections are settled
-(2026-10-03: Region, Measurement with the recorder, Mode with peak load; see `CLAUDE.md`).
+The design and the phases are in `CLAUDE.md` under "Peak load with whatwatt"; the device and
+REST API facts in `research/whatwatt_api.md`; the Berry tests, the script's history, the overnight validation (32 quarters within
+0.0012 kWh of the CSV log) and the download measurements are in
+`research/whatwatt_berry_script.md`. The whatwatt runs on meter power: poll it gently (every 5 s
+while visible), and never download big SD files at full speed (it rebooted twice; ≤ 8 KB/s
+held). Gaps count only up to the last check, which is every 15 min while the recorder waits for
+its first quarter, so a fresh gap can take that long to show.
 
-Phase 4, the recorder on the whatwatt. Done 2026-10-03: script v2 (version marker, start lines,
-no `print`) as a `:core` resource; `Recorder.kt` (day files, merge, gaps, `checkRecorder`, the
-local copies, install/start/remove over HTTP) with tests against a fake whatwatt; the app's own
-recording removed (user: no fallback, precise warnings instead); the Recorder row in Settings,
-the red lines in the peak window, the help, ⓘ texts, README and store text; the step-by-step
-whatwatt guide (`WhatwattGuide.kt`).
-Open, in order:
-1. ~~Validate overnight~~: done 2026-10-03, 32 quarters within 0.0012 kWh of the CSV log, only
-   the two restart quarters missing (results in the research file); CSV log turned off. Still
-   open: what `onreport` delivers when the meter isn't `OK`. The old CSV logs are deleted.
-2. ~~On the phone~~: done 2026-10-03: the update v1 → v2 by the app, the waiting and gap lines,
-   the auto-run warning → Fix, the R8 release build; Stopped (`run=false`; the state is `IDLE`,
-   no longer shown in brackets) → Start, Remove (dialog, script deleted, auto-run off, day files
-   kept) and Install on the real whatwatt, all within one quarter hour (08:15 lost). Gaps count
-   only up to the last check, which is every 15 min while the recorder waits for its first
-   quarter, so a fresh gap can take that long to show.
-3. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
-   file just has 100 lines; check it.
-4. ~~Release v0.8.0~~: tagged 2026-10-03 (store screenshots 1 and 3 retaken).
+Open:
+1. **The DST night** (25 Oct 2026, 02:00–03:00 twice): the lines are keyed by UTC, so the day
+   file just has 100 lines; check it on 26 Oct, with the price fixtures below.
+2. What `onreport` delivers when the meter isn't `OK`.
 
 Unknowns to check when they matter: whether Berry needs the Plus licence; the minimum firmware
-(the docs say Berry since 2.0.0, and the device reported `services.berry` on 2.0.0; tested only
-on 2.8.2. A firmware check was dropped on 2026-10-03: no version is known to fail); the values of
-`execution_status.state` other than `RUNNING` and `IDLE` (shown verbatim).
+(Berry since 2.0.0 per the docs and the device; tested only on 2.8.2; no firmware check, since no
+version is known to fail); the values of `execution_status.state` other than `RUNNING` and
+`IDLE` (shown verbatim).
 
-### Panels and history [released in v0.9.0, 2026-10-03]
+### Panels and history [released in v0.9.0 and v0.11.1]
 
-Making room for the history on the main screen (user, 2026-10-03; the design is in `CLAUDE.md`
-under UI, "Power unit" and "History"). In order:
-1. Settings: drop "Show the scale without a reading"; 📟 on the Measurement title; Country then
-   region (setup guide and Settings, preselected from the phone); the power unit (kW | W).
-2. Main screen: the spot part fixed at the top, the panels scrolling below; pull down to refresh
-   with the "Updated 14:02 ↻" line, ↻ dimmed during the cooldown.
-3. Peak window: collapsible with the "kW free" header and the countdown in it; values above the
-   bars; the current bar 1.6× as wide; "Recorded since", the gaps and Remove into Settings →
-   Recorder → Details.
-4. History panel, first version (bars per day). Test on the phone: scrolling with both panels
-   open, both collapsed, and without a reading.
-5. Help, ⓘ texts, README and store text; then the user decides on a release.
+Design in `CLAUDE.md` (UI, Power unit, History). To force scrolling with both panels open:
+`adb shell wm size 1116x1500`, `wm size reset` after. A fake day file (a copy of a real one
+shifted by whole days, debug build) shows last month with data; delete it afterwards.
 
-Tested on the Fairphone 6 (2026-10-03): collapse, scrolling with both open (`adb shell wm size
-1116x1500` to force it, `wm size reset` after), pull to refresh and the blocked pull, ↻ dimmed,
-W, recorder details, first start with the SIM's country. Seen on the phone too (2026-10-03, after the
-`Charts.kt` refactor): the peak window without a reading (wrong address in the prefs), the red
-"kW over" header and warning, open and collapsed, and the guide's Region step back at its top
-after Measurement.
+Still open: today dark while another day is the month's highest (from 4 Oct on); last month
+with real data (from 1 Nov); the DST day's 100 slots (25 Oct).
 
-History chart (user, 2026-10-03): the thin bars are fine for now; no tap-for-value (too thin to
-hit). The month's highest day red, today dark (only seen with today as the highest so far).
-Full screen on tap: built 2026-10-03 (`HistoryScreen` in `HistoryPanel.kt`; the user chose a
-day's quarter hours and last month, opened by tapping the chart, as its own screen; design in
-`CLAUDE.md` under History). Seen on the Fairphone 6 (2026-10-03, R8 build): opening by tapping
-the chart, back by ← and by the system back; this month (3 Oct, today, as the highest, red; 2 Oct
-grey; the day of the highest shaded and shown below); tapping days, also above a short bar
-(the shade and the quarter bars follow); taps on days without a bar, the axis labels and the limit's
-label do nothing; ‹ › to an empty September and back, the day reset to the month's highest; the
-four gaps of 2 and 3 Oct (2 Oct 23:30; 3 Oct 00:15, 08:15, 20:15) as empty slots, matching
-Settings → Recorder ("4 quarter hours missing this month"); W ("2560 W", the axis to 4000,
-"2650 limit"); process death with the screen open (back on History with the tapped day). Last
-month with data, seen with a temporary fake `GL260915.CSV` (3 Oct's lines 18 days earlier,
-debug build, deleted afterwards): no limit line, its own highest red, the scale to 3 kW, the
-day reset to 15 Sep. Fixed then (user): the shade now starts at the axis top (it stuck out above
-the top tick), an empty month says "No quarter hours recorded." (not "this month" under
-"September 2026"), and the main screen keeps its scroll and strip after History and Settings
-(they were reset to the top). After the declutter, the Settings and setup-guide title rows
-(`TitleRow`) and the WAIT rows ("Cheaper tomorrow 10:00", `comingTime`) look as before. Still
-open: today dark while another day is the month's highest (from 4 Oct on); last month with real
-data (from 1 Nov); the DST day's 100 slots (25 Oct).
+### Appliances [released in v0.10.0; the limit's floor in v0.11.0]
 
-### Appliances panel [released in v0.10.0, 2026-10-03]
+Design in `CLAUDE.md` under "Appliances" and "Peak load" (The limit), the reasoning in
+`research/appliances.md`. `appliances.json` (export/import) and the `measuring` pref are a
+format to keep.
 
-The design is in `CLAUDE.md` under "Appliances", the reasoning in `research/appliances.md`; the
-recorder stays at v2. Built and tested on the Fairphone 6 (2026-10-03): the measuring flow
-("Cooking", "Kettle 1 L"), OK and WAIT ("Sets a new peak right now"), the collapsed summary,
-rename, delete, variants ("Cooking 60 min", "Kettle 1.5 L"), export and import, and an R8 release
-build (a measurement survives a force-stop). Declutter pass afterwards: see
-[declutter.md](declutter.md).
+- Can wait on is saved by leaving the key out: `json` doesn't encode defaults, and
+  `canWait`/`countsForLimit` default to true. Check the row or the sheet, not a grep for
+  `"canWait":true` (a 2026-10-03 session took this for a bug).
+- A red bar at the limit is easiest to see with the cookings' "Counts for the limit" off (the
+  limit falls to the month's highest) and kettle + hob; switch them back afterwards.
 
-Released as v0.10.0 (versionCode 12, 2026-10-03), after re-measuring "Kettle 1 L" on the R8
-build (3 min · 0.10 kWh · 2.0 kW right after Done, which tested `doneAt`/`doneKwh`). From now on
-`appliances.json` (export/import) and the `measuring` pref are a format to keep.
+Still open (not blocking; the logic is covered by core tests):
+- On the phone: a WAIT with a peak time ("Sets a new peak · at 14:30" needs a heavy quarter with
+  a low draw now, e.g. after the hob is switched off mid-quarter; catch it after real cooking
+  rather than staging it, user 2026-10-03); a WAIT before 12:00 (a red morning, CKW).
+- The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
+- The preview without a line (the goal off and nothing recorded this month: only after a
+  `pm clear` or on a fresh phone).
 
-Still open:
-1. **Not blocking, a patch release if needed:** the logic is covered by core tests, and what's left in
-   the app is plain text and one rounding.
-   - On the phone: a WAIT with a time ("· at 14:30" needs a heavy quarter with a low draw now,
-     e.g. after the hob is switched off mid-quarter; with the limit at 2.1 and a 0.85 kW base it
-     takes ~0.35 kWh in the quarter's first 8 min, so catch it after real cooking rather than
-     staging it, user 2026-10-03); the row before tomorrow's prices are out
-     (1.5, before 12:00 for CKW). Seen 2026-10-03 19:35 (debug build, "Kettle 1 L" with Can wait
-     on): "Cheaper at tomorrow 10:00" (wording asked, below) and, with a 1 h delay, "Cheaper ·
-     Delay 15 h".
-   - ~~Wording~~: done 2026-10-03 (user): no "at" before "tomorrow" ("Cheaper tomorrow 10:00"),
-     seen on the phone.
-   - Before 12:00: seen 2026-10-04 10:41 (v0.12.0 release, CKW, green at 16.7 Rp, only today's
-     prices): "Kettle 1 L" with Can wait on gives OK, with a 1 h delay too; switched back off
-     (no delay), as in the user's export. A WAIT before 12:00 (a red morning) is still unseen.
-   - Can wait on is saved by leaving the key out: `json` doesn't encode defaults, and
-     `canWait`/`countsForLimit` default to true. Check the row or the sheet, not a grep for
-     `"canWait":true` (a 2026-10-03 session took this for a bug).
-   - The dishwasher run ("Dishwasher 65°", ~1.5 h, Can wait on).
-   - ~~Store screenshots~~: done 2026-10-03 on the Fairphone 6, demo mode, "Kettle 1L test"
-     hidden for the shots: 1 main screen with the appliances, 2 the "Cooking" preview, 3
-     scrolled (strip, appliances, history), 4 help and 5 Settings kept from v0.9. F-Droid takes
-     them from the built tag, so they show there from the first tag after v0.10.0. All retaken
-     for v0.11.1 (2026-10-03 23:14, R8 build, neutral theme): 1 main screen, 2 the "Cooking"
-     preview, 3 scrolled (strip, appliances, history), 4 the History screen (new), 5 help,
-     6 Settings.
-2. ~~The setup help's result line~~: done 2026-10-03 (user): "The result usually shows right
-   after Done." and "Switch nothing else on or off until you tap Done."
+### Regions outside Switzerland [wave 1 released in v0.12.0, 2026-10-04]
 
-Preview (built 2026-10-03; design in `CLAUDE.md` under "OK or WAIT"): tap
-a row → its run in the peak window, hold → edit; the peak window has 3 past | now | 3 coming
-columns. Tested on the Fairphone 6 with an R8 build: "Cooking" (WAIT, a red 16:15 quarter),
-closing with ×, the empty coming columns, a long press opening the sheet. Also seen (2026-10-03,
-16:06): a run past the columns ("Cooking 60 min" at 16:06, "Then 1 more quarter hour, up to
-0.2 kW.", its plural fixed), W (labels up to 3000 fit; "90 W free"), the preview staying open
-through Settings. Not seen: the preview without a line (needs the goal off and nothing recorded
-this month, so only after a `pm clear` or on a fresh phone; checked in the code: the header shows
-"2.0 kW with …" in ink, no red, the scale fits the bars). A long name wrapping inside
-"with Cooking 60 / min" in the header is fine (user, 2026-10-03).
+Decisions in `CLAUDE.md` under "Regions outside Switzerland"; facts, sources and APIs in
+`research/neighbouring_countries.md`; the colour's scores in `research/classification.md`.
 
-To test a measurement's prefs by hand: edit `shared_prefs/settings.xml` with the app stopped by
-pulling it, editing locally and `cat`-ing it back through `/data/local/tmp` (sed's `&` breaks
-the `&quot;` entities).
+Open:
+1. On 26 Oct 2026, save 25 Oct 2026 (100 quarters) for CKW and AT and add them as tests, the same
+   day as the recorder's DST check. Save every response, don't re-request (Energy-Charts answers
+   429 after ~3 quick requests). A patch release only if they turn something up.
+2. On the phone: tomorrow's market prices (after 13:15); the 90th percentile in a market-price
+   region (more red than before, the next good time later); the saving with an add-on
+   (`ownSaving` is covered by a core test); the help's general version (needs a phone whose SIM
+   and locale aren't in the list).
 
-### The limit and its floor [released in v0.11.0, 2026-10-03]
-
-Design in `CLAUDE.md` under "Peak load" (The limit, Alarm) and "Appliances"; the reasoning in
-`research/appliances.md` ("The floor"). One line, the limit = max(goal, floor, month's highest),
-floor = the biggest appliance with "Counts for the limit" on × 1.2, red at the limit (no 90%).
-Core tests cover the floor, the heaviest quarter and the old JSON. Seen on the Fairphone 6 in an
-R8 build: "2.6 limit" in the peak window and the history, "2.2 kW free" at 0.4 kW, all five rows
-OK (Cooking included), the switch in the edit sheet; the switch turned off on both cookings
-(2026-10-03, debug build: the limit fell from 2.6 to 2.1, the month's highest, above the kettles'
-~0.65 floor). A red bar at the limit, seen 2026-10-03 19:49–19:52 (limit lowered to 2.1 that
-way, kettle + hob): "2.1" right at the line already red, then 2.8 with the scale stretched to
-4 kW, "This quarter hour sets a new peak.", all rows "Sets a new peak right now" (later quarters
-at the high draw now); after the hob, 1.3, matching the register (0.23 kWh at 8.7 min + 0.85 kW
-for the rest). The user's hob plate draws ~1.1 kW. The vibration was requested (19:49:08, 400 ms)
-but not played: `adb shell dumpsys vibrator_manager` lists it `ignored_for_settings`, usage TOUCH,
-since `vibrate()` without attributes counts as touch feedback, which is OFF in silent mode (as are
-notification vibrations; alarm and ringtone stay on). Every earlier alarm that day was dropped too.
-Built then (user: "let the user decide"): Settings → Mode → **Vibrate at the limit**,
-Unless silent (notification, default) | Always (alarm), `peak_vibrate_always`; seen in Settings
-with its ⓘ. Not seen vibrating yet: a rainy-day task (below).
-
-### Settings and setup guide rework [released in v0.11.0, 2026-10-03]
-
-The user's list of 2026-10-03; the design is in `CLAUDE.md` under UI ("Settings", "Sections",
-"Setup guide"). Done and seen on the Fairphone 6: the sections as light grey cards that fold to
-a summary (`settings_closed`), ⓘ on every section title, the recorder folded into the
-Measurement card, Mode (📊) with peak load, goal, countdown and the appliances switch
-(`appliances_enabled`), no dividers, the connection block folding by tap with a green Test
-result, the setup guide on the same cards with ← and "n of 2", and the appliances panel's title
-without 🔌, bold. A recorder warning, seen 2026-10-03 20:15 (the user agreed to stop it with
-`PUT /api/v1/berry?run=false` right after the 20:00 line; 20:15 lost): "The recorder is stopped. ›"
-in the peak window, Start beside the folded Recorder row, the red line under the folded Measurement
-summary; Start → "Recorder started. First quarter hour at 20:45.". Fixed then: for
-one reading after a successful action the old check ("stopped", with Start) came back; `act` now
-drops it on success.
-Disconnect (2026-10-03 ~19:57, the user unplugged the Wi-Fi repeater): the peak window's
-"whatwatt not reachable" header, past bars and limit, "–" for now and every row, no preview on
-tap, + blocked with the reason. Fixed then: the open Measurement card kept the
-first start's "Connected. 0.8 kW now." (and a failed Test's text would have stayed, green, after
-the readings reconnected); now a reading whose connected state differs from the Test's clears the
-Test result, and the line shows `meter.problem` without one. Seen both ways on the phone: a failed
-Test, then the whatwatt back (20:05:22, "· connected", the old text gone), then gone again a
-minute later ("whatwatt not reachable"). The 19:45 quarter, recorded while it was offline, was
-copied afterwards with no gap.
-Open, in order:
-1. ~~A theme~~: done 2026-10-03, the user chose "neutral ink", always light (`NEUTRAL` in
-   `MainActivity.kt`); seen in Settings, a dialog and the appliance edit sheet (ink switches).
-2. ~~Redo the help~~: done 2026-10-03 (declutter pass "whole app"): one idea per line, the
-   Settings paths, the limit with its floor, 3 · now · 3, the help keeps 🔌; Mode and Goal ⓘ
-   shortened to point at it. Seen on the phone (welcome page, Mode and Goal ⓘ), with the first
-   start redone and a malformed address ("192.168.0.36 x") answered without a crash.
-
-### Countries and time zones [released in v0.11.0, 2026-10-03]
-
-Country before region shipped in v0.9.0 (`Country`, `COUNTRIES`, the Country dropdown in the
-setup guide and Settings, preselected from the SIM, then the locale). On 2026-10-03 the single
-`TARIFF_ZONE` (`Europe/Zurich`) was replaced by a zone per country, so a country in another
-zone works (user: "make it scalable"):
-- `Country(code, name, flag, zone)`; `Region(..., zone = country.zone)`, overridden only where a
-  country spans several zones.
-- The selected region's zone sets the tariff day: `fetchPeriod(now, zone)` (the request's
-  midnights) and `wantsFetch(slots, now, region)` (`tomorrowFrom` in the region's local time).
-- It also sets the peak's month and days, since the utility bills by its own calendar month:
-  `missingQuarters`, `recordedSince` and `dailyHighest` take a `zone`; `WhatwattMeter` gets
-  `{ region.zone }` from `MainViewModel`; `HistoryPanel`'s "today" uses `state.region.zone`.
-- Times shown on screen ("Updated 14:02", "● tomorrow 10:00") stay in the phone's zone.
-- Tests: London's midnights across the October DST change in the request, `tomorrowFrom` in the
-  region's zone, every current region on its country's zone.
-- For Switzerland nothing changes. Seen on the phone for CKW (2026-10-03, debug build of
-  `d45df99`): prices with tomorrow, the peak window, the history.
-- The recorder's day files are still named by the whatwatt's own clock zone; the app only uses
-  the names to choose which files to copy, so a whatwatt set ahead of the region's zone copies
-  each day's last quarters late (details in `CLAUDE.md`, Day files).
+A new region: test the request with the app's code (a request of up to 31 days, past days too,
+gives plenty of data to analyse in one call; mind CKW's 4 per window), add it to `REGIONS` with
+its `Country` and `source` (`PriceSource.Vse(url)` for a utility, `market(...)` for a market
+price), the table in `CLAUDE.md`, `README.md` and the store description. Set `minimumKw` where it
+bills a peak (0.0 with no minimum, null where none is billed), `peakFrom` where that billing
+starts later, and `priceNote`/`peakNote` only for what the help must say about it alone. Pass
+`zone` only if it differs from the country's (e.g. the Canaries in Spain).
 
 A new country: add a `Country` (ISO code as the phone reports it, name, flag emoji, zone,
 currency, `vat`: the standard rate in %, the own price's default; null where no region is a
 market price) to `COUNTRIES` and its regions to `REGIONS`; the dropdowns and the help need no
-change. Then the steps for a new region above. `tomorrowFrom` is local to the region: the
-day-ahead auction's ~12:55 CET is 14:15 in Finland and the Baltics (the zone per candidate
-country is in `research/neighbouring_countries.md`). A source that is neither VSE/AES nor
-Energy-Charts needs a new `PriceSource` (its request in `pricesRequestUrl`, its parser in
-`pricesFrom`); a currency other than CHF and EUR needs a new `Currency` (see
-`research/neighbouring_countries.md`).
+change. `tomorrowFrom` is local to the region: the day-ahead auction's ~12:55 CET is 14:15 in
+Finland and the Baltics. A source that is neither VSE/AES nor Energy-Charts needs a new
+`PriceSource` (its request in `pricesRequestUrl`, its parser in `pricesFrom`); a currency other
+than CHF and EUR needs a new `Currency` (see `research/neighbouring_countries.md`).
 
-### Regions outside Switzerland [wave 1 released in v0.12.0, 2026-10-04]
+### Energy planning [steps 1 and 2 released in v0.13.0]
 
-The decisions are in `CLAUDE.md` under "Regions outside Switzerland"; the facts, sources and
-APIs in `research/neighbouring_countries.md`. Wave 1 is Austria and Flanders with peak load,
-plus Wallonia and Brussels, Germany, Luxembourg, the Netherlands and Liechtenstein with prices
-only, all from Energy-Charts (CC BY 4.0), released before 1 Jan 2027 (Austria's peak tariff
-starts then). In English; German is a later phase. Each step ends green on the verify command
-above. What each step built is described in `CLAUDE.md`; the steps were each seen on the
-Fairphone 6 with the user's prefs, appliances and recorded quarters restored afterwards.
+Claude's proposal, confirmed by the user 2026-10-04, before German, so the new strings are
+translated once and wave 1's users, mostly without a whatwatt, get more than one colour; the
+reasoning in `research/feature_ideas.md` (Review). Each step is its own release-sized piece,
+settled with the user before it starts.
+1. ~~A timer on WAIT rows~~ and 2. ~~the saving on WAIT rows~~: built and seen on the Fairphone 6
+   (design in `CLAUDE.md`, OK or WAIT). To stage a "Cheaper at" row: a `prices.json` with a few
+   dear quarters now and today copied as tomorrow, so nothing is fetched; restore it
+   byte-identical afterwards.
+3. **The price curve panel:** the window's slots in their colours, a marker for now, the
+   collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
+   peak load too (then the panel layout is everyone's), hourly or per slot, prices on the axis
+   or not, where.
+4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says which
+   (floor from which appliance, goal, minimum, highest and when).
+- **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
+  flat curve), which touches the "measured only" rule. Only the user can decide.
+- Small, any time: the base load line in the history panel.
 
-1. ~~**A price source per region**~~: done 2026-10-03 (`PriceSource`, `parseEnergyCharts`,
-   `pricesFrom`). `PriceCache` keeps its `"CHF_kWh"` label, which just means "per kWh", so no
-   migration. **Open:** on 26 Oct 2026, save 25 Oct 2026 (100 quarters) for CKW and AT and add
-   them as tests, the same day as the recorder's DST check. Save every response, don't
-   re-request (Energy-Charts answers 429 after ~3 quick requests).
-2. ~~**Currency**~~: done 2026-10-03 (`Currency.kt`, `Country.currency`).
-3. ~~**The own price in spot regions**~~: done 2026-10-03 (`Country.vat`, `ownPrice`,
-   `UiState.yourPrice`, `PriceFields`, `SettingsAt`).
-4. ~~**The minimum billed peak**~~: done 2026-10-03 (`Region.minimumKw`, `peakLine`,
-   `PeakLoadSwitch`).
-5. ~~**The regions**~~: done 2026-10-04 (`market(...)` in `Region.kt`, README, store text).
-   **Open:** tomorrow's market prices on the phone (after 13:15; not seen yet).
-6. ~~**Texts**~~: done 2026-10-04 (the Region ⓘ, `WhatwattGuide(region, …)`, "Ask your grid
-   operator", `priceError(e, region)`, README's "What works where", the store text). A fetch
-   error's text seen on the phone with step 7.
-6b. ~~**The help per country**~~: done 2026-10-04 (`countryHelp` in `Help.kt`, `Region.peakFrom`,
-   `priceNote`/`peakNote`, `HelpContent(country)`, `HelpTest`). **Open:** the general version on
-   the phone (not seen; needs a phone whose SIM and locale aren't in the list).
-6c. ~~**The colour on market prices**~~: done 2026-10-04. September 2026 for AT, DE-LU and CKW
-   (one request each, saved with the script in `research/energy_charts/`; run
-   `python3 research/energy_charts/score.py`, don't re-request). The thirds order the colours
-   on market prices too, but 36 to 37% of greens missed more than 5 ct (CKW 0.4%); a 90th
-   percentile for `max` halves that there, but on CKW only turns orange into red. The user kept
-   `max` (2026-10-04); the scores are in `CLAUDE.md` (Classification).
-7. ~~**Release v0.12.0**~~: tagged 2026-10-04 (versionCode 15). The user decided (2026-10-04)
-   not to wait for the DST tests: the 25 Oct fixtures (CKW and AT) and the recorder's DST check
-   follow on 26 Oct, in a patch release only if they turn something up.
-   - F-Droid (user, 2026-10-04): once the tag is pushed and the GitHub APK checked, one recipe
-     commit in `../fdroiddata`: the 0.12.0 build (versionCode 15), `CurrentVersion`, and the
-     NonFreeNet text, kept about as short as before (only the first sentence changes):
-     ```
-     NonFreeNet:
-       en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
-         optional peak load reads a whatwatt Go meter reader on the local network, which
-         needs its paid Plus licence.
-     ```
-     The user pushes it to the fork and comments on the MR: "v0.12.0 adds regions outside
-     Switzerland, priced from Energy-Charts (api.energy-charts.info), so the NonFreeNet text
-     now names it, and the recipe moves to 0.12.0."
-   - Seen on the Fairphone 6 (2026-10-04 01:20–01:28, R8 build signed with the debug key, the
-     user's prefs, appliances and `prices.json` restored afterwards, the recorded quarters left
-     alone): CKW → AT ("Market price 19.6 ct/kWh", "Set your price ›", the next good time) →
-     CKW. There is one `prices.json` for the current region, as designed: switching back
-     fetches again (the colour within a second), it doesn't read an older region's cache.
-     Offline start in AT: the colour from the cache at once. Offline switch to Germany: "No
-     prices" and "No connection to the price server. Check your internet." (step 6's open
-     item). Add-on 15 and VAT 6 in Flanders (36.1 ct/kWh, the cost line in €/h) kept in
-     Wallonia, cleared in Austria (VAT back to 20). The whatwatt guide's key line names the CKW
-     email for CKW only. Energy-Charts gave no 429 at about one request a minute. Still unseen:
-     tomorrow's market prices (after 13:15) and the help's general version (no phone with a SIM
-     and locale outside the list).
+Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
+2-min average, jumping on Latest reading).
 
-Later phases, in order (each settled with the user before it starts):
-- ~~**A percentile for `max` in market-price regions**~~: done 2026-10-04 (user: the 90th;
-  `colourTop`, `classify`/`advise` take `spot`; details and scores in `CLAUDE.md`,
-  Classification). Released in v0.13.0. **Open:** see it on
-  the phone in a market-price region (more red than before; the next good time later).
-- **Energy planning** [steps 1 and 2 released in v0.13.0] (Claude's proposal, 2026-10-04, confirmed by the user the same day, in
-  this order: before German,
-  so the new strings are translated once and wave 1's users, mostly without a whatwatt, get
-  more than one colour; the reasoning is in `research/feature_ideas.md`, Review). Each step is
-  its own release-sized piece, settled with the user before it starts:
-  1. **A timer on WAIT rows** (user, 2026-10-04: a timer, no setting; Claude advised against
-     a setting): `AlarmClock.ACTION_SET_TIMER` for the minutes until the row's time, a
-     `<queries>` entry. Only on rows with a time ("at 14:15", "tomorrow 10:00");
-     a Start delay row needs none, since the delay is set on the appliance now. Built
-     2026-10-04 (user: the button left of WAIT, opening the clock app; the name as the
-     message). It needs `com.android.alarm.permission.SET_ALARM` (install-time; DeskClock's
-     `HandleSetAlarmApiCalls` requires it; confirmed by the user 2026-10-04). Seen on the Fairphone 6 with a faked `prices.json`
-     (restored): "Cheaper at 12:30" → DeskClock's "Dishwasher 65°C" timer at 1:00:51.
-  2. **The saving on WAIT rows:** "Cheaper at 11:00 · saves 0.09 CHF", from `advise`'s prices ×
-     the appliance's kWh, in spot regions × (1 + VAT) and only with an add-on. Settled
-     2026-10-04 (user): hidden below 0.01, only on "Cheaper" rows. Built 2026-10-04
-     (`Advice.Cheaper.saving`, `ownSaving`, `Currency.amount`, `UiState.saving`; core tests).
-     Seen on the Fairphone 6 (2026-10-04 11:53, debug build, CKW, a staged `prices.json` with
-     11:45–12:30 at 0.40 and today copied as tomorrow so nothing fetched; restored byte-identical):
-     "Dishwasher 65°C" → "Cheaper at 12:30 · saves 0.14 CHF" in the row (wraps to two lines)
-     and the preview, matching a hand calculation (0.137). **Open:** a market-price region with
-     an add-on on the phone (`ownSaving` is covered by a core test).
-  3. **The price curve panel:** the window's slots in their colours, a marker for now, the
-     collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
-     peak load too (then the panel layout is everyone's), hourly or per slot, prices on the
-     axis or not, where.
-  4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says
-     which (floor from which appliance, goal, minimum, highest and when).
-  - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
-    flat curve), which touches the "measured only" rule. Only the user can decide.
-  - Small, any time: the base load line in the history panel.
-- **German** (user, 2026-10-03: right after wave 1; see the energy-planning proposal above): move the inline UI strings to
-  `strings.xml`, add `values-de`, and `fastlane/metadata/android/de-DE/`. Dutch and French
-  afterwards if wanted. Some copy is in `:core`, which can't use `strings.xml`: the help's
-  lines per country (`Help.kt`) and the regions' `priceNote`/`peakNote`. Make core return the
-  facts (which regions bill, from when, the minimum, the publication hours, a note's kind) and
-  the app word them; `HelpTest` then checks the facts.
-- **Spain**: REE PVPC (final price, tolls included, so no add-on), a second parser, the
-  Canaries as a region with its own zone, no whatwatt.
-- **Denmark**: spot plus each grid operator's tariff from Energi Data Service (two requests,
-  the tariff cached for weeks), a region per grid operator.
+### Later phases, in order (each settled with the user before it starts)
+
+- **German** (user, 2026-10-03): move the inline UI strings to `strings.xml`, add `values-de`,
+  and `fastlane/metadata/android/de-DE/`. Dutch and French afterwards if wanted. Some copy is in
+  `:core`, which can't use `strings.xml`: the help's lines per country (`Help.kt`) and the
+  regions' `priceNote`/`peakNote`. Make core return the facts (which regions bill, from when, the
+  minimum, the publication hours, a note's kind) and the app word them; `HelpTest` then checks
+  the facts.
+- **Spain**: REE PVPC (final price, tolls included, so no add-on), a second parser, the Canaries
+  as a region with its own zone, no whatwatt.
+- **Denmark**: spot plus each grid operator's tariff from Energi Data Service (two requests, the
+  tariff cached for weeks), a region per grid operator.
 - **An EU meter reader** (user, 2026-10-03: a future task): HomeWizard P1 or a similar device
   sold in the EU. It has no recorder, so how the month's highest is kept complete is the first
   question (in Belgium the meter's own 1-0:1.6.0 may stand in).
@@ -471,30 +262,16 @@ Later phases, in order (each settled with the user before it starts):
 - Not planned: Czechia, Poland, Hungary, Slovenia (local currencies, uptake unknown); France,
   Italy, Portugal (see the research file).
 
-### Accurate preview and draw ahead [released in v0.13.0, 2026-10-04]
-
-The user: "the data visualization must be ACCURATE". Details in CLAUDE.md (Projection, Preview)
-and [research/appliances.md](../../../research/appliances.md).
-1. ~~Red only above the limit~~ in the preview's stacked bars (`Scale` in `PeakWindow.kt`).
-   Seen on the phone 2026-10-04 with a temporary "Test 3.3 kW" (Counts for the limit off, so the
-   limit stayed 2.9): 3.4 at 11:00, red from the line, "0.5 kW over". The plain "now" bar stays
-   all red at the limit (user's choice).
-2. ~~Draw ahead~~ (`DrawAverage`, `Projection.aheadKw`, `peak_draw_average`, Settings → Mode;
-   `PeakNow.drawKw` dropped, the projection carries it). Help, README and the ⓘ updated.
-   **Open:** see it with the hob cycling (the later quarters steady on 2-min average, jumping on
-   Latest reading).
-3. ~~Release~~: tagged v0.13.0 (versionCode 16, 2026-10-04) with the 90th percentile, the
-   timer and the saving. The phone runs the debug build, so the release needs an uninstall.
-
 ### Rainy day
 
 Little tasks for when there's nothing else (user, 2026-10-03: skipped for now).
-- **Liechtenstein in CHF** (after wave 1): its market price comes in EUR from Energy-Charts,
-  while households pay CHF; show it in CHF (an exchange rate, or a CHF source for zone `CH`).
-- **Vibrate at the limit on the phone:** after a real limit alarm, check
-  `adb shell dumpsys vibrator_manager` for GridLoad's 400 ms vibration with usage NOTIFICATION
-  (Unless silent) or ALARM (Always) and that it was played, not `ignored_for_settings`. Try both
-  settings, in silent mode too.
+- **Liechtenstein in CHF**: its market price comes in EUR from Energy-Charts, while households
+  pay CHF; show it in CHF (an exchange rate, or a CHF source for zone `CH`).
+- **Vibrate at the limit on the phone:** a vibration without a usage counts as touch feedback,
+  which silent mode drops (seen 2026-10-03: `ignored_for_settings`). After a real limit alarm,
+  check `adb shell dumpsys vibrator_manager` for GridLoad's 400 ms vibration with usage
+  NOTIFICATION (Unless silent) or ALARM (Always) and that it was played. Try both settings, in
+  silent mode too.
 
 ## Conventions
 

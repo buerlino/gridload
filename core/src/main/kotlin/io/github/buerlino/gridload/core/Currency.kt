@@ -12,7 +12,7 @@ data class Currency(val symbol: String, val small: String) {
     fun amount(value: Double, locale: Locale = Locale.getDefault()): String = "${signed(value, 2, locale)} $symbol"
 
     /** A cost per hour: "0.34 CHF/h", "0.34 €/h". */
-    fun perHour(cost: Double, locale: Locale = Locale.getDefault()): String = "${signed(cost, 2, locale)} $symbol/h"
+    fun perHour(cost: Double, locale: Locale = Locale.getDefault()): String = amount(cost, locale) + "/h"
 
     companion object {
         val CHF = Currency("CHF", "Rp")
@@ -31,6 +31,20 @@ fun ownPrice(spot: Double, addOn: Double, vat: Double?, country: Country): Doubl
 
 /** What a [saving] in spot prices saves the household: the add-on cancels out, VAT stays (see [ownPrice]). */
 fun ownSaving(saving: Double, vat: Double?, country: Country): Double = saving * withVat(vat, country)
+
+/**
+ * What a slot's [price] costs the household in [region]: the price itself, or in a spot region
+ * the [ownPrice] from [addOn] and [vat]; null there until the add-on is entered. Only for showing
+ * it: the colour and the appliances' advice use the price itself, which ranks the slots the same.
+ */
+fun yourPrice(price: Double, region: Region, addOn: Double?, vat: Double?): Double? =
+    if (!region.isSpot) price else addOn?.let { ownPrice(price, it, vat, region.country) }
+
+/** What a [saving] in the slots' prices saves the household in [region], like [yourPrice]; null also below 0.005, which would show as 0.00. */
+fun yourSaving(saving: Double, region: Region, addOn: Double?, vat: Double?): Double? {
+    val yours = if (!region.isSpot) saving else addOn?.let { ownSaving(saving, vat, region.country) } ?: return null
+    return yours.takeIf { it >= 0.005 }
+}
 
 private fun withVat(vat: Double?, country: Country) = 1 + (vat ?: country.vat ?: 0.0) / 100
 

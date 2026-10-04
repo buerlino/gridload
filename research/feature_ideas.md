@@ -40,8 +40,8 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   floor, minimum, highest). New peak features need a high bar; Austria and Flanders are where
   the machinery pays off.
 - **The advice comes at the wrong time:** "Cheaper at 11:00" only helps if someone remembers at
-  11:00. The [timer or alarm button](#set-a-timer-or-alarm-for-a-wait-row) is the cheapest fix
-  (no permission, no background work).
+  11:00. The [timer button](#set-a-timer-or-alarm-for-a-wait-row) is the cheapest fix (no
+  runtime permission, no background work). Built in v0.13.0.
 - **Users without a whatwatt get one colour and the next good time.** That's most users, and
   most of wave 1's. The [price curve](#1-price-curve-for-the-next-24-hours) shows how long green
   lasts, which they need to plan a long run.
@@ -56,16 +56,16 @@ plan built from it is the "Energy planning" phase in the skill's roadmap.
   Classification) was only orange against red on CKW's smooth hourly curve. Market prices have
   sharper spikes and negative hours. Score a month of Energy-Charts prices the same way before
   wave 1 is released; if the thirds hold, nothing changes, else a percentile for `max`.
-  Done 2026-10-04 (`CLAUDE.md`, Classification): the order holds, but spikes make green too
-  generous; `max` kept for v0.12.0, a percentile for market-price regions comes next.
-- Smaller: the [saving on WAIT rows](#savings-on-each-wait-row) (in spot regions from
-  the own price with VAT); the [base load](#2-base-load) is the biggest number in the data
+  Done 2026-10-04 ([classification.md](classification.md)): the order holds, but spikes make
+  green too generous; the 90th percentile for market-price regions shipped in v0.13.0.
+- Smaller: the [saving on WAIT rows](#savings-on-each-wait-row) (built in v0.13.0); the
+  [base load](#2-base-load) is the biggest number in the data
   (~700 kWh a year, far above the peak), one line in the history panel; the
   [widget](#home-screen-widget-or-a-quick-settings-tile) can wait, since without a background
   fetch it runs dry by evening and the timer button covers most of the need.
 
-Suggested order: the timer or alarm and the saving on WAIT rows, then the price curve, then
-where the limit comes from.
+Suggested order (confirmed by the user 2026-10-04): the timer and the saving on WAIT rows (both
+in v0.13.0), then the price curve, then where the limit comes from.
 
 ## Panels for the main screen
 
@@ -143,44 +143,13 @@ of the appliances panel now (start delay per appliance, measured curves, OK/WAIT
 
 ### Savings on each WAIT row
 
-**What:** the WAIT line gives the saving, in the country's currency, with the time: "Cheaper at
-11:00 · saves 0.09 CHF", or "Cheaper tomorrow 10:00 · saves 0.31 €".
-
-**Why:** "wait" is easier to act on when it has a price. Most people asking whether to run the
-dishwasher now want to know what it's worth.
-
-**How:** `advise()` (`Appliances.kt`) already prices every candidate start with `runPrice`. The
-saving is (price now − price of the chosen start) × the appliance's kWh, which the appliance
-already derives from its curve. It's `:core` arithmetic with a unit test. The prices are already
-per kWh in the region's currency (`Currency`), so no tariff constants go into the code
-(`CLAUDE.md`).
-
-**VAT:** a utility's tariff includes it. In spot regions the own price answers it: the saving is
-the market-price difference × (1 + VAT), since the add-on cancels out; without an add-on, show no
-saving, like the cost line.
-
-**Open questions:** hide the saving below a minimum (e.g. under 0.01, which reads as "0.00")?
-Spot part only: the peak saving stays separate, as in the peak window.
+Built in v0.13.0 ("Cheaper at 12:30 · saves 0.09 CHF"): see `CLAUDE.md`, "OK or WAIT".
 
 ### Set a timer or alarm for a WAIT row
 
-**What:** a button on a WAIT row that sets the phone's own timer for the wait ("Set timer 1 h 20
-min") or alarm for the cheaper start ("Set alarm 10:00" for "Cheaper tomorrow 10:00"). With a start
-delay, the timer is the delay.
-
-**Why:** it turns the advice into an action, and the reminder comes from the phone's clock app,
-which is already trusted to ring.
-
-**How:** `AlarmClock.ACTION_SET_TIMER` (`EXTRA_LENGTH` in seconds) and `ACTION_SET_ALARM`
-(`EXTRA_HOUR`, `EXTRA_MINUTES`, `EXTRA_MESSAGE` for the appliance's name). No permission, no
-notification code, no background work, so it covers much of the "Green from 11:00 notification"
-below without `POST_NOTIFICATIONS`. The app sets it once, when tapped; it doesn't track it. To
-show the button only when a clock app exists, the manifest needs a `<queries>` entry (Android 11+
-hides other apps otherwise). That's not a permission.
-
-**Open questions:** timer or alarm for a delay, or both? Should the button also appear on OK rows
-("Start in 1 h" is not useful, so probably not)? Does the timer's name carry the appliance
-("Dishwasher")?
+Built in v0.13.0 as a timer only (no alarm, no setting), on rows with a time and no start
+delay: see `CLAUDE.md`, "OK or WAIT" (Timer). It needs the install-time `SET_ALARM` permission,
+since clock apps take timers only from apps holding it.
 
 ### Where the limit comes from
 
@@ -274,8 +243,8 @@ or the appliances too?
 
 ### A TalkBack pass
 
-**What:** spoken labels for what the app shows only as colour or icon. `contentDescription`
-appears nowhere in the app. The colour always comes with the headline text, which is good, but
+**What:** spoken labels for what the app shows only as colour or icon. Only the timer button
+has a `contentDescription` ("Set a timer"). The colour always comes with the headline text, which is good, but
 the peak bars, the ↻ refresh (and its dimmed state), the ▴/▾ toggles, the OK/WAIT chips and the
 history bars have no spoken labels.
 

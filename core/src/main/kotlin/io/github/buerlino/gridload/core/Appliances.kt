@@ -259,12 +259,17 @@ internal fun Appliance.candidateStarts(now: Instant): List<Instant> {
 }
 
 sealed interface Advice {
+    /** The first start that's fine, when it isn't now; null if none is within the window. */
+    val at: Instant?
+
     /** Fine to start now. [pricesMissing]: the known prices end before the run would, so only the peak was judged. */
-    data class Ok(val pricesMissing: Boolean = false) : Advice
-    /** Starting now sets a new monthly peak; [at] is the first start that's fine, null if none is within the window. */
-    data class NewPeak(val at: Instant?) : Advice
-    /** A later start is clearly cheaper; [at] is the first that's fine, [saving] what waiting for it saves, in the slots' prices. */
-    data class Cheaper(val at: Instant, val saving: Double) : Advice
+    data class Ok(val pricesMissing: Boolean = false) : Advice {
+        override val at: Instant? get() = null
+    }
+    /** Starting now sets a new monthly peak. */
+    data class NewPeak(override val at: Instant?) : Advice
+    /** A later start is clearly cheaper; [saving] is what waiting for it saves, in the slots' prices. */
+    data class Cheaper(override val at: Instant, val saving: Double) : Advice
 }
 
 /**

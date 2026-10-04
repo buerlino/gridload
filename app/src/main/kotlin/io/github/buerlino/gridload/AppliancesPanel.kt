@@ -108,11 +108,13 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
             } else {
                 val previewed = appliance.name == state.preview
                 val advice = state.advice[appliance.name]
+                // The timer rings at the start the row names; none with a start delay, which is set on the appliance now.
+                val timerAt = advice?.at?.takeIf { appliance.delayMinutes == 0 && timers }
                 ApplianceRow(
-                    appliance, advice, state.saving(advice), previewed,
+                    appliance, advice, advice?.let { state.adviceLine(appliance, it) }, previewed,
                     onClick = { onPreview(appliance.name.takeUnless { previewed }) },
                     onLongClick = { sheet = appliance },
-                    onTimer = timerAt(appliance, advice)?.takeIf { timers }?.let { at -> { setTimer(context, appliance.name, at) } },
+                    onTimer = timerAt?.let { at -> { setTimer(context, appliance.name, at) } },
                 )
             }
         }
@@ -134,23 +136,15 @@ private fun summary(state: UiState): String? {
     return listOfNotNull(ok.takeIf { it > 0 }?.let { "$it OK" }, (state.advice.size - ok).takeIf { it > 0 }?.let { "$it wait" }).joinToString(" · ")
 }
 
-/** The row's line under the name: why WAIT, when and what waiting [saves], or that only the peak was judged. */
-internal fun adviceLine(appliance: Appliance, advice: Advice, now: Instant, saves: String?): String? = when (advice) {
-    is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
-    is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak right now"
-    is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" } +
-        saves?.let { " · saves $it" }.orEmpty()
-}
-
-/**
- * When a WAIT row's timer should ring: the start it names. None with a start delay, which is set
- * on the appliance now, and none when no start in the window fits.
- */
-private fun timerAt(appliance: Appliance, advice: Advice?): Instant? = when {
-    appliance.delayMinutes > 0 -> null
-    advice is Advice.Cheaper -> advice.at
-    advice is Advice.NewPeak -> advice.at
-    else -> null
+/** The row's line under [appliance]'s name: why WAIT, when and what waiting saves ("0.09 CHF"), or that only the peak was judged. */
+internal fun UiState.adviceLine(appliance: Appliance, advice: Advice): String? {
+    val now = Instant.now()
+    return when (advice) {
+        is Advice.Ok -> "Tomorrow's prices aren't out yet.".takeIf { advice.pricesMissing }
+        is Advice.NewPeak -> advice.at?.let { "Sets a new peak · ${whenToStart(appliance, it, now)}" } ?: "Sets a new peak right now"
+        is Advice.Cheaper -> whenToStart(appliance, advice.at, now).let { if (appliance.delayMinutes > 0) "Cheaper · $it" else "Cheaper $it" } +
+            yourSaving(advice.saving)?.let { " · saves ${region.country.currency.amount(it)}" }.orEmpty()
+    }
 }
 
 /** Opens the clock app with a timer named after the appliance, running until [at]. */
@@ -170,8 +164,7 @@ private fun setTimer(context: Context, name: String, at: Instant) {
  * button left of the chip, so the chips stay in one column.
  */
 @Composable
-private fun ApplianceRow(appliance: Appliance, advice: Advice?, saves: String?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onTimer: (() -> Unit)?) {
-    val line = advice?.let { adviceLine(appliance, it, Instant.now(), saves) }
+private fun ApplianceRow(appliance: Appliance, advice: Advice?, line: String?, previewed: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onTimer: (() -> Unit)?) {
     Row(
         Modifier.fillMaxWidth()
             .background(if (previewed) PREVIEWED else Color.Transparent, RoundedCornerShape(8.dp))

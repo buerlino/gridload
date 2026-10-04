@@ -332,3 +332,147 @@ release builds with the same sha256. Not seen on the phone yet.
   draws it. 3.3 `highestText`. 3.4 `TitleRow` next to `Page`. 3.5 `comingTime(at, today =
   "at ")`. 3.6 The `Charts.kt` comment.
 - [x] 4.1 to 4.8 The docs; 4.7 is in the checklist above. 5.1 `git gc`.
+
+## Pass 2026-10-04
+
+Report (at `01ebe3e`, v0.13.0; range `058980a..HEAD`, 19 commits, then the whole app): 103 tests
+green, lint "No issues found" (`lintAnalyzeDebug --rerun`), the only Gradle deprecation is still
+the plugin's `Configuration.setVisible`, no unused top-level symbols, workflows on the current
+majors (`checkout@v7`, `setup-java@v6`). No bugs found in the range; the clutter is a few app
+helpers that belong in core, leftovers from Draw ahead, and mostly the docs (`CLAUDE.md` is
+288 lines but ~81 KB: 12 lines are over 1500 characters). Nothing below changes what the user
+sees, so it can go into v0.14.0 rather than a v0.13.1 (the user decides).
+
+v0.13.0 for F-Droid (step 4, done during the report, since the GitHub Release was up): the
+release APK's signer is `0b07da4b…a07a113` = `AllowedAPKSigningKeys`; all 25 entries outside
+`META-INF/` equal the unsigned build of the tag (`01ebe3e`, the tag on GitHub points there).
+The recipe commit is prepared in `../fdroiddata` (`3ade4eee0` "Update GridLoad to 0.13.0",
+versionCode 16, not pushed). The NonFreeNet text needs no change: it already names
+Energy-Charts since the 0.12.0 commit `8a9053d72`, which is pushed and the MR's head.
+
+### Design and bugs
+- [x] 1.1 **Question:** release this as v0.13.1 or fold it into v0.14.0 with the price curve?
+  Suggest v0.14.0: no user-visible change below.
+- [x] 1.2 **Question:** the store text (`full_description.txt`) doesn't mention the timer or the
+  saving (the README does). Add "with a timer for the later start and what waiting saves" to
+  its Appliances line, or leave the store text as is?
+
+### Code
+- [x] 2.1 `UiState.yourPrice` and `UiState.saving` (`MainViewModel.kt:129-136`) hold the spot /
+  add-on / VAT decision and the 0.005 threshold in the app, untested; `ownPrice`/`ownSaving`
+  in core only do the arithmetic. Move the decision to core next to them (e.g.
+  `yourPrice(price, region, addOn, vat): Double?` and `yourSaving(saving, region, addOn, vat):
+  Double?`, null in a spot region without an add-on and for a saving under 0.005), with tests;
+  `UiState` keeps one-line wrappers.
+- [x] 2.2 `adviceLine(appliance, advice, Instant.now(), state.saving(advice))` is assembled in
+  two places (`AppliancesPanel.kt:174`, `PeakWindow.kt:119`). One `UiState.adviceLine(name)`
+  (or a top-level `adviceLine(state, appliance)`) that adds the saving; `ApplianceRow` then takes
+  the line instead of `saves` (its 7 parameters are otherwise fine for a composable; no bundling).
+- [x] 2.3 `timerAt` (`AppliancesPanel.kt` ~150) re-lists which advices carry a time. Put
+  `val at: Instant?` on the `Advice` interface (`Ok` → null), so it's
+  `advice?.at?.takeIf { appliance.delayMinutes == 0 }`.
+- [x] 2.4 Leftover from `PeakNow.drawKw`: `derive()` still requires `s.meter.kw != null`
+  (`MainViewModel.kt:262`); `read()` sets the projection to null whenever kw is null. Drop it:
+  `projection?.let { PeakNow(it, s.peakLine) }`.
+- [x] 2.5 `colourTop`'s KDoc (`Classify.kt:46`) says "nearest rank", but index ⌊0.9 n⌋ is one rank
+  higher when n is a multiple of 10 (the test pins 91 of 1..100). It's the same definition as
+  `research/energy_charts/score.py`, so the scores hold: fix the comment ("the value at index
+  ⌊0.9 n⌋, as in score.py"), not the formula.
+- [x] 2.6 `SetupGuide`: `REGIONS.first { it.id == chosenRegion }` three times
+  (`SettingsScreen.kt:195, 197, 203`); one `val region`.
+- [x] 2.7 `Currency.perHour` repeats `amount` (`Currency.kt:15`): `amount(cost, locale) + "/h"`.
+- [x] 2.8 `SettingsScreen.kt:526` has a private `amount()` (a typed field's text) next to
+  `Currency.amount` (money): rename it `typed()`.
+- [x] 2.9 Stale comment: `PeakWindow`'s KDoc (`PeakWindow.kt:45-46`), "Without one (no goal, no
+  appliance, nothing recorded yet)", misses the region's minimum.
+
+### Migrations
+- [x] 3.1 Confirmed: all three stay (v0.6.0 `peak.json`, v0.7.0 `mode`, v0.8.0 `quarters/`), since
+  F-Droid hasn't shipped anything yet.
+
+### Docs
+- [x] 4.1 Stale F-Droid status: `CLAUDE.md` Current state says "the recipe at v0.10.0" and "once
+  the tag is pushed, the recipe moves to v0.12.0"; the skill's F-Droid section and wave-1 step 7
+  say the same. The recipe is at 0.12.0 (pushed) and, with `3ade4eee0`, 0.13.0 (to push).
+- [x] 4.2 Stale `max`: `CLAUDE.md:268` ("step 6c … `max` unchanged"), the skill's step 6c ("The
+  user kept `max`"), `research/feature_ideas.md:58-60` ("`max` kept … a percentile comes next").
+  The 90th percentile shipped in v0.13.0.
+- [x] 4.3 `CLAUDE.md` Classification (118-141): "Why the next 24 hours" (5 bullets of CKW
+  scoring) and "On market prices" (one 2050-character paragraph, the decision at its end).
+  Keep the rule and the decisions with a one-line reason each; move the numbers to a new
+  `research/classification.md` next to `research/energy_charts/score.py`. About −20 lines,
+  −4 KB.
+- [x] 4.4 `CLAUDE.md` Decided → Regions (line 28, 2866 characters): drop the constructor
+  signatures (`Country(…)`, `Region(…)`, `Currency` examples: the code) and keep the decisions
+  (country first, saved ids, zones and the history's exception, no default region, the CKW
+  fallback, a switch drops the cache, 429 accepted).
+- [x] 4.5 `CLAUDE.md` Decided → Releases (line 27) and the skill's Releasing + F-Droid
+  sections repeat each other. `CLAUDE.md` keeps the constraints (tag = `versionName` =
+  `APP_VERSION`, changelog ≤ 500, reproducible, unsigned for F-Droid, `dependenciesInfo` off,
+  the keystore and its backup, the secrets' names); the skill keeps the steps and the recipe.
+- [x] 4.6 `CLAUDE.md` UI → Help (line 38) is an inventory of the help that has drifted (no Draw
+  ahead line, no ⏱, no "red is what goes over the limit", no saving). Replace it with the rules
+  (lines per country from `countryHelp`, `HelpTest`; one idea per line; the three sections; the
+  limit's reasons only there; the fixed-price line for every country); `HelpContent` is the
+  text. Same for the quoted summaries in the Settings bullet (line 39).
+- [x] 4.7 `CLAUDE.md` Regions outside Switzerland: the step narrative in its intro → "Wave 1,
+  released in v0.12.0"; "Next phases, in order" repeats the skill's "Later phases": keep the
+  one-line order here, the details in the skill.
+- [x] 4.8 `CLAUDE.md` Current state (line 280, 2332 characters): six releases with their
+  contents (git and the changelogs keep them) → the latest release, F-Droid's status, next.
+- [x] 4.9 **Question:** move `CLAUDE.md`'s "Hardware, CKW key and the REST API" (200-221) and
+  the CKW price-shape observations under "Response schema" (the valley, the night, 9 Sep) to
+  research (`research/whatwatt_api.md`, `research/classification.md`)? The whatwatt is frozen,
+  so they're rarely needed. `CLAUDE.md` would keep what the code relies on: the `report` fields
+  read, `date_time`'s fake `Z`, the meter's clock, 401 → Device Protection off, cleartext,
+  `ACCESS_LOCAL_NETWORK`, the 5 s poll and 3 s timeouts. About −20 lines, −8 KB.
+- [x] 4.10 The skill (502 lines): finished-phase narratives and phone-test logs (whatwatt phase
+  4, Panels and history, Appliances, The limit, Settings rework, Countries, wave-1 steps 1-7,
+  energy planning steps 1-2, Accurate preview). Keep per phase a status line, the open items
+  and the reusable how-tos (a new region or country, the phone tips, editing prefs, demo
+  mode); target ~300 lines.
+- [x] 4.11 `research/feature_ideas.md`: the timer and saving sections are built (shrink each to a
+  line pointing to `CLAUDE.md`, OK or WAIT); the Review's suggested order is half done;
+  TalkBack's "contentDescription appears nowhere" (the timer icon has one).
+- [x] 4.12 `research/neighbouring_countries.md`: the summary table's "CH (CKW and others)" bills a
+  peak (only CKW, per `CLAUDE.md`); line 79 "min and max" → "min and the colour's top" (the
+  affine argument holds for the percentile too).
+
+### Repo, build and CI
+- [ ] 5.1 Changelogs 12, 13, 14, 15: F-Droid never built them and, with the recipe at 16, never
+  will. Delete them once the recipe commit is pushed; keep 16.
+- [x] 5.2 `git gc` (229 loose objects).
+- [x] 5.3 Verify after the changes: tests, lint 0, no `w:`, `--warning-mode all`, two clean
+  unsigned release builds with the same sha256, and the R8 build on the Fairphone 6 (main
+  screen, a preview, Settings, History, the help) if 2.1-2.4 went in.
+
+### Done (2026-10-04)
+
+Worked through by a second session while the user was away, then finished with the user's
+go-ahead ("proceed with everything"). Where it differed from the suggestions:
+- **1.1:** v0.14.0, as suggested; no release now. **1.2:** the store text's Appliances line now
+  ends "A waiting row sets a timer for the later start and says what waiting saves."
+- **Code (2.1-2.9):** `yourPrice`/`yourSaving(…, region, addOn, vat)` in `Currency.kt`, tested
+  in `yourPriceNeedsTheAddOnOnlyInSpotRegions` and `yourSavingHidesWhatWouldShowAsZero` (105
+  tests); `UiState` keeps one-line wrappers. `adviceLine` is a `UiState` extension that adds the
+  saving itself, so `UiState.saving` is gone and `ApplianceRow` takes the line. `timerAt` is
+  inline at the call site (`advice?.at`). `colourTop`'s comment points to
+  `research/classification.md`.
+- **Docs:** new `research/classification.md` (the scoring and CKW's price shape from
+  `CLAUDE.md`) and `research/whatwatt_api.md` (4.9: the hardware and REST API section verbatim;
+  `CLAUDE.md` keeps a short "what the code relies on" section). `CLAUDE.md` 288 → 273 lines,
+  81 → 70 KB; the skill 502 → 279 lines.
+- **5.2:** `git gc` (229 loose objects → 0).
+- **5.3:** `:core:test :app:lintDebug :app:lintAnalyzeDebug --rerun :app:assembleDebug
+  :app:assembleRelease --warning-mode all`: green, lint "No issues found", no `w:` lines, the
+  only deprecation the plugin's `Configuration.setVisible`. Two clean unsigned
+  `assembleRelease` builds: both `f5e8e8d01b5ecfb067af5afa57dfdd6624733c2d44f43adf540fa6a1c06edbfe`.
+  On the Fairphone 6 (12:50-12:58), R8 build signed with the debug key: main screen, the
+  Dishwasher preview ("OK to start now."), Settings, History and the help, no crash; the
+  user's region is Germany, where Energy-Charts answered 503 (to `curl` too), so the test
+  switched to CKW. The release build isn't debuggable (`run-as` fails), so staging needs the
+  debug build: with it, a `prices.json` with 12:45-13:45 at 0.40 gave "Cheaper at 13:45 · saves
+  0.15 CHF" with the timer button, in the row and the preview. The backup (app stopped,
+  `run-as … tar`) was restored byte-identical (contents and modes; the release build's extra
+  `profileinstaller_…` file removed); the phone runs the debug build of this tree.
+- Left: 5.1 once the recipe commit `3ade4eee0` is pushed.

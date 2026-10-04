@@ -15,7 +15,7 @@ GridLoad has three layers, and each needs different things from a country:
 |---|---|---|
 | **Prices**: the colour, next good time, the appliances' "Cheaper at" | a free, licensed day-ahead or tariff API | most of the EU (below) |
 | **whatwatt**: cost line, live draw, appliance measuring | a meter port the whatwatt reads (P1, M-Bus, Kamstrup HAN) and a whatwatt to buy | NL, BE, LU, AT (most grids), DK, SI; likely NO, SE, FI |
-| **Peak load**: the line, the alarm, the history, the appliances' "Sets a new peak" | households billed on a power peak | CH (CKW and others), **Belgium (Flanders)** since 2023, **Austria from 1 Jan 2027**, Norway (hourly variant), parts of Sweden |
+| **Peak load**: the line, the alarm, the history, the appliances' "Sets a new peak" | households billed on a power peak | CH (CKW only, see below), **Belgium (Flanders)** since 2023, **Austria from 1 Jan 2027**, Norway (hourly variant), parts of Sweden |
 
 Order (recommended 2026-10-03; the user chose wave 1 = steps 1 and 2 without Czechia, Poland,
 Hungary and Slovenia, then German, Spain, Denmark, and Norway once 2027 is clear):
@@ -76,9 +76,11 @@ offered abroad for whoever has one, and an EU reader (HomeWizard P1 or similar) 
 
 ## When the spot price gives the right colour
 
-`classify` is relative to the window's min and max. If the customer's price is
+`classify` is relative to the window's min and the colour's top (the max, or the 90th percentile
+in market-price regions). If the customer's price is
 `a·spot + b` with `a > 0` (VAT scales, flat fees, margins and taxes add), the colour is exactly
-the spot price's colour, so no per-supplier data is needed.
+the spot price's colour (an order statistic like the percentile moves with it), so no
+per-supplier data is needed.
 
 That breaks when an add-on **varies with time**. Then the colour needs spot **plus** that
 add-on (in the same currency, before VAT, since VAT only scales):
