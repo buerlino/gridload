@@ -421,9 +421,9 @@ Fairphone 6 with the user's prefs, appliances and recorded quarters restored aft
 Later phases, in order (each settled with the user before it starts):
 - ~~**A percentile for `max` in market-price regions**~~: done 2026-10-04 (user: the 90th;
   `colourTop`, `classify`/`advise` take `spot`; details and scores in `CLAUDE.md`,
-  Classification). Unreleased, goes into v0.13.0 with the accurate preview. **Open:** see it on
+  Classification). Released in v0.13.0. **Open:** see it on
   the phone in a market-price region (more red than before; the next good time later).
-- **Energy planning** (Claude's proposal, 2026-10-04, confirmed by the user the same day, in
+- **Energy planning** [steps 1 and 2 released in v0.13.0] (Claude's proposal, 2026-10-04, confirmed by the user the same day, in
   this order: before German,
   so the new strings are translated once and wave 1's users, mostly without a whatwatt, get
   more than one colour; the reasoning is in `research/feature_ideas.md`, Review). Each step is
@@ -471,7 +471,7 @@ Later phases, in order (each settled with the user before it starts):
 - Not planned: Czechia, Poland, Hungary, Slovenia (local currencies, uptake unknown); France,
   Italy, Portugal (see the research file).
 
-### Accurate preview and draw ahead [built 2026-10-04, unreleased]
+### Accurate preview and draw ahead [released in v0.13.0, 2026-10-04]
 
 The user: "the data visualization must be ACCURATE". Details in CLAUDE.md (Projection, Preview)
 and [research/appliances.md](../../../research/appliances.md).
@@ -483,9 +483,8 @@ and [research/appliances.md](../../../research/appliances.md).
    `PeakNow.drawKw` dropped, the projection carries it). Help, README and the ⓘ updated.
    **Open:** see it with the hob cycling (the later quarters steady on 2-min average, jumping on
    Latest reading).
-3. **Open:** release as v0.13.0 together with the 90th percentile (user, 2026-10-04; versionName,
-   `APP_VERSION`, changelog 16.txt). The phone runs the debug build since this test, so the
-   release needs another uninstall.
+3. ~~Release~~: tagged v0.13.0 (versionCode 16, 2026-10-04) with the 90th percentile, the
+   timer and the saving. The phone runs the debug build, so the release needs an uninstall.
 
 ### Rainy day
 

@@ -21,8 +21,8 @@ android {
         applicationId = "io.github.buerlino.gridload"
         minSdk = 26
         targetSdk = 37
-        versionCode = 15
-        versionName = "0.12.0"
+        versionCode = 16
+        versionName = "0.13.0"
     }
 
     val releaseKeystore = signingValue("storeFile", "GRIDLOAD_KEYSTORE_FILE")
