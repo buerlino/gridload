@@ -57,8 +57,8 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
     val unit = state.powerUnit
     val zone = state.region.zone
     val highest = state.meter.highest
-    // Never null while there is a highest: the limit is at least that. The scale still takes
-    // both, so the bars stay inside it if that ever changes (the canvas doesn't clip).
+    // Null when no part of the limit is on and has a value; the bars then show without a line.
+    // The limit can sit above or below the highest, so the scale takes both (the canvas doesn't clip).
     val line = state.peakLine
     Panel(
         open = state.historyOpen,
@@ -68,9 +68,9 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
         },
     ) {
-        if (state.historyOpen && highest != null && line != null) {
+        if (state.historyOpen && highest != null) {
             DayBars(
-                state.meter.days, highest, line, maxOf(line, highest.kw), unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
+                state.meter.days, highest, line, maxOf(line ?: 0.0, highest.kw), unit, YearMonth.now(zone), LocalDate.now(zone), selected = null, height = 150.dp,
                 Modifier.clickable(onClickLabel = "Open the history", onClick = onOpen),
             )
         }

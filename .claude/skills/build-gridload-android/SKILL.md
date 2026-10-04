@@ -119,9 +119,8 @@ reproducible-build check. The MR description says the APK has AndroidX's
 `libandroidx.graphics.path.so` (~10 KB per ABI); the reviewer's R8 request was answered with
 v0.3.1.
 
-Status (2026-10-04): the recipe is at 0.12.0 (pushed, the MR's head `8a9053d72`); the 0.13.0
-commit (`3ade4eee0`, versionCode 16) is prepared in `../fdroiddata`, not pushed. The NonFreeNet
-text, unchanged since 0.12.0:
+Status (2026-10-04): the recipe is at 0.13.0 (`3ade4eee0`, versionCode 16, pushed: the MR's
+head, pipeline green). The NonFreeNet text, unchanged since 0.12.0:
 ```
 NonFreeNet:
   en-US: Loads the prices from the chosen utility's web API or Energy-Charts. The
@@ -248,9 +247,9 @@ settled with the user before it starts.
    `prices.json` backed up), a goal below the draw (red bar, the vibration issued as
    NOTIFICATION) and no limit (no line, "0.5 kW now"). Fixed 2026-10-04: with the month's highest
    off, the warning and the WAIT rows claimed a new peak below it; they now say "sets a new peak"
-   only above the month's highest (`isNewPeak`), else "reaches the limit". To see on the phone: a
-   goal below the draw with Month's highest off ("This ¼ hour reaches the limit.", rows "Reaches
-   the limit right now"), and with it on as before.
+   only above the month's highest (`isNewPeak`), else "reaches the limit". Seen on the Fairphone 6
+   (2026-10-04): a goal below the draw with Month's highest off gives "This ¼ hour reaches the
+   limit." and rows "Reaches the limit right now"; with it on, not yet seen since the fix.
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
 - Small, any time: the base load line in the history panel.
@@ -258,12 +257,15 @@ settled with the user before it starts.
 Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
 2-min average, jumping on Latest reading).
 
-### Household alerts [planned, user 2026-10-04]
+### Household alerts [(a) built 2026-10-04, not released]
 
 Telling the household when a quarter hour heads for a new peak. Research, design and sources in
-`research/household_alerts.md`; where it fits among the other phases is the user's call.
-1. **(a) Share link** (default): "Tell the household ›" under the peak warning opens the share
-   sheet with a ready text (WhatsApp, Signal, any messenger). No setting, no permission.
+`research/household_alerts.md`; the design in `CLAUDE.md` (the peak window).
+1. **(a) Share** [built, commit `0c85de7`]: a Share button right of the peak warning (open and
+   collapsed, only while it shows) opens the share sheet with a ready text (WhatsApp, Signal, any
+   messenger). No setting, no permission. Seen on the Fairphone 6 (2026-10-04, a goal staged
+   below the draw): the button beside the warning, open and collapsed, and the share sheet with
+   the text. Open: a message actually sent to a messenger group.
 2. ~~(b) ntfy~~: dropped 2026-10-04 (it sends only while GridLoad is open somewhere).
 3. Later, not planned: (b2) a background sender on a hub phone (phase 5) with ntfy, the only
    way an automatic alert would be useful; see the research file.

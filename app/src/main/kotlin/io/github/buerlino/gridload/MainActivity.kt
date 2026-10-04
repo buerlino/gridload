@@ -241,7 +241,7 @@ private fun Screen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            state.status?.takeIf { state.curveEnabled }?.let { PricePanel(state, it, onToggle = onToggleCurve) }
+                            state.status?.takeIf { state.showCurve }?.let { PricePanel(state, it, onToggle = onToggleCurve) }
                             if (state.showPeak) {
                                 PeakWindow(
                                     state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(SettingsAt.TOP) },

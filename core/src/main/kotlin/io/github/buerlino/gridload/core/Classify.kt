@@ -11,10 +11,16 @@ enum class Level { GREEN, ORANGE, RED }
  * every slot the price is compared with, each in its colour (the price curve).
  */
 data class Status(val level: Level, val slot: PriceSlot, val nextGreen: PriceSlot?, val window: List<SlotLevel>) {
-    /** When the green that's on now ends: the end of the green slots in a row from now; null when now isn't green. */
-    val greenUntil: OffsetDateTime? get() =
-        if (level != Level.GREEN) null
-        else window.dropWhile { it.slot.start.isBefore(slot.start) }.takeWhile { it.level == Level.GREEN }.last().slot.end
+    /**
+     * When the green that's on now ends: the end of the green slots in a row from now. Null when now
+     * isn't green, or when the green runs to the window's end, since what follows isn't known yet
+     * (tomorrow's prices) or isn't compared.
+     */
+    val greenUntil: OffsetDateTime? get() {
+        if (level != Level.GREEN) return null
+        val run = window.dropWhile { it.slot.start.isBefore(slot.start) }.takeWhile { it.level == Level.GREEN }
+        return if (run.last() == window.last()) null else run.last().slot.end
+    }
 }
 
 /** A slot of the window and its colour. */

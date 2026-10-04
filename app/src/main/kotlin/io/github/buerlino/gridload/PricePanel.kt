@@ -51,6 +51,8 @@ fun PricePanel(state: UiState, status: Status, onToggle: () -> Unit) {
                 buildAnnotatedString {
                     val time = when {
                         until != null -> { append("Green until "); until.toInstant() }
+                        // Green to the window's end: it may go on past the prices known.
+                        status.level == Level.GREEN -> { append("Green for now"); null }
                         next != null -> { append("Green from "); next.start.toInstant() }
                         else -> { append("No green time ahead"); null }
                     }

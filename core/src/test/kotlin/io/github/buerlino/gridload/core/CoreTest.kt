@@ -145,6 +145,14 @@ class CoreTest {
     }
 
     @Test
+    fun greenToTheWindowsEndHasNoUntil() {
+        // The prices end at 15:00, inside the green run: it may go on, so no end time.
+        val status = classify(slots.filter { !it.end.toInstant().isAfter(at("15:00")) }, at("13:05"), spot = false)!!
+        assertEquals(Level.GREEN, status.level)
+        assertNull(status.greenUntil)
+    }
+
+    @Test
     fun parsesUtcTimestamps() {
         assertEquals(192, twoDays.size)
         assertEquals(sep29("00:00"), twoDays.first().start.toInstant())

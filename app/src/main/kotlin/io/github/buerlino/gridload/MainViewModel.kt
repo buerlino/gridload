@@ -17,6 +17,7 @@ import io.github.buerlino.gridload.core.Appliance
 import io.github.buerlino.gridload.core.ApplianceFile
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.CachedPrices
+import io.github.buerlino.gridload.core.Floor
 import io.github.buerlino.gridload.core.HttpException
 import io.github.buerlino.gridload.core.Limit
 import io.github.buerlino.gridload.core.LimitPart
@@ -120,9 +121,11 @@ data class UiState(
     /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
     val cooldownEnd: Instant? = null,
 ) {
+    /** The biggest appliance + 20% and which one it is, whether or not that part is on; null when no appliance counts. */
+    val floor: Floor? get() = peakFloor(appliances)
     /** The limit and the part that sets it, or why there's none: the highest of the parts switched on that apply (see the core [peakLimit]). */
     val limit: LimitResult get() =
-        peakLimit(limitOn, appliancesEnabled, region.minimumKw, meter.highest, peakFloor(appliances), goalKw)
+        peakLimit(limitOn, appliancesEnabled, region.minimumKw, meter.highest, floor, goalKw)
     /** The limit's kW, what everything that reads the limit uses; null without one, so nothing turns red. */
     val peakLine: Double? get() = (limit as? Limit)?.kw
     /** Whether this quarter hour's projection reaches the limit: the bar turns red. */

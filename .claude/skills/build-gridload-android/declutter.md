@@ -476,3 +476,77 @@ go-ahead ("proceed with everything"). Where it differed from the suggestions:
   `run-as … tar`) was restored byte-identical (contents and modes; the release build's extra
   `profileinstaller_…` file removed); the phone runs the debug build of this tree.
 - **5.1:** changelogs 12-15 deleted once the user had pushed the recipe commit `3ade4eee0`.
+
+## Pass 2026-10-04 (after the price curve and the Limit setting)
+
+Report (at `46c35c1`; range `76c03d9..46c35c1`: the ¼-hour rename and Share, the household
+alerts research, the price curve, the Limit setting): 112 tests green, lint "No issues found", no
+`w:` lines, no unused imports, two clean unsigned release builds identical (`6ab39484…`),
+workflows on `checkout@v7` / `setup-java@v6`. Worked through on top of `6ef4220` ("new peak"
+only above the month's highest, from another session), whose strings (the warning, the WAIT
+rows, the Share text) this pass left alone.
+
+### Bug
+- [x] 1. The history chart vanished with no limit: `HistoryPanel` drew `DayBars` only when
+  `line != null`, and its comment said the limit is never null while there's a highest, which the
+  Limit setting made false (Month's highest off and the goal empty, or only the floor on and the
+  appliances hidden). The chart is also the tap target for `HistoryScreen`, so that was
+  unreachable too. Now drawn with a null line, the scale `maxOf(line ?: 0.0, highest.kw)`, the
+  comment corrected. `HistoryScreen` and `QuarterBars` already handled a null line.
+
+### Deprecation
+- [x] 2. `Configuration.setVisible(boolean)` (removal in Gradle 11) comes from AGP itself:
+  `-Dorg.gradle.deprecation.trace=true` shows `BasePlugin.createAndroidJdkImageConfiguration`
+  and `SourceSetManager.createConfiguration` (`com.android.build.gradle.internal`). AGP 9.4.1 is
+  the newest stable on Google's Maven; only 9.5.0 alphas exist. No fixed version to propose:
+  check again when 9.5.0 is stable.
+
+### Docs
+- [x] 3. Share was undocumented: a line in `CLAUDE.md`'s peak window bullet (and "the warning
+  (with Share)" collapsed), the skill's Household alerts entry marked built, and
+  `research/household_alerts.md`'s status line and section (a) (a button right of the warning,
+  not a link below it).
+- [x] 4. `CLAUDE.md` quoted UI text from before the ¼-hour rename (the countdown switch twice,
+  "First ¼ hour at …" twice, "Estimated: … this ¼ hour.", "No ¼ hours recorded (yet)", "hasn't
+  saved a ¼ hour", "Then n more ¼ hours"): matched to the code. The rule is in "UI text": the UI
+  says "¼ hour", prose may keep "quarter hour". The skill and research had no stale quotes
+  besides `household_alerts.md` (item 3).
+- [x] 5. F-Droid status: the MR's head is `3ade4eee0` (0.13.0, pushed, pipeline green, checked
+  through GitLab's API); `CLAUDE.md` Current state and the skill's F-Droid section updated.
+  Current state now says the price curve, the Limit setting and Share are built, not released,
+  and what's next.
+- [x] 6. README: the price curve (the first panel, its switch), the limit's default and its
+  switches (Settings → Mode → Limit), Share; the panels renumbered (the curve first, four in
+  all). Store description: one sentence for the curve, the limit's default and switches, Share
+  (3019 → 3202 characters).
+
+### Small
+- [x] 7. "Green until tomorrow 00:00" when the green run reaches the last known slot, before
+  tomorrow's prices are out (the green may go on); the same after tomorrow is out when the run
+  reaches the 24-hour window's end. The user chose "Green for now": `greenUntil` is null when the
+  run reaches the window's last slot, and the header says "Green for now" while green. Test:
+  `greenToTheWindowsEndHasNoUntil` (116 tests). Not seen on the phone (it needs a green
+  evening before tomorrow's prices, or prices staged to end in a green run).
+- [x] 8. `MainActivity`'s `PricePanel` call uses `UiState.showCurve` instead of repeating it.
+- [x] 9. `LimitGroup` computed `peakFloor` a second time: `UiState.floor` now, used by `limit`
+  and the Biggest appliance switch's value (`SettingsScreen` no longer imports `peakFloor`).
+- [x] 10. `git gc` (243 loose objects, 1.31 MiB → 0).
+
+### No change
+- The Limit group's lock can't stop every way to no limit: a region change or hiding the
+  appliances can leave only hidden parts on. The result line says why; `CLAUDE.md` records it
+  as the user's "no fallback" decision.
+
+### Done (2026-10-04)
+- Verified: `--warning-mode all :core:test :app:lintDebug :app:lintAnalyzeDebug --rerun
+  :app:assembleDebug :app:assembleRelease` green, 116 tests, lint "No issues found", the only
+  deprecation AGP's `setVisible`; `:core:compileKotlin --rerun :app:compileDebugKotlin --rerun`
+  without `w:` lines; two clean unsigned `assembleRelease` builds both
+  `20ea98fdd5aaecae922349ce1d8b587170bb9c27b72c263b983d87a8e36905be` (with item 7).
+- On the Fairphone 6 (16:23-16:25, debug build of this tree, CKW), staged in the prefs with
+  `limit_highest` and `limit_floor` off: the history panel shows the day bars without a line,
+  and tapping it opens the History screen (day and quarter bars, no line). Then a goal of
+  0.05 kW (below the 0.1 kW draw): "This ¼ hour reaches the limit." with Share beside it, open
+  and collapsed; Share opens the share sheet with the text (closed without sending); the rows say
+  "Reaches the limit right now". The app's data (backed up with `run-as … tar`, app stopped) was
+  restored byte-identical, contents and modes, no extra files.

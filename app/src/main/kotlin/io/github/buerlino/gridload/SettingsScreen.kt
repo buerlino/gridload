@@ -78,7 +78,6 @@ import io.github.buerlino.gridload.core.Region
 import io.github.buerlino.gridload.core.countryOf
 import io.github.buerlino.gridload.core.limitParts
 import io.github.buerlino.gridload.core.parseNonNegative
-import io.github.buerlino.gridload.core.peakFloor
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -529,10 +528,8 @@ private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
             when (part) {
                 LimitPart.HIGHEST ->
                     SwitchRow("Month's highest", null, on, onChange, state.meter.highest?.let { unit.format(it.kw) } ?: "Nothing recorded yet", part != locked)
-                LimitPart.FLOOR -> {
-                    val floor = peakFloor(state.appliances)
-                    SwitchRow("Biggest appliance + 20%", null, on, onChange, floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
-                }
+                LimitPart.FLOOR ->
+                    SwitchRow("Biggest appliance + 20%", null, on, onChange, state.floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
                 LimitPart.MINIMUM -> SwitchRow("Tariff minimum", null, on, onChange, state.region.minimumKw?.let(unit::format), part != locked)
                 LimitPart.GOAL -> SwitchRow("Goal", GOAL_INFO, on, onChange, enabled = part != locked)
             }

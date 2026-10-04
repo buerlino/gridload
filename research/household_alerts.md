@@ -5,8 +5,8 @@ switches on another big appliance until it ends. Researched with the user on 202
 **Decision (user, 2026-10-04):** (a) a share link only. (b) ntfy was planned as an alternative
 and dropped the same day: GridLoad sends only while it's open on some phone, which makes an
 automatic alert useless (the user: "if the app has to be open then it will be useless"). Kept
-below as the record of why. Planned, not built; the roadmap entry is in the skill ("Household
-alerts").
+below as the record of why. (a) is built (2026-10-04, commit `0c85de7`), not released; the design
+is in `CLAUDE.md` (the peak window), the status in the skill ("Household alerts").
 
 ## What it can and can't do
 
@@ -45,14 +45,13 @@ alerts").
   `ACCESS_LOCAL_NETWORK` (already declared for the whatwatt) covers on Android 17.
 - Unofficial WhatsApp or Signal clients inside GridLoad: no (terms, bans, F-Droid).
 
-## (a) Share link (default)
+## (a) Share button (built)
 
-- While the peak window shows "This quarter hour sets a new peak.", a link below it, e.g.
-  "Tell the household ›", opens Android's share sheet (`Intent.createChooser` with
-  `ACTION_SEND`, `text/plain`).
-- The text, e.g. "⚡ GridLoad: 3.1 kW this quarter hour, the limit is 2.6 kW. Please wait with
-  big appliances until 12:15." In the power unit, the time in the phone's zone. Exact wording
-  with the user.
+- While the peak window's warning shows, a **Share** button right of it (not a link below it, so
+  the panel keeps its height) opens Android's share sheet (`Intent.createChooser` with
+  `ACTION_SEND`, `text/plain`; `TellHousehold` in `PeakWindow.kt`).
+- The text: the projection, the limit and the quarter's end, in the power unit, the time in the
+  phone's zone; the wording is in the code.
 - Visible collapsed too, like the warning. No setting, no permission, no state.
 
 ## (b) ntfy on the user's server (dropped 2026-10-04)
