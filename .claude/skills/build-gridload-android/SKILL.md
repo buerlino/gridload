@@ -232,9 +232,12 @@ settled with the user before it starts.
    byte-identical afterwards.
 3. **The price curve panel** [built 2026-10-04, not released]: decided with the user: for
    everyone, per slot, with a price axis (short unit), the first panel, a switch to hide it
-   (Settings → Region). Design in `CLAUDE.md` (UI, Price curve). Seen on the Fairphone 6 with a
-   staged `prices.json` (Energy-Charts answered 503). Still to see: a window that starts at
-   midnight (before tomorrow's prices, past slots faded), negative prices, CKW's hourly bars.
+   (Settings → Region). Design in `CLAUDE.md` (UI, Price curve). Seen on the Fairphone 6
+   (2026-10-04): CKW's hourly bars, the window from midnight with the past slots faded (before
+   tomorrow's fetch) and the 24 hours from now after it, negative prices (staged: the axis goes
+   below 0, the bars down), folding, the switch, the ⓘ, the help line, a preview scrolling to the
+   peak window, and the curve alone (peak load off). To stage negative prices: copy a fetched
+   `prices.json`, set some of tomorrow's `integrated` values below 0, restore it afterwards.
 4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says which
    (floor from which appliance, goal, minimum, highest and when).
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
