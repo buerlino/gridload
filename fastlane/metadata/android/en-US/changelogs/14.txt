@@ -1,2 +1,0 @@
-- History on its own screen: tap the chart for this month and last month, and tap a day to see its quarter hours.
-- The main screen keeps its scroll when you come back from Settings or the history.

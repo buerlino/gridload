@@ -1,6 +1,0 @@
-- Appliances: measure each one once with the whatwatt, then see OK or WAIT for starting it now, by peak and by price, with the time to wait or the delay to set.
-- Tap an appliance to see its run in the peak window; hold to edit.
-- Variants: another run time, e.g. a kettle with more water.
-- Export and import the appliances in Settings.
-- The peak window shows the last hour and the next three quarter hours.
-- Scrolling the panels shrinks the price part to one line.

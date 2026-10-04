@@ -439,7 +439,7 @@ Energy-Charts since the 0.12.0 commit `8a9053d72`, which is pushed and the MR's 
   affine argument holds for the percentile too).
 
 ### Repo, build and CI
-- [ ] 5.1 Changelogs 12, 13, 14, 15: F-Droid never built them and, with the recipe at 16, never
+- [x] 5.1 Changelogs 12, 13, 14, 15: F-Droid never built them and, with the recipe at 16, never
   will. Delete them once the recipe commit is pushed; keep 16.
 - [x] 5.2 `git gc` (229 loose objects).
 - [x] 5.3 Verify after the changes: tests, lint 0, no `w:`, `--warning-mode all`, two clean
@@ -475,4 +475,4 @@ go-ahead ("proceed with everything"). Where it differed from the suggestions:
   0.15 CHF" with the timer button, in the row and the preview. The backup (app stopped,
   `run-as … tar`) was restored byte-identical (contents and modes; the release build's extra
   `profileinstaller_…` file removed); the phone runs the debug build of this tree.
-- Left: 5.1 once the recipe commit `3ade4eee0` is pushed.
+- **5.1:** changelogs 12-15 deleted once the user had pushed the recipe commit `3ade4eee0`.
