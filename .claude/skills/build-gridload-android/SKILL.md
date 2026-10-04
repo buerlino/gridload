@@ -20,7 +20,7 @@ in git.
 - **Architecture:** single Activity. `:core` (plain Kotlin/JVM, no Android) holds the logic, all
   unit-tested. `:app` holds `MainViewModel` (prices, settings, the peak alarm, the appliances and
   their measuring), `WhatwattMeter` (reading, the recorder's sync, checks and actions, the Test)
-  and the screens: main (`MainActivity.kt`, `PeakWindow.kt`, `AppliancesPanel.kt`,
+  and the screens: main (`MainActivity.kt`, `PricePanel.kt`, `PeakWindow.kt`, `AppliancesPanel.kt`,
   `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), the History
   screen (`HistoryScreen` in `HistoryPanel.kt`), Settings and the setup guide
   (`SettingsScreen.kt`, `WhatwattGuide.kt`; `Page` and `TitleRow` are shared).
@@ -230,10 +230,11 @@ settled with the user before it starts.
    (design in `CLAUDE.md`, OK or WAIT). To stage a "Cheaper at" row: a `prices.json` with a few
    dear quarters now and today copied as tomorrow, so nothing is fetched; restore it
    byte-identical afterwards.
-3. **The price curve panel:** the window's slots in their colours, a marker for now, the
-   collapsed header "Green until 16:00". Needs `level` out of `classify`. Open: shown without
-   peak load too (then the panel layout is everyone's), hourly or per slot, prices on the axis
-   or not, where.
+3. **The price curve panel** [built 2026-10-04, not released]: decided with the user: for
+   everyone, per slot, with a price axis (short unit), the first panel, a switch to hide it
+   (Settings → Region). Design in `CLAUDE.md` (UI, Price curve). Seen on the Fairphone 6 with a
+   staged `prices.json` (Energy-Charts answered 503). Still to see: a window that starts at
+   midnight (before tomorrow's prices, past slots faded), negative prices, CKW's hourly bars.
 4. **Where the limit comes from:** `peakLine` returns its source; a tap on "2.6 limit" says which
    (floor from which appliance, goal, minimum, highest and when).
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a

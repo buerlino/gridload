@@ -156,7 +156,7 @@ private class Plot(val axis: Axis, val start: Float, val end: Float, private val
 }
 
 private fun DrawScope.plot(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, line: Double?, bottom: Float): Plot {
-    val axis = Axis(measurer, unit, maxKw, 16.dp.toPx(), bottom, 6.dp.toPx())
+    val axis = kwAxis(measurer, unit, maxKw, 16.dp.toPx(), bottom, 6.dp.toPx())
     val label = line?.let { limitLabel(measurer, unit, it, 80.dp.roundToPx()) }
     val end = if (label != null) size.width - label.size.width - 8.dp.toPx() else size.width
     return Plot(axis, axis.x + 6.dp.toPx(), end, line, label)

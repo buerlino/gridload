@@ -2,11 +2,23 @@ package io.github.buerlino.gridload.core
 
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
 
 enum class Level { GREEN, ORANGE, RED }
 
-/** [nextGreen] is the next green slot in the window when now isn't green, else null. */
-data class Status(val level: Level, val slot: PriceSlot, val nextGreen: PriceSlot?)
+/**
+ * [nextGreen] is the next green slot in the window when now isn't green, else null. [window] is
+ * every slot the price is compared with, each in its colour (the price curve).
+ */
+data class Status(val level: Level, val slot: PriceSlot, val nextGreen: PriceSlot?, val window: List<SlotLevel>) {
+    /** When the green that's on now ends: the end of the green slots in a row from now; null when now isn't green. */
+    val greenUntil: OffsetDateTime? get() =
+        if (level != Level.GREEN) null
+        else window.dropWhile { it.slot.start.isBefore(slot.start) }.takeWhile { it.level == Level.GREEN }.last().slot.end
+}
+
+/** A slot of the window and its colour. */
+data class SlotLevel(val slot: PriceSlot, val level: Level)
 
 /** How far ahead the price now is compared, about as long as appliances are usually delayed. */
 val WINDOW: Duration = Duration.ofHours(24)
@@ -34,11 +46,12 @@ fun classify(slots: List<PriceSlot>, now: Instant, spot: Boolean): Status? {
         price >= min + 2 * range / 3 -> Level.RED
         else -> Level.ORANGE
     }
+    val levels = window.map { SlotLevel(it, level(it.price)) }
     val level = level(current.price)
-    val nextGreen = if (level == Level.GREEN) null else window.firstOrNull {
-        it.start.isAfter(current.start) && level(it.price) == Level.GREEN
-    }
-    return Status(level, current, nextGreen)
+    val nextGreen = if (level == Level.GREEN) null else levels.firstOrNull {
+        it.slot.start.isAfter(current.start) && it.level == Level.GREEN
+    }?.slot
+    return Status(level, current, nextGreen, levels)
 }
 
 /**

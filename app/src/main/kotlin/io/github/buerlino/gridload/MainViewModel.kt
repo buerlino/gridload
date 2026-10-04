@@ -83,6 +83,9 @@ data class UiState(
     val vibrateAlways: Boolean = false,
     /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours); else the latest reading. */
     val drawAverage: Boolean = true,
+    /** Whether the main screen shows the price curve at all (Settings → Region), and whether it's expanded. */
+    val curveEnabled: Boolean = true,
+    val curveOpen: Boolean = true,
     /** Whether the peak window, the appliances and the history are expanded. */
     val peakOpen: Boolean = true,
     val historyOpen: Boolean = true,
@@ -125,8 +128,12 @@ data class UiState(
     fun yourPrice(price: Double): Double? = yourPrice(price, region, priceAddOn, priceVat)
     /** What waiting saves the user (see the core [yourSaving]); null in a spot region without the add-on and below 0.005. */
     fun yourSaving(saving: Double): Double? = yourSaving(saving, region, priceAddOn, priceVat)
-    /** Whether the main screen shows the panels: the peak window, the appliances and the history. */
+    /** Whether the main screen shows peak load's panels: the peak window, the appliances and the history. */
     val showPeak: Boolean get() = peakEnabled && whatwattEnabled
+    /** Whether the main screen shows the price curve: switched on, and with prices to show. */
+    val showCurve: Boolean get() = curveEnabled && status != null
+    /** Whether the main screen shows any panel, so the spot part sits at the top, smaller. */
+    val showPanels: Boolean get() = showPeak || showCurve
 }
 
 /**
@@ -183,6 +190,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
             drawAverage = prefs.getBoolean(KEY_DRAW_AVERAGE, true),
+            curveEnabled = prefs.getBoolean(KEY_CURVE_ENABLED, true),
+            curveOpen = prefs.getBoolean(KEY_CURVE_OPEN, true),
             peakOpen = prefs.getBoolean(KEY_PEAK_OPEN, true),
             historyOpen = prefs.getBoolean(KEY_HISTORY_OPEN, true),
             appliancesOpen = prefs.getBoolean(KEY_APPLIANCES_OPEN, true),
@@ -345,6 +354,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setPowerUnit(unit: PowerUnit) {
         prefs.edit { putString(KEY_POWER_UNIT, unit.id) }
         _state.update { it.copy(powerUnit = unit) }
+    }
+
+    fun setCurveEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_CURVE_ENABLED, enabled) }
+        _state.update { it.copy(curveEnabled = enabled) }
+    }
+
+    fun setCurveOpen(open: Boolean) {
+        prefs.edit { putBoolean(KEY_CURVE_OPEN, open) }
+        _state.update { it.copy(curveOpen = open) }
     }
 
     fun setPeakOpen(open: Boolean) {
@@ -617,6 +636,8 @@ private const val KEY_PRICE_VAT = "price_vat"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
 private const val KEY_DRAW_AVERAGE = "peak_draw_average"
+private const val KEY_CURVE_ENABLED = "curve_enabled"
+private const val KEY_CURVE_OPEN = "curve_open"
 private const val KEY_PEAK_OPEN = "peak_open"
 private const val KEY_HISTORY_OPEN = "history_open"
 private const val KEY_APPLIANCES_OPEN = "appliances_open"

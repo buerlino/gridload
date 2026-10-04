@@ -62,7 +62,7 @@ private val APPLIANCE = Color(0xFF1E88E5)
  * show its run started now on top of the house, and the header the tightest of them.
  */
 @Composable
-fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit, onOpenSettings: () -> Unit) {
+fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     val unit = state.powerUnit
     val meter = state.meter
     val projection = meter.projection
@@ -78,6 +78,7 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
     val red = if (preview != null) state.previewLoads.any { warns(it.kw) } else state.peakWarning
     Panel(
         open = state.peakOpen || preview != null,
+        modifier = modifier,
         onToggle = if (preview != null) onClosePreview else onToggle,
         icon = if (preview != null) "×" else null,
         header = {
@@ -221,7 +222,7 @@ private fun Scale(bars: List<Bar>, line: Double?, unit: PowerUnit) {
     val measurer = rememberTextMeasurer()
     Canvas(Modifier.fillMaxWidth().height(180.dp)) {
         val bottom = size.height - 18.dp.toPx()
-        val axis = Axis(measurer, unit, maxOf(line ?: 0.0, bars.maxOf { (it.kw ?: 0.0) + it.addedKw }), 22.dp.toPx(), bottom, 6.dp.toPx())
+        val axis = kwAxis(measurer, unit, maxOf(line ?: 0.0, bars.maxOf { (it.kw ?: 0.0) + it.addedKw }), 22.dp.toPx(), bottom, 6.dp.toPx())
         val gap = 6.dp.toPx()
         val start = axis.x + 8.dp.toPx()
         // The columns share what the line labels leave; the current one is 1.6 times as wide, so it stands out.

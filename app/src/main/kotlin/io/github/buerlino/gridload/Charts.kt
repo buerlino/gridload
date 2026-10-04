@@ -51,13 +51,14 @@ internal val SMALL = TextStyle(color = MUTED, fontSize = 10.sp)
 @Composable
 internal fun Panel(
     open: Boolean,
+    modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     icon: String? = null,
     header: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        Modifier.fillMaxWidth().widthIn(max = 420.dp).background(Color.White, RoundedCornerShape(16.dp))
+        modifier.fillMaxWidth().widthIn(max = 420.dp).background(Color.White, RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -75,32 +76,45 @@ internal fun Panel(
 }
 
 /**
- * A chart's vertical axis in [unit], from 0 at [bottom] to whole kW at [top] a bit above
- * [maxKw] (2 kW steps above 8), with its tick labels and the unit [gap] px left of [x].
+ * A chart's vertical axis from [low] at [bottom] to [high] at [top], with [ticks] (a value and its
+ * label) and the [unit] above them, [gap] px left of [x]. The baseline is at 0.
  */
-internal class Axis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, val top: Float, private val bottom: Float, private val gap: Float) {
-    private val topKw = ceil(maxOf(maxKw * 1.15, 1.0)).toInt()
-    private val ticks = (0..topKw step if (topKw > 8) 2 else 1).map { kw ->
-        kw to measurer.measure(if (unit == PowerUnit.W) "${kw * 1000}" else "$kw", SMALL)
-    }
-    private val unitLabel = measurer.measure(unit.id, SMALL)
+internal class Axis(
+    measurer: TextMeasurer,
+    ticks: List<Pair<Double, String>>,
+    unit: String,
+    private val low: Double,
+    private val high: Double,
+    val top: Float,
+    private val bottom: Float,
+    private val gap: Float,
+) {
+    private val ticks = ticks.map { (value, label) -> value to measurer.measure(label, SMALL) }
+    private val unitLabel = measurer.measure(unit, SMALL)
 
     /** Where the axis line is; the plot starts right of it. */
-    val x = maxOf(ticks.maxOf { it.second.size.width }, unitLabel.size.width) + gap
+    val x = maxOf(this.ticks.maxOf { it.second.size.width }, unitLabel.size.width) + gap
 
-    fun y(kw: Double) = bottom - (kw / topKw * (bottom - top)).toFloat()
+    fun y(value: Double) = bottom - ((value - low) / (high - low) * (bottom - top)).toFloat()
 
     /** Draws the axis with its ticks and the baseline to [end]. */
     fun draw(scope: DrawScope, end: Float) = with(scope) {
-        for ((kw, label) in ticks) {
-            val y = y(kw.toDouble())
+        for ((value, label) in ticks) {
+            val y = y(value)
             drawText(label, topLeft = Offset(x - gap - label.size.width, y - label.size.height / 2))
             drawLine(MUTED, Offset(x, y), Offset(x + 4.dp.toPx(), y), 1.dp.toPx())
         }
         drawText(unitLabel, topLeft = Offset(x - gap - unitLabel.size.width, 0f))
         drawLine(MUTED, Offset(x, top), Offset(x, bottom), 1.dp.toPx())
-        drawLine(MUTED, Offset(x, bottom), Offset(end, bottom), 1.dp.toPx())
+        drawLine(MUTED, Offset(x, y(0.0)), Offset(end, y(0.0)), 1.dp.toPx())
     }
+}
+
+/** An axis in [unit] from 0 to whole kW a bit above [maxKw] (2 kW steps above 8). */
+internal fun kwAxis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, top: Float, bottom: Float, gap: Float): Axis {
+    val topKw = ceil(maxOf(maxKw * 1.15, 1.0)).toInt()
+    val ticks = (0..topKw step if (topKw > 8) 2 else 1).map { kw -> kw.toDouble() to if (unit == PowerUnit.W) "${kw * 1000}" else "$kw" }
+    return Axis(measurer, ticks, unit.id, 0.0, topKw.toDouble(), top, bottom, gap)
 }
 
 /** A label for the limit, "**0.9** limit", wrapped within [maxWidth] px. */

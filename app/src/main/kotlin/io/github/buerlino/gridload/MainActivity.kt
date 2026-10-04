@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +58,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -131,6 +134,7 @@ class MainActivity : ComponentActivity() {
                         state, viewModel, panelScroll, collapse,
                         onRefresh = viewModel::refresh,
                         onOpenSettings = { at -> settingsAt = at; showSettings = true },
+                        onToggleCurve = { viewModel.setCurveOpen(!state.curveOpen) },
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
                         onToggleHistory = { viewModel.setHistoryOpen(!state.historyOpen) },
                         onOpenHistory = { showHistory = true },
@@ -190,8 +194,9 @@ internal fun comingTime(at: Instant, today: String = ""): String {
 
 /**
  * The colour, the headline, the price, the next good time, and when the prices were updated;
- * pulling down refreshes. With peak load on, this part is fixed at the top with smaller text,
- * and the peak window, the appliances and the history scroll below it.
+ * pulling down refreshes. With panels to show, this part is fixed at the top with smaller text,
+ * and they scroll below it: the price curve, and with peak load on the peak window, the
+ * appliances and the history.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -202,6 +207,7 @@ private fun Screen(
     collapse: Collapse,
     onRefresh: () -> Unit,
     onOpenSettings: (SettingsAt) -> Unit,
+    onToggleCurve: () -> Unit,
     onTogglePeak: () -> Unit,
     onToggleHistory: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -215,8 +221,10 @@ private fun Screen(
             Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp)) {
                 TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
                 // Each part scrolls, so that pulling down anywhere refreshes.
-                if (state.showPeak) {
+                if (state.showPanels) {
                     val scope = rememberCoroutineScope()
+                    // Where the peak window starts in the panels, so a preview scrolls to it.
+                    var peakTop by remember { mutableIntStateOf(0) }
                     Column(Modifier.weight(1f).nestedScroll(collapse)) {
                         Spot(
                             state, label, content, collapse, onSetPrice = { onOpenSettings(SettingsAt.PRICE) },
@@ -233,13 +241,19 @@ private fun Screen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            PeakWindow(state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(SettingsAt.TOP) })
-                            // The peak window is above the appliances, so a preview scrolls up to it.
-                            if (state.appliancesEnabled) AppliancesPanel(state, viewModel, onPreview = { name ->
-                                viewModel.setPreview(name)
-                                if (name != null) scope.launch { panelScroll.animateScrollTo(0) }
-                            })
-                            HistoryPanel(state, onToggle = onToggleHistory, onOpen = onOpenHistory)
+                            state.status?.takeIf { state.curveEnabled }?.let { PricePanel(state, it, onToggle = onToggleCurve) }
+                            if (state.showPeak) {
+                                PeakWindow(
+                                    state, onToggle = onTogglePeak, onClosePreview = { viewModel.setPreview(null) }, onOpenSettings = { onOpenSettings(SettingsAt.TOP) },
+                                    Modifier.onPlaced { peakTop = it.positionInParent().y.roundToInt() },
+                                )
+                                // The peak window is above the appliances, so a preview scrolls up to it.
+                                if (state.appliancesEnabled) AppliancesPanel(state, viewModel, onPreview = { name ->
+                                    viewModel.setPreview(name)
+                                    if (name != null) scope.launch { panelScroll.animateScrollTo(peakTop) }
+                                })
+                                HistoryPanel(state, onToggle = onToggleHistory, onOpen = onOpenHistory)
+                            }
                         }
                     }
                 } else {
@@ -362,7 +376,8 @@ private fun Spot(state: UiState, label: String, content: Color, collapse: Collap
                 status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
             }
             state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
-            if (!small) state.meter.problem?.let { Text(it, color = content) }
+            // With peak load, the peak window says it instead.
+            if (!state.showPeak) state.meter.problem?.let { Text(it, color = content) }
         }
     }
 }
@@ -456,6 +471,7 @@ fun HelpContent(country: Country?) {
         LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("The price is compared with the next 24 hours, so red means a cheaper time is coming.")
+        Text("The price curve shows those hours, each in its colour.")
         help.tomorrow?.let { Text(it) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GreenDot(LocalContentColor.current)

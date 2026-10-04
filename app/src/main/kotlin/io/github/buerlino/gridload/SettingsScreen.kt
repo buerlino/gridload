@@ -91,6 +91,12 @@ private val PRICE_INFO = Info(
         "VAT: preset for your country.\n\n" +
         "The colour doesn't depend on them.",
 )
+private val CURVE_INFO = Info(
+    "Price curve",
+    "On: the main screen shows the prices the colour is compared with, each ¼ hour in its colour. That's the next " +
+        "24 hours, or today until tomorrow's prices are out.\n\n" +
+        "Off hides it.",
+)
 private val MEASUREMENT_INFO = Info(
     "Measurement",
     "A whatwatt Go reads your smart meter. GridLoad then shows what you use right now and what it costs, and can watch " +
@@ -211,7 +217,8 @@ fun SetupGuide(
 }
 
 /**
- * Three sections, each a light grey card that folds to a one-line summary: the region; the
+ * Three sections, each a light grey card that folds to a one-line summary: the region with the
+ * own price and the price curve's switch; the
  * whatwatt with its connection, the power unit and, with peak load on, the recorder; and the
  * mode, peak load with its goal, countdown and appliances. [at] opens the region section with
  * its list or at the add-on.
@@ -245,6 +252,7 @@ fun SettingsScreen(
             if (state.region.isSpot && state.region.country.code == country) {
                 key(state.region.id) { PriceFields(state, viewModel, focus = at == SettingsAt.PRICE) }
             }
+            SwitchRow("Price curve", CURVE_INFO, state.curveEnabled, viewModel::setCurveEnabled)
         }
         Section(
             "📟 Measurement", MEASUREMENT_INFO, MEASUREMENT !in closed, { toggle(MEASUREMENT) },

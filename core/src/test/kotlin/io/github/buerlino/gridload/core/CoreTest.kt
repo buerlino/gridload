@@ -123,6 +123,28 @@ class CoreTest {
     }
 
     @Test
+    fun theWindowHasEachSlotsColour() {
+        // Without tomorrow the window is today, from midnight; with it, the 24 hours from now.
+        val today = classify(sep29, sep29("21:00"), spot = false)!!
+        assertEquals(96, today.window.size)
+        assertEquals(sep29("00:00"), today.window.first().slot.start.toInstant())
+        val ahead = classify(twoDays, sep29("21:05"), spot = false)!!
+        assertEquals(96, ahead.window.size)
+        assertEquals(sep29("21:00"), ahead.window.first().slot.start.toInstant())
+        // The same colours as classifying each slot on its own against the same window.
+        today.window.forEach { assertEquals(classify(sep29, it.slot.start.toInstant(), spot = false)!!.level, it.level) }
+        assertEquals(ahead.nextGreen, ahead.window.first { it.level == Level.GREEN }.slot)
+    }
+
+    @Test
+    fun greenUntilIsTheEndOfTheGreenRun() {
+        // 2026-09-28: green from 10:00 to 17:00 (16:45 is the last green slot).
+        assertEquals(at("17:00"), classify(slots, at("13:05"), spot = false)!!.greenUntil!!.toInstant())
+        assertEquals(at("17:00"), classify(slots, at("16:59"), spot = false)!!.greenUntil!!.toInstant())
+        assertNull(classify(slots, at("07:00"), spot = false)!!.greenUntil)
+    }
+
+    @Test
     fun parsesUtcTimestamps() {
         assertEquals(192, twoDays.size)
         assertEquals(sep29("00:00"), twoDays.first().start.toInstant())
