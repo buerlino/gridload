@@ -87,7 +87,7 @@ data class UiState(
     val countdown: Boolean = false,
     /** Vibrate at the limit in silent mode too; else not while the phone is silent. */
     val vibrateAlways: Boolean = false,
-    /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours); else the latest reading. */
+    /** Assume the 2-minute average draw for the time ahead (the projection, an appliance's coming quarter hours; see the core [drawAhead]); else the latest reading. */
     val drawAverage: Boolean = true,
     /** Show the base load in the history panel, the median from [baseLoadFrom] to [baseLoadTo] o'clock (the region's clock). */
     val baseLoadEnabled: Boolean = true,
@@ -243,6 +243,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun update() {
         if (!_state.value.firstStartDone) return
         loadCache()
+        meter.dropStale()
         recompute()
         val now = Instant.now()
         if (wantsFetch(slots, now, _state.value.region) && mayFetch(lastAttempt, now, hasCurrentData = true)) refresh()
@@ -562,6 +563,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Called every few seconds while the app is visible: reads the whatwatt, if it's switched on. */
     suspend fun readMeter() {
         if (!_state.value.whatwattEnabled || !_state.value.firstStartDone) return
+        // Back from the background, the last reading isn't advised from while the next is read.
+        if (meter.dropStale()) derive()
         meter.read(_state.value.whatwattAddress, peak = _state.value.peakEnabled, averaged = _state.value.drawAverage)
         warnIfClose()
         derive()

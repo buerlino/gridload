@@ -162,7 +162,8 @@ private val DRAW_INFO = Info(
     "What GridLoad assumes your house draws for the rest of this ¼ hour and, when you tap an appliance, the " +
         "¼ hours after it.\n\n" +
         "2-min average: the meter's average over the last 2 minutes, so an appliance switching on and off (a hob, an " +
-        "oven) counts at what it really uses. One just switched on shows fully after 2 minutes.\n\n" +
+        "oven) counts at what it really uses. One just switched on shows fully after 2 minutes. Right after you " +
+        "open GridLoad, until it has read for a minute: this ¼ hour's average so far.\n\n" +
         "Latest reading: the last reading, every 5 seconds. It follows a switch at once, but jumps with every on and off.",
 )
 

@@ -1,6 +1,7 @@
 package io.github.buerlino.gridload.core
 
 import kotlinx.serialization.Serializable
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -21,6 +22,29 @@ data class MeterReading(
     val meterStatus: String?,
 ) {
     val ok: Boolean get() = meterStatus == "OK"
+}
+
+/** How long the newest reading may stay the newest: the meter reads every ~4.2 s. */
+val STALE: Duration = Duration.ofSeconds(30)
+
+/**
+ * Whether the meter's readings move on: one whose time hasn't changed for [STALE] is old, a report
+ * the whatwatt keeps repeating or the last one before the app went to the background. Only the
+ * phone's elapsed time counts, so the meter's clock may be off.
+ */
+class Freshness {
+    private var time: Instant? = null
+    private var movedAt: Instant? = null
+
+    /** A reading at the meter's [time], received at [now]. */
+    fun seen(time: Instant?, now: Instant) {
+        if (time != null && time != this.time) {
+            this.time = time
+            movedAt = now
+        }
+    }
+
+    fun stale(now: Instant): Boolean = movedAt?.let { Duration.between(it, now) >= STALE } == true
 }
 
 /**

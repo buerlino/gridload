@@ -6,6 +6,7 @@ import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
 import io.github.buerlino.gridload.core.Quarter
 import io.github.buerlino.gridload.core.DrawAverage
+import io.github.buerlino.gridload.core.Freshness
 import io.github.buerlino.gridload.core.QuarterProjector
 import io.github.buerlino.gridload.core.RecorderCheck
 import io.github.buerlino.gridload.core.RecorderFiles
@@ -13,6 +14,7 @@ import io.github.buerlino.gridload.core.Recording
 import io.github.buerlino.gridload.core.checkRecorder
 import io.github.buerlino.gridload.core.dailyHighest
 import io.github.buerlino.gridload.core.downloadDayFile
+import io.github.buerlino.gridload.core.drawAhead
 import io.github.buerlino.gridload.core.fetchMeterReading
 import io.github.buerlino.gridload.core.fetchRecorderStatus
 import io.github.buerlino.gridload.core.installRecorder
@@ -83,6 +85,7 @@ private val TYPING = Duration.ofSeconds(10)
 class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private val publish: (MeterState) -> Unit) {
     private val projector = QuarterProjector()
     private val average = DrawAverage()
+    private val freshness = Freshness()
     private val files = RecorderFiles(recorderDir)
     private var recording = Recording()
     /** The month whose files are loaded. */
@@ -121,10 +124,21 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
     }
 
     /**
+     * Drops the last reading once it's [Freshness.stale] (the app was in the background), so
+     * nothing is shown or advised from it until the next; returns whether it did.
+     */
+    fun dropStale(): Boolean {
+        if (!freshness.stale(Instant.now()) || (state.kw == null && state.projection == null)) return false
+        set { it.copy(kw = null, projection = null) }
+        return true
+    }
+
+    /**
      * Called every few seconds while the app is visible: reads [address], if any. With [peak]
      * load on, it also shows the copied quarter hours at once, copies new ones when a line is
-     * due, and projects this quarter hour, assuming the 2-minute average ahead if [averaged], else
-     * the latest reading. A failure shows a quiet line instead of the last value, which would be stale.
+     * due, and projects this quarter hour with the draw ahead ([drawAhead]; the 2-minute average
+     * if [averaged]). A failure, or a reading the meter hasn't moved on from, shows a quiet line
+     * instead of the last value, which would be stale.
      */
     suspend fun read(address: String?, peak: Boolean, averaged: Boolean) {
         if (peak) loadMonth()
@@ -138,12 +152,16 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
             }
         }
         if (generation != this.generation) return
-        val kw = reading?.powerKw?.takeIf { reading.ok }
+        val now = Instant.now()
+        reading?.let { freshness.seen(it.time, now) }
+        val measured = reading?.powerKw?.takeIf { reading.ok }
         val problem = when {
             reading == null -> "whatwatt not reachable"
-            kw == null -> "whatwatt: no meter reading"
+            measured == null -> "whatwatt: no meter reading"
+            freshness.stale(now) -> "whatwatt: no new reading"
             else -> null
         }
+        val kw = measured?.takeIf { problem == null }
         // The last Test's result is stale once a reading connects or fails where it said otherwise.
         set { s -> s.copy(connected = kw != null, kw = kw, problem = problem, testResult = s.testResult.takeUnless { s.connected != (kw != null) }) }
         if (reading == null) {
@@ -152,12 +170,12 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
             return
         }
         if (!peak) return
-        if (!acting && shouldSync(Instant.now())) sync(address)
+        if (!acting && shouldSync(now)) sync(address)
         val time = reading.time
         val kwh = reading.energyKwh
         val projection = if (kw != null && time != null && kwh != null) {
-            val ahead = average.add(time, kwh)?.takeIf { averaged } ?: kw
-            projector.project(time, kwh, ahead, recording.lastEnd)
+            val (ahead, from) = drawAhead(averaged, average.add(time, kwh), kw, time, kwh, recording.lastEnd)
+            projector.project(time, kwh, ahead, recording.lastEnd).copy(aheadFrom = from)
         } else {
             null
         }

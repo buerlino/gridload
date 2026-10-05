@@ -277,8 +277,17 @@ release build (the v0.14.0 release test, 2026-10-04, the signed GitHub APK).
 - **Decide before German:** appliances by run time without a whatwatt (price-only rows from a
   flat curve), which touches the "measured only" rule. Only the user can decide.
 
-Draw ahead (v0.13.0), still open: see it with the hob cycling (the later quarters steady on
-2-min average, jumping on Latest reading).
+Draw ahead (v0.13.0), studied 2026-10-05 (`research/draw_ahead.md`: the audit, the policy study
+and its harness, `DrawAheadTest` and `MeterTrace` in core's tests). Done in the working tree, not
+released: the glance fallback (this ¼ hour so far) with the legend naming the average, and
+stale readings dropped after 30 s. Open:
+1. The quarters after the next: keep the 2-min average or a longer one, decided on real readings.
+   `research/draw_ahead/capture.py` polls `/api/v1/report` every 5 s (the app's rate, nothing
+   sent to the whatwatt) 17:00–21:00 on 6–8 Oct 2026, into `../gridload-captures/` (outside the
+   repo: household data). Then score the policies on them (the harness's policies on real
+   readings, the quarters from the day files).
+2. On the phone: the legend's three texts, "whatwatt: no new reading" (needs a frozen report; not
+   staged), a glance at a cycling hob (no red bar).
 
 ### Household alerts [(a) released in v0.14.0]
 

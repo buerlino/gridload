@@ -11,9 +11,17 @@ data class Quarter(val start: Instant, val kwh: Double) {
 /**
  * This quarter hour's average kW if the draw [aheadKw] holds until [end], from a reading at [time].
  * [usedKwh]: the energy since the quarter began, when it's exact (the recorder has a line ending
- * at the quarter's start); without it the quarter's first minutes are [estimated].
+ * at the quarter's start); without it the quarter's first minutes are [estimated]. [aheadFrom]
+ * says what the draw ahead is ([drawAhead]), for the preview's legend.
  */
-data class Projection(val kw: Double, val end: Instant, val time: Instant, val aheadKw: Double, val usedKwh: Double? = null) {
+data class Projection(
+    val kw: Double,
+    val end: Instant,
+    val time: Instant,
+    val aheadKw: Double,
+    val usedKwh: Double? = null,
+    val aheadFrom: Ahead = Ahead.LATEST,
+) {
     val start: Instant get() = end.minusSeconds(QUARTER_SECONDS)
     val estimated: Boolean get() = usedKwh == null
 
@@ -106,9 +114,28 @@ fun quarterStart(time: Instant): Instant =
 
 private fun hours(from: Instant, to: Instant) = Duration.between(from, to).toMillis() / 3_600_000.0
 
+/** What the draw ahead is: the 2-minute average, this quarter hour's average so far, or the latest reading. */
+enum class Ahead { AVERAGE, QUARTER, LATEST }
+
+/**
+ * The draw ahead and what it is: the 2-minute [average] ([DrawAverage]); until the readings span a
+ * minute (right after the app opens), this quarter hour's average so far, exact from the
+ * recorder's [start] once the quarter is a minute in; else the [latest] reading. With [averaged]
+ * off (Settings → Draw ahead → Latest reading), always the latest. In a glance the latest reading
+ * catches a cycling hob on or off and so turned the bar red with nothing new running; the
+ * quarter so far doesn't (research/draw_ahead.md).
+ */
+fun drawAhead(averaged: Boolean, average: Double?, latest: Double, time: Instant, kwh: Double, start: Pair<Instant, Double>?): Pair<Double, Ahead> {
+    if (!averaged) return latest to Ahead.LATEST
+    if (average != null) return average to Ahead.AVERAGE
+    val quarter = start?.takeIf { it.first == quarterStart(time) && kwh >= it.second && Duration.between(it.first, time).seconds >= 60 }
+        ?.let { (from, kwhThen) -> (kwh - kwhThen) / hours(from, time) }
+    return quarter?.let { it to Ahead.QUARTER } ?: (latest to Ahead.LATEST)
+}
+
 /**
  * Projects the current quarter hour from the meter's register: the energy since the quarter began
- * plus the draw ahead ([DrawAverage] or the latest reading) for the time left. The quarter's start
+ * plus the draw ahead ([drawAhead]) for the time left. The quarter's start
  * is the recorder's last line when that ends where this quarter begins (exact). Without it (the
  * whatwatt restarted, or the line isn't copied yet) the time before the first reading seen is
  * assumed at the average since then, or at the draw ahead within the first minute, when the

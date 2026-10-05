@@ -35,6 +35,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.Advice
+import io.github.buerlino.gridload.core.Ahead
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
@@ -118,7 +119,13 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
             if (preview != null) {
                 Note(buildAnnotatedString {
                     withStyle(SpanStyle(color = BAR)) { append("■") }
-                    append(if (state.drawAverage) " House, 2-min average   " else " House as now   ")
+                    append(
+                        when (projection!!.aheadFrom) {
+                            Ahead.AVERAGE -> " House, 2-min average   "
+                            Ahead.QUARTER -> " House, this ¼ hour so far   "
+                            Ahead.LATEST -> " House as now   "
+                        },
+                    )
                     withStyle(SpanStyle(color = APPLIANCE)) { append("■") }
                     append(" $preview")
                 })
