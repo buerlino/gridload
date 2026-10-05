@@ -11,14 +11,13 @@ import java.util.Locale
  * The help's lines that depend on the country, derived from its regions, so a new country needs
  * no help change. [price] completes "based on …"; [tomorrow] says when tomorrow's prices come out;
  * [priceLines] are the regions' notes and the market prices' attribution; [peakLines] say who
- * bills the peak; [limit] lists what the limit is the highest of by default.
+ * bills the peak.
  */
 data class CountryHelp(
     val price: String,
     val tomorrow: String?,
     val priceLines: List<String>,
     val peakLines: List<String>,
-    val limit: String,
 )
 
 /** The help for [country]'s regions in [all] at [now]; for null (the phone's country isn't listed), a general one with no country's lines. */
@@ -39,7 +38,7 @@ fun countryHelp(country: Country?, now: Instant, all: List<Region> = REGIONS): C
         listOfNotNull("Market prices: Bundesnetzagentur | SMARD.de, via energy-charts.info (CC BY 4.0).".takeIf { spot > 0 })
     val billing = regions.filter { it.minimumKw != null }
     val others = regions - billing.toSet()
-    val peakLines = billing.flatMap { listOfNotNull(billed(it, now), it.peakNote) } + listOfNotNull(
+    val peakLines = billing.flatMap { listOfNotNull(peakBilled(it, now), it.peakNote) } + listOfNotNull(
         when {
             others.isEmpty() -> null
             billing.isEmpty() -> "Not billed in ${country!!.name}."
@@ -47,16 +46,12 @@ fun countryHelp(country: Country?, now: Instant, all: List<Region> = REGIONS): C
             else -> "Not billed in the other regions."
         },
     )
-    // Without a country, any tariff may have a minimum.
-    val minimum = regions.isEmpty() || regions.any { (it.minimumKw ?: 0.0) > 0 }
-    val parts = if (minimum) "highest of: the month's highest ¼ hour, your biggest appliance plus 20%, and the least your tariff bills."
-    else "higher of: the month's highest ¼ hour and your biggest appliance plus 20%."
-    val limit = "By default the limit is the $parts Change it, or add a goal, in Settings → 📊 Mode → Limit."
-    return CountryHelp(price, tomorrow, priceLines, peakLines, limit)
+    return CountryHelp(price, tomorrow, priceLines, peakLines)
 }
 
-/** "Billed by CKW.", "Billed in Austria from 2027, at least 2 kW a month." */
-private fun billed(region: Region, now: Instant): String {
+/** "Billed by CKW.", "Billed in Austria from 2027, at least 2 kW a month."; null where [region] bills no peak. */
+fun peakBilled(region: Region, now: Instant): String? {
+    if (region.minimumKw == null) return null
     val who = if (region.isSpot) "in ${region.name}" else "by ${region.utility}"
     val from = region.peakFrom?.takeIf { now.atZone(region.zone).toLocalDate() < it }?.let { " from ${date(it)}" } ?: ""
     val atLeast = region.minimumKw?.takeIf { it > 0 }?.let { ", at least ${BigDecimal.valueOf(it).stripTrailingZeros().toPlainString()} kW a month" } ?: ""

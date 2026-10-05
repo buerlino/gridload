@@ -44,6 +44,7 @@ fun PricePanel(state: UiState, status: Status, onToggle: () -> Unit) {
     Panel(
         open = state.curveOpen,
         onToggle = onToggle,
+        info = CURVE_HELP,
         header = {
             val until = status.greenUntil
             val next = status.nextGreen

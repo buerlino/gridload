@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.Advice
 import io.github.buerlino.gridload.core.Appliance
+import io.github.buerlino.gridload.core.LimitPart
 import io.github.buerlino.gridload.core.Measurement
 import io.github.buerlino.gridload.core.Piece
 import io.github.buerlino.gridload.core.kw
@@ -79,9 +80,9 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
     sheet?.let { appliance ->
         ApplianceSheet(appliance, state, viewModel, onHelp = { help = true }, onDismiss = { sheet = null })
     }
-    // After the sheet, so that its ⓘ opens the help on top of it.
+    // After the sheet, so that its ⓘ opens the help on top of it. Shown on the first + too.
     if (help) {
-        MeasureHelp(onDismiss = {
+        InfoDialog(MEASURE_INFO, onDismiss = {
             help = false
             if (!state.applianceHelpSeen) {
                 viewModel.applianceHelpShown()
@@ -96,6 +97,7 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
     Panel(
         open = state.appliancesOpen,
         onToggle = { viewModel.setAppliancesOpen(!state.appliancesOpen) },
+        info = APPLIANCES_HELP,
         header = {
             Text("Appliances", Modifier.weight(1f), color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             if (!state.appliancesOpen) summary(state)?.let { Text(it, color = MUTED, fontSize = 14.sp) }
@@ -285,33 +287,6 @@ private fun Curve(curve: List<Piece>) {
     }
 }
 
-/** Shown on the first +, and from ⓘ in the sheet: how to get a good measurement. */
-@Composable
-private fun MeasureHelp(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
-        title = { Text("Measuring an appliance") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    "No red line: the recorder must be recording.",
-                    "Be at home, with GridLoad open, when you switch it on.",
-                    "Keep it open until the jump shows, about a minute.",
-                    "Switch nothing else on or off until you tap Done.",
-                    "Lights and small devices are fine.",
-                    "Start at a quiet time, not while cooking.",
-                    "Run the programme you always use, to its end.",
-                    "Another programme is another appliance.",
-                    "Tap Done as soon as it has finished.",
-                    "The result usually shows right after Done.",
-                    "Only appliances on the whatwatt's meter count.",
-                ).forEach { Text(it) }
-            }
-        },
-    )
-}
-
 /**
  * Adds an appliance ([initial] has no name) or edits one: its name, Can wait, Counts for the
  * limit and Start delay.
@@ -380,14 +355,14 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Can wait", Modifier.weight(1f))
+                    InfoLabel("Can wait", CAN_WAIT_INFO, Modifier.weight(1f))
                     Switch(checked = canWait, onCheckedChange = { canWait = it })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Counts for the limit", Modifier.weight(1f))
+                    InfoLabel("Counts for the limit", countsInfo(LimitPart.FLOOR in state.limitOn), Modifier.weight(1f))
                     Switch(checked = countsForLimit, onCheckedChange = { countsForLimit = it })
                 }
-                Text("Start delay")
+                InfoLabel("Start delay", START_DELAY_INFO)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     DELAYS.forEachIndexed { i, (minutes, label) ->
                         SegmentedButton(selected = delay == minutes, onClick = { delay = minutes }, shape = SegmentedButtonDefaults.itemShape(i, DELAYS.size)) {
@@ -457,7 +432,7 @@ private fun VariantDialog(measured: Appliance, state: UiState, viewModel: MainVi
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Variant of ${measured.name}") },
+        title = { InfoLabel("Variant of ${measured.name}", VARIANT_INFO) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(

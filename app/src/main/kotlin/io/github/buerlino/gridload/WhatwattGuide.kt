@@ -24,21 +24,23 @@ import androidx.compose.ui.unit.dp
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.Region
 
-/** One page of the guide: a title, a few short lines, and optionally a link to open. */
-private class GuideStep(val title: String, val lines: List<String>, val link: Pair<String, String>? = null)
+/** One page of the guide: a title, a few short lines as in the help, and optionally a link to open. */
+private class GuideStep(val title: String, lines: List<String>, val link: Pair<String, String>? = null, peakLoad: HelpLine? = null) {
+    val lines = lines.map(::HelpLine) + listOfNotNull(peakLoad)
+}
 
 private fun steps(region: Region) = listOf(
     GuideStep(
         "🧾 What you need",
         listOf(
-            "• A whatwatt Go",
-            "• The whatwatt adapter for your meter",
-            "• The whatwatt Plus licence",
-            "• For peak load: a microSD card in FAT32. Any size: GridLoad uses about 1 MB a year.",
-            "• For peak load: the whatwatt's script slot free. GridLoad puts its recorder there.",
-            "• Your meter's key, from your grid operator." +
+            "A whatwatt Go, its adapter for your meter and its Plus licence.",
+            "Your meter's key, from your grid operator." +
                 if (region == CKW) " CKW: email messtechnik@ckw.ch with the meter number." else "",
-            "• 2.4 GHz Wi-Fi at the meter",
+            "2.4 GHz Wi-Fi at the meter.",
+        ),
+        peakLoad = HelpLine(
+            "a microSD card in FAT32 (any size: GridLoad uses about 1 MB a year), and the whatwatt's script slot free for GridLoad's recorder.",
+            "For peak load",
         ),
     ),
     GuideStep(
@@ -118,7 +120,7 @@ fun WhatwattGuide(region: Region, onClose: () -> Unit) {
                 TextButton(onClick = onClose) { Text("Skip") }
             }
             Text(step.title, fontWeight = FontWeight.Bold)
-            step.lines.forEach { Text(it) }
+            HelpLines(step.lines)
             step.link?.let { (label, url) ->
                 TextButton(
                     onClick = {

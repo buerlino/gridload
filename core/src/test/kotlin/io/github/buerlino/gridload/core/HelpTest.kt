@@ -7,10 +7,6 @@ import kotlin.test.assertEquals
 class HelpTest {
     private val now = Instant.parse("2026-10-04T10:00:00Z")
     private val attribution = "Market prices: Bundesnetzagentur | SMARD.de, via energy-charts.info (CC BY 4.0)."
-    private val withMinimum = "By default the limit is the highest of: the month's highest ¼ hour, your biggest appliance plus 20%, " +
-        "and the least your tariff bills. Change it, or add a goal, in Settings → 📊 Mode → Limit."
-    private val noMinimum = "By default the limit is the higher of: the month's highest ¼ hour and your biggest appliance plus 20%. " +
-        "Change it, or add a goal, in Settings → 📊 Mode → Limit."
 
     @Test
     fun switzerland() {
@@ -20,7 +16,6 @@ class HelpTest {
                 "Tomorrow's prices come out between noon and 6 pm.",
                 emptyList(),
                 listOf("Billed by CKW.", "Not billed in the other regions."),
-                noMinimum,
             ),
             countryHelp(SWITZERLAND, now),
         )
@@ -34,7 +29,6 @@ class HelpTest {
                 "Tomorrow's prices come out at about 1 pm.",
                 listOf(attribution),
                 listOf("Billed in Austria from 2027, at least 2 kW a month."),
-                withMinimum,
             ),
             countryHelp(AUSTRIA, now),
         )
@@ -61,7 +55,6 @@ class HelpTest {
                     "Flanders bills the average of the last 12 months.",
                     "Not billed in Wallonia and Brussels.",
                 ),
-                withMinimum,
             ),
             countryHelp(BELGIUM, now),
         )
@@ -76,7 +69,6 @@ class HelpTest {
                     "Tomorrow's prices come out at about 1 pm.",
                     listOf(attribution),
                     listOf("Not billed in ${it.name}."),
-                    noMinimum,
                 ),
                 countryHelp(it, now),
             )
@@ -104,7 +96,6 @@ class HelpTest {
                     "Flanders bills the average of the last 12 months.",
                     "Not billed in Canton of Zurich.",
                 ),
-                withMinimum,
             ),
             countryHelp(SWITZERLAND, now, mixed),
         )
@@ -118,9 +109,16 @@ class HelpTest {
     @Test
     fun generalWithoutACountry() {
         assertEquals(
-            CountryHelp("your tariff's price, or the market price", null, emptyList(), emptyList(), withMinimum),
+            CountryHelp("your tariff's price, or the market price", null, emptyList(), emptyList()),
             countryHelp(null, now),
         )
+    }
+
+    @Test
+    fun peakBilledByRegion() {
+        assertEquals("Billed by CKW.", peakBilled(CKW, now))
+        assertEquals("Billed in Austria from 2027, at least 2 kW a month.", peakBilled(REGIONS.first { it.id == "at" }, now))
+        assertEquals(null, peakBilled(REGIONS.first { it.id == "ekz" }, now))
     }
 
     @Test

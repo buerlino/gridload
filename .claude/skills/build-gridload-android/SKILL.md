@@ -23,7 +23,8 @@ in git.
   and the screens: main (`MainActivity.kt`, `PricePanel.kt`, `PeakWindow.kt`, `AppliancesPanel.kt`,
   `HistoryPanel.kt`, with the shared panel and chart drawing in `Charts.kt`), the History
   screen (`HistoryScreen` in `HistoryPanel.kt`), Settings and the setup guide
-  (`SettingsScreen.kt`, `WhatwattGuide.kt`; `Page` and `TitleRow` are shared).
+  (`SettingsScreen.kt`, `WhatwattGuide.kt`; `Page` and `TitleRow` are shared), and all the help,
+  its texts and its dialogs, in `Info.kt`.
 - **No background work** and no accounts, cloud or optimization engine.
 
 ## Working on the phone

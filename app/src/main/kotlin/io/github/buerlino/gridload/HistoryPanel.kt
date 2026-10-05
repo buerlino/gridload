@@ -68,6 +68,7 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
     Panel(
         open = state.historyOpen,
         onToggle = onToggle,
+        info = historyHelp(state),
         header = {
             val text = if (highest == null) AnnotatedString("No ¼ hours recorded yet") else highestText(highest, unit, zone)
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)
@@ -133,7 +134,7 @@ fun HistoryScreen(state: UiState, onBack: () -> Unit) {
         ?.takeIf { day -> days.any { it.first == day } }
 
     Page {
-        TitleRow("History", onBack)
+        TitleRow("History", onBack) { InfoButton(HISTORY_SCREEN_HELP) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { lastMonth = true }, enabled = !lastMonth) { Text("‹", fontSize = 22.sp) }
             Text(monthFormat.format(month), Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)

@@ -25,9 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,9 +70,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import io.github.buerlino.gridload.core.Country
 import io.github.buerlino.gridload.core.Level
-import io.github.buerlino.gridload.core.countryHelp
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -215,7 +211,7 @@ private fun Screen(
     val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
     var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(state.region.country, onDismiss = { showHelp = false })
+    if (showHelp) HelpDialog(state, onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background)) {
         PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp)) {
@@ -443,71 +439,8 @@ private fun NextGoodTime(start: OffsetDateTime, content: Color, fontSize: TextUn
 
 /** The app's green with a thin outline in [outline], so it shows on any background, the green one too. */
 @Composable
-private fun GreenDot(outline: Color) {
+internal fun GreenDot(outline: Color) {
     Box(Modifier.size(14.dp).background(GREEN, CircleShape).border(1.5.dp, outline, CircleShape))
-}
-
-@Composable
-private fun HelpDialog(country: Country, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
-        title = { Text("How GridLoad works") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { HelpContent(country) } },
-    )
-}
-
-/**
- * Shared by the help dialog and the first start. A short general part, then prices and peak load,
- * with [country]'s lines only (null: none, before a country is known).
- */
-@Composable
-fun HelpContent(country: Country?) {
-    val help = countryHelp(country, Instant.now())
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("GridLoad shows whether now is a good time to use electricity, based on ${help.price}. Cheap usually means the grid has power to spare, like at midday when solar peaks.")
-        Text("⚡ Prices", fontWeight = FontWeight.Bold)
-        LegendRow(GREEN, "Good time", "Cheap. Run your appliances now.")
-        LegendRow(ORANGE, "Fair time", "Average. Only run what you need.")
-        LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
-        Text("The price is compared with the next 24 hours, so red means a cheaper time is coming.")
-        Text("The price curve shows those hours, each in its colour.")
-        help.tomorrow?.let { Text(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GreenDot(LocalContentColor.current)
-            Text("The next good time.")
-        }
-        Text("With a whatwatt (Settings → 📟 Measurement), also what you use now and what it costs per hour.")
-        Text("Pull down to refresh. ↻ is dimmed while the prices are fresh.")
-        Text("The colour saves money only on a dynamic tariff. On a fixed price, it still shows when the grid has power to spare.")
-        help.priceLines.forEach { Text(it) }
-        Text("📊 Peak load", fontWeight = FontWeight.Bold)
-        Text("Some grid tariffs also charge for the month's highest ¼ hour: your average kW over 15 minutes.")
-        help.peakLines.forEach { Text(it) }
-        Text("Switch it on in Settings → 📊 Mode. It needs the whatwatt with an SD card, and the recorder, which you install under Measurement.")
-        Text("The scale shows the three ¼ hours before, now in the middle, and the three coming.")
-        Text("Now is projected: what this ¼ hour used so far, then your recent draw until it ends (Settings → 📊 Mode → Draw ahead).")
-        Text("\"kW free\" is how much more you can switch on before the limit.")
-        Text(help.limit)
-        Text("Up to the month's highest is billed anyway, and the biggest appliance reaches its own peak alone. Only stacking costs extra.")
-        Text("At the limit, the bar turns red and the phone vibrates.")
-        Text("The recorder saves every ¼ hour on the whatwatt, also while GridLoad is closed. If it stops, a red line says why.")
-        Text("¼ hours it misses are missing from the month's highest. Open Recorder in Settings → Measurement to see them.")
-        Text("The history shows each day's highest ¼ hour this month.")
-        Text("Tap its chart to see a day's ¼ hours, and last month.")
-        Text("Below it, your base load: what draws all the time, like the fridge, the router and standby.")
-        Text("Tap a panel's top line to fold it.")
-        Text("🔌 Appliances", fontWeight = FontWeight.Bold)
-        Text("Add an appliance with +. GridLoad measures it once: how much it draws, and for how long.")
-        Text("OK: fine to switch on now. WAIT: it would reach the limit, or a later start is clearly cheaper. The row says when, and what waiting saves.")
-        Text("Tap a row to see its run on the scale; red is what goes over the limit. Hold it to edit.")
-        Text("Can wait: the price counts too, e.g. a dishwasher. Off, only the limit counts, e.g. a kettle.")
-        Text("Counts for the limit: its heaviest ¼ hour can raise the limit. Switch it off for one you rarely use.")
-        Text("⏱ beside WAIT sets a timer for the time it names.")
-        Text("Start delay: if the appliance has one, WAIT says what to set.")
-        Text("A variant is the same appliance with another run time, e.g. more water in the kettle.")
-        Text("A row looks at the whole run, so it can differ from the colour.")
-    }
 }
 
 /** The app draws behind the system bars, so their icons must match the screen: dark on light backgrounds. */
@@ -521,16 +454,5 @@ fun StatusBarIcons(dark: Boolean) {
             SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         }
         activity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
-    }
-}
-
-@Composable
-private fun LegendRow(color: Color, title: String, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(Modifier.padding(top = 4.dp).size(16.dp).background(color, CircleShape))
-        Column {
-            Text(title, fontWeight = FontWeight.Bold)
-            Text(text)
-        }
     }
 }

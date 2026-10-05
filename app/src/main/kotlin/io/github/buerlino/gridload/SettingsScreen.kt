@@ -30,7 +30,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -65,7 +64,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.buerlino.gridload.core.BASE_LOAD_DAYS
 import io.github.buerlino.gridload.core.COUNTRIES
 import io.github.buerlino.gridload.core.Country
 import io.github.buerlino.gridload.core.Limit
@@ -81,99 +79,6 @@ import io.github.buerlino.gridload.core.limitParts
 import io.github.buerlino.gridload.core.parseNonNegative
 import java.text.NumberFormat
 import java.util.Locale
-
-/** What a setting is for, shown when its label is tapped; the screens themselves stay minimal. */
-private class Info(val title: String, val text: String)
-
-private val REGION_INFO = Info(
-    "Region",
-    "Where utilities publish a dynamic tariff, GridLoad uses it: pick the utility on your electricity bill.\n\n" +
-        "Elsewhere it uses the day-ahead market price: pick where you live.",
-)
-private val PRICE_INFO = Info(
-    "Your price",
-    "The market price is only part of what you pay.\n\n" +
-        "Add-on: the rest per kWh, without VAT. Your supplier's markup, the grid fee per kWh and levies, from your bill.\n\n" +
-        "VAT: preset for your country.\n\n" +
-        "The colour doesn't depend on them.",
-)
-private val CURVE_INFO = Info(
-    "Price curve",
-    "On: the main screen shows the prices the colour is compared with, each ¼ hour in its colour. That's the next " +
-        "24 hours, or today until tomorrow's prices are out.\n\n" +
-        "Off hides it.",
-)
-private val MEASUREMENT_INFO = Info(
-    "Measurement",
-    "A whatwatt Go reads your smart meter. GridLoad then shows what you use right now and what it costs, and can watch " +
-        "your monthly peak. It works while your phone is on your home Wi-Fi.",
-)
-private val MODE_INFO = Info(
-    "Mode",
-    "Without peak load, GridLoad shows the price and what you use now.\n\n" +
-        "Peak load: some grid tariffs also charge for the month's highest ¼ hour. GridLoad then shows how much you " +
-        "can still switch on, your appliances and the month so far. The help (?) explains it. It needs GridLoad's " +
-        "recorder on the whatwatt, and an SD card in it.\n\n" +
-        "Where your region doesn't bill a peak, the limit is a personal cap: nothing is billed for it.",
-)
-private val RECORDER_INFO = Info(
-    "Recorder",
-    "A small script GridLoad puts on the whatwatt. It records every ¼ hour on the whatwatt's SD card, also while " +
-        "the app is closed, so the month's highest is complete when you open the app. It uses the whatwatt's one script " +
-        "slot. Peak load needs it.",
-)
-private val LIMIT_INFO = Info(
-    "Limit",
-    "The ¼-hour average GridLoad warns at. The red bar, \"kW free\", the vibration and WAIT all use it.\n\n" +
-        "It's the highest of the parts switched on.\n\n" +
-        "Biggest appliance + 20%: it can run alone without a warning; only stacking others on it gets one.\n\n" +
-        "¼ hours up to the month's highest and your tariff's minimum are billed anyway. Switched off, they give " +
-        "warnings that save nothing. That suits a personal cap. Only above the month's highest does a warning say it " +
-        "sets a new peak.",
-)
-private val GOAL_INFO = Info(
-    "Goal",
-    "A value of your own, e.g. what you expect to need this month anyway.\n\n" +
-        "With Month's highest on, the goal can only raise the limit. With it off, the goal can sit below it: a " +
-        "personal cap.",
-)
-private val APPLIANCES_INFO = Info(
-    "Appliances",
-    "On: the main screen shows your measured appliances, each with OK or WAIT, and the biggest is a part of the " +
-        "limit (Biggest appliance + 20%). " +
-        "Off hides the panel; the appliances stay. " +
-        "Export saves them to a file, so you don't have to measure them again on a new phone. Import adds them from such " +
-        "a file; one with the same name is replaced.",
-)
-private val COUNTDOWN_INFO = Info(
-    "¼-hour countdown",
-    "Shows the minutes left in this ¼ hour. Waiting a few minutes before switching on a big appliance can keep it " +
-        "out of the current one.",
-)
-private val VIBRATE_INFO = Info(
-    "Vibrate at the limit",
-    "When this ¼ hour reaches the limit, the phone vibrates once, while GridLoad is open. Unless silent: not while " +
-        "the phone is silent. Always: in silent mode too.\n\nTapping a choice vibrates once with it, so you can feel " +
-        "it works.",
-)
-
-private val DRAW_INFO = Info(
-    "Draw ahead",
-    "What GridLoad assumes your house draws for the rest of this ¼ hour and, when you tap an appliance, the " +
-        "¼ hours after it.\n\n" +
-        "2-min average: the meter's average over the last 2 minutes, so an appliance switching on and off (a hob, an " +
-        "oven) counts at what it really uses. One just switched on shows fully after 2 minutes. Right after you " +
-        "open GridLoad, until it has read for a minute: this ¼ hour's average so far.\n\n" +
-        "Latest reading: the last reading, every 5 seconds. It follows a switch at once, but jumps with every on and off.",
-)
-
-private val BASE_LOAD_INFO = Info(
-    "Base load",
-    "On: the history shows your base load, what draws all the time (fridge, router, standby), and what it comes to " +
-        "in a year.\n\n" +
-        "It's the median of the ¼ hours between these hours over the last $BASE_LOAD_DAYS days. Pick hours when nothing else " +
-        "usually runs: an appliance on a night timer would count.",
-)
 
 /** Where Settings opens: at the top, at the region list (from the top bar), or at the own price's add-on (from the main screen). */
 enum class SettingsAt { TOP, REGION_LIST, PRICE }
@@ -208,13 +113,13 @@ fun SetupGuide(
         Page {
             if (step == 0) {
                 Text("Welcome to GridLoad", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                HelpContent(COUNTRIES.find { it.code == country })
+                WelcomeHelp(COUNTRIES.find { it.code == country })
                 Button(onClick = { step = 1 }, modifier = Modifier.align(Alignment.End)) { Text("Next") }
                 return@Page
             }
             TitleRow("Setup guide", back) { Text("$step of 2", color = MUTED) }
             if (step == 1) {
-                Section("⚡ Region", REGION_INFO) {
+                Section("⚡ Region", regionInfo(COUNTRIES.find { it.code == country })) {
                     Picker(COUNTRIES.find { it.code == country }?.label ?: "Choose your country", COUNTRIES, Country::label, { country = it.code })
                     REGIONS.filter { it.country.code == country }.forEach { r ->
                         OptionCard(selected = onClose != null && r.id == chosenRegion, onClick = { chosenRegion = r.id; step = 2 }) {
@@ -228,7 +133,7 @@ fun SetupGuide(
                 val region = REGIONS.first { it.id == chosenRegion }
                 Section("📟 Measurement", MEASUREMENT_INFO) { Connection(state, region, viewModel) }
                 if (state.meter.connected) {
-                    Section("📊 Mode", MODE_INFO) { PeakLoadSwitch(state, region, viewModel) }
+                    Section("📊 Mode", modeInfo(region)) { PeakLoadSwitch(state, region, viewModel) }
                 }
                 Button(
                     onClick = {
@@ -265,9 +170,9 @@ fun SettingsScreen(
         val closed = state.closedSections
         val toggle = { id: String -> viewModel.setSectionOpen(id, id in closed) }
         val addOn = state.priceAddOn?.takeIf { state.region.isSpot }?.let { " · + ${typed(it)} ${state.region.country.currency.small}" }
-        Section("⚡ Region", REGION_INFO, REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label + addOn.orEmpty()) }) {
-            // Only the region is saved; another country shows its regions until one is picked.
-            var country by rememberSaveable { mutableStateOf(state.region.country.code) }
+        // Only the region is saved; another country shows its regions, and its ⓘ, until one is picked.
+        var country by rememberSaveable { mutableStateOf(state.region.country.code) }
+        Section("⚡ Region", regionInfo(COUNTRIES.first { it.code == country }), REGION !in closed, { toggle(REGION) }, summary = { Summary(state.region.label + addOn.orEmpty()) }) {
             Picker(COUNTRIES.first { it.code == country }.label, COUNTRIES, Country::label, { country = it.code })
             Picker(
                 state.region.takeIf { it.country.code == country }?.label ?: "Choose your region",
@@ -310,7 +215,7 @@ fun SettingsScreen(
         }
         if (!state.whatwattEnabled) return@Page
         Section(
-            "📊 Mode", MODE_INFO, MODE !in closed, { toggle(MODE) },
+            "📊 Mode", modeInfo(state.region), MODE !in closed, { toggle(MODE) },
             summary = { Summary(if (state.peakEnabled) "Peak load" else "Prices only") },
         ) {
             PeakLoadSwitch(state, state.region, viewModel)
@@ -318,7 +223,7 @@ fun SettingsScreen(
                 LimitGroup(state, viewModel)
                 SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
-                ChoiceRow("Draw ahead", DRAW_INFO, listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
+                ChoiceRow("Draw ahead", drawInfo(state.appliancesEnabled), listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
                 BaseLoad(state, viewModel)
                 Appliances(state, viewModel)
             }
@@ -336,7 +241,7 @@ private fun PeakLoadSwitch(state: UiState, region: Region, viewModel: MainViewMo
 private val SECTION = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
 /** The very light grey of a section's card. */
-private val GROUP = Color(0xFFF4F4F5)
+internal val GROUP = Color(0xFFF4F4F5)
 
 /**
  * A section: a light grey card with its title (and ⓘ) at the top. With [onToggle], tapping the
@@ -367,7 +272,7 @@ private fun Summary(text: String) {
 
 /** A row that folds what's below it: [label], then ▴ or ▾ at the end; without [onToggle] just [label]. */
 @Composable
-private fun Fold(open: Boolean, onToggle: (() -> Unit)?, label: @Composable RowScope.() -> Unit) {
+internal fun Fold(open: Boolean, onToggle: (() -> Unit)?, label: @Composable RowScope.() -> Unit) {
     Row(
         Modifier.fillMaxWidth().then(
             if (onToggle == null) Modifier else Modifier.clickable(onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle),
@@ -514,7 +419,7 @@ private fun Appliances(state: UiState, viewModel: MainViewModel) {
     }
     // Any type: a file sent through a messenger may have lost its JSON type.
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::importAppliances) }
-    SwitchRow("Appliances", APPLIANCES_INFO, state.appliancesEnabled, viewModel::setAppliancesEnabled)
+    SwitchRow("Appliances", appliancesInfo(LimitPart.FLOOR in state.limitOn), state.appliancesEnabled, viewModel::setAppliancesEnabled)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { export.launch("gridload_appliances.json") }, enabled = state.appliances.isNotEmpty()) { Text("Export") }
         OutlinedButton(onClick = { import.launch(arrayOf("*/*")) }) { Text("Import") }
@@ -546,7 +451,7 @@ private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
     val parts = limitParts(state.appliancesEnabled, state.region.minimumKw)
     val locked = parts.singleOrNull { it in state.limitOn }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        InfoLabel("Limit", LIMIT_INFO)
+        InfoLabel("Limit", limitInfo(parts, unit, state.region, state.appliancesEnabled))
         parts.forEach { part ->
             val on = part in state.limitOn
             val onChange = { checked: Boolean -> viewModel.setLimitPart(part, checked) }
@@ -556,7 +461,7 @@ private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
                 LimitPart.FLOOR ->
                     SwitchRow("Biggest appliance + 20%", null, on, onChange, state.floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
                 LimitPart.MINIMUM -> SwitchRow("Tariff minimum", null, on, onChange, state.region.minimumKw?.let(unit::format), part != locked)
-                LimitPart.GOAL -> SwitchRow("Goal", GOAL_INFO, on, onChange, enabled = part != locked)
+                LimitPart.GOAL -> SwitchRow("Goal", goalInfo(LimitPart.HIGHEST in state.limitOn), on, onChange, enabled = part != locked)
             }
             if (part == locked) Text("At least one must stay on.", color = MUTED)
             if (part == LimitPart.GOAL && on) GoalField(state, viewModel::setGoal)
@@ -701,31 +606,6 @@ private fun GoalField(state: UiState, onGoal: (Double?) -> Unit) {
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-/** A setting's label, with ⓘ: tapping it opens a short dialog with [info]. */
-@Composable
-private fun InfoLabel(text: String, info: Info, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current) {
-    var open by remember { mutableStateOf(false) }
-    if (open) InfoDialog(info, onDismiss = { open = false })
-    Text(
-        buildAnnotatedString {
-            append(text)
-            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Normal)) { append(" ⓘ") }
-        },
-        modifier.clickable { open = true }.padding(vertical = 4.dp),
-        style = style,
-    )
-}
-
-@Composable
-private fun InfoDialog(info: Info, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
-        title = { Text(info.title) },
-        text = { Text(info.text) },
     )
 }
 

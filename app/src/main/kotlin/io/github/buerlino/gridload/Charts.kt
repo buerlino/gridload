@@ -46,7 +46,7 @@ internal val SMALL = TextStyle(color = MUTED, fontSize = 10.sp)
 /**
  * A white panel on the main screen: a header row that collapses and expands it ([onToggle]),
  * then [content], which decides itself what shows when collapsed. With [icon] ("×"), the header
- * closes something instead.
+ * closes something instead. [info] puts its ⓘ before ▴, so the help is where the panel is.
  */
 @Composable
 internal fun Panel(
@@ -54,6 +54,7 @@ internal fun Panel(
     modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     icon: String? = null,
+    info: Info? = null,
     header: @Composable RowScope.() -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -69,6 +70,7 @@ internal fun Panel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             header()
+            info?.let { InfoButton(it) }
             Text(icon ?: if (open) "▴" else "▾", color = MUTED, fontSize = 20.sp)
         }
         content()
