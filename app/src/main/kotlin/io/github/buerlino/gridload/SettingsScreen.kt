@@ -30,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -492,6 +493,7 @@ private fun LimitGroup(state: UiState, viewModel: MainViewModel, open: Boolean, 
 }
 
 /** The biggest appliance's margin, 0 to 100% in steps of 5. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MarginSlider(margin: Int, onMargin: (Int) -> Unit) {
     val range = FLOOR_MARGINS
@@ -500,8 +502,8 @@ private fun MarginSlider(margin: Int, onMargin: (Int) -> Unit) {
         onValueChange = { value -> (value / 5).roundToInt().times(5).takeIf { it != margin }?.let(onMargin) },
         valueRange = range.first.toFloat()..range.last.toFloat(),
         steps = (range.last - range.first) / 5 - 1,
-        // It snaps to the steps; 20 dots along it would only add clutter.
-        colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
+        // It snaps to the steps; 20 dots along it, or one at its end, would only add clutter.
+        track = { SliderDefaults.Track(sliderState = it, drawStopIndicator = null, drawTick = { _, _ -> }) },
     )
 }
 

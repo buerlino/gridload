@@ -282,7 +282,7 @@ class WhatwattMeter(recorderDir: File, private val zone: () -> ZoneId, private v
             } catch (e: HttpException) {
                 false to when (e.code) {
                     401 -> "The whatwatt asks for a password. Turn off Device Protection in its web UI."
-                    404 -> "The whatwatt needs the Plus licence for this."
+                    404 -> "Not found (404). Is this a whatwatt with the Plus licence?"
                     else -> "The device answered with error ${e.code}. Is this a whatwatt?"
                 }
             } catch (_: IOException) {

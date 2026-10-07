@@ -58,7 +58,7 @@ internal fun Panel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        modifier.fillMaxWidth().widthIn(max = 420.dp).background(Color.White, RoundedCornerShape(16.dp))
+        modifier.widthIn(max = 420.dp).fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

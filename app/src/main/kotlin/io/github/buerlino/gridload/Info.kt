@@ -86,6 +86,7 @@ internal fun HelpScreen(state: UiState, onBack: () -> Unit) {
     Page {
         TitleRow("How it works", onBack)
         HelpContent(help, topics, nextGood = !state.showCurve)
+        Text("In Settings, ⓘ explains what's next to it.")
     }
 }
 
@@ -111,7 +112,6 @@ internal fun HelpContent(help: CountryHelp, topics: List<Pair<String, Info>>, ne
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { topics.forEach { (emoji, info) -> Topic(emoji, info) } }
-        Text("ⓘ explains what's next to it.")
     }
 }
 
