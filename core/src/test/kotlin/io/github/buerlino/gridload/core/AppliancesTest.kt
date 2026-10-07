@@ -71,6 +71,9 @@ class AppliancesTest {
         assertEquals(kettle.name, kettleAlone.appliance)
         assertEquals(null, peakFloor(listOf(dishwasher.copy(countsForLimit = false))))
         assertEquals(null, peakFloor(emptyList()))
+        // Another margin: 2.0 kW + 50%, or the appliance alone.
+        assertEquals(3.0, peakFloor(listOf(kettle, dishwasher), 50)!!.kw, 1e-9)
+        assertEquals(2.0, peakFloor(listOf(kettle, dishwasher), 0)!!.kw, 1e-9)
     }
 
     @Test

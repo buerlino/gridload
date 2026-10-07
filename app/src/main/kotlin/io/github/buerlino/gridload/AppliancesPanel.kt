@@ -97,7 +97,6 @@ fun AppliancesPanel(state: UiState, viewModel: MainViewModel, onPreview: (String
     Panel(
         open = state.appliancesOpen,
         onToggle = { viewModel.setAppliancesOpen(!state.appliancesOpen) },
-        info = APPLIANCES_HELP,
         header = {
             Text("Appliances", Modifier.weight(1f), color = INK, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             if (!state.appliancesOpen) summary(state)?.let { Text(it, color = MUTED, fontSize = 14.sp) }
@@ -359,7 +358,7 @@ private fun ApplianceSheet(initial: Appliance, state: UiState, viewModel: MainVi
                     Switch(checked = canWait, onCheckedChange = { canWait = it })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    InfoLabel("Counts for the limit", countsInfo(LimitPart.FLOOR in state.limitOn), Modifier.weight(1f))
+                    InfoLabel("Counts for the limit", countsInfo(LimitPart.FLOOR in state.limitOn, state.floorMargin), Modifier.weight(1f))
                     Switch(checked = countsForLimit, onCheckedChange = { countsForLimit = it })
                 }
                 InfoLabel("Start delay", START_DELAY_INFO)

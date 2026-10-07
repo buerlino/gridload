@@ -18,6 +18,8 @@ import io.github.buerlino.gridload.core.Appliance
 import io.github.buerlino.gridload.core.ApplianceFile
 import io.github.buerlino.gridload.core.CKW
 import io.github.buerlino.gridload.core.CachedPrices
+import io.github.buerlino.gridload.core.DEFAULT_FLOOR_MARGIN
+import io.github.buerlino.gridload.core.FLOOR_MARGINS
 import io.github.buerlino.gridload.core.Floor
 import io.github.buerlino.gridload.core.HttpException
 import io.github.buerlino.gridload.core.Limit
@@ -83,6 +85,8 @@ data class UiState(
     /** In a spot region: the add-on in the small unit per kWh excl. VAT (null until entered) and the VAT in % (null: the country's). */
     val priceAddOn: Double? = null,
     val priceVat: Double? = null,
+    /** The margin in % on the biggest appliance's heaviest quarter hour, the floor of the limit. */
+    val floorMargin: Int = DEFAULT_FLOOR_MARGIN,
     /** Show the minutes left in this quarter hour in the peak window's header. */
     val countdown: Boolean = false,
     /** Vibrate at the limit in silent mode too; else not while the phone is silent. */
@@ -126,8 +130,8 @@ data class UiState(
     /** Until when a refresh would be skipped because of the cooldown; null when it wouldn't. */
     val cooldownEnd: Instant? = null,
 ) {
-    /** The biggest appliance + 20% and which one it is, whether or not that part is on; null when no appliance counts. */
-    val floor: Floor? get() = peakFloor(appliances)
+    /** The biggest appliance + [floorMargin] and which one it is, whether or not that part is on; null when no appliance counts. */
+    val floor: Floor? get() = peakFloor(appliances, floorMargin)
     /** The limit and the part that sets it, or why there's none: the highest of the parts switched on that apply (see the core [peakLimit]). */
     val limit: LimitResult get() =
         peakLimit(limitOn, appliancesEnabled, region.minimumKw, meter.highest, floor, goalKw)
@@ -203,6 +207,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             goalKw = prefs.getString(KEY_GOAL_KW, null)?.let(::parsePositive),
             priceAddOn = prefs.getString(KEY_PRICE_ADDON, null)?.let(::parseNonNegative),
             priceVat = prefs.getString(KEY_PRICE_VAT, null)?.let(::parseNonNegative),
+            floorMargin = prefs.getInt(KEY_FLOOR_MARGIN, DEFAULT_FLOOR_MARGIN).coerceIn(FLOOR_MARGINS),
             countdown = prefs.getBoolean(KEY_COUNTDOWN, false),
             vibrateAlways = prefs.getBoolean(KEY_VIBRATE_ALWAYS, false),
             drawAverage = prefs.getBoolean(KEY_DRAW_AVERAGE, true),
@@ -358,6 +363,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setGoal(kw: Double?) {
         prefs.edit { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }
         _state.update { it.copy(goalKw = kw) }
+    }
+
+    fun setFloorMargin(percent: Int) {
+        prefs.edit { putInt(KEY_FLOOR_MARGIN, percent) }
+        _state.update { it.copy(floorMargin = percent) }
+        derive()
     }
 
     /** The add-on for the own price in spot regions; null (a blank field) shows the market price. */
@@ -687,6 +698,7 @@ private const val KEY_POWER_UNIT = "power_unit"
 /** Strings like the goal: the add-on in ct (or Rp) per kWh excl. VAT, the VAT in %. */
 private const val KEY_PRICE_ADDON = "price_addon"
 private const val KEY_PRICE_VAT = "price_vat"
+private const val KEY_FLOOR_MARGIN = "floor_margin"
 private const val KEY_COUNTDOWN = "peak_countdown"
 private const val KEY_VIBRATE_ALWAYS = "peak_vibrate_always"
 private const val KEY_DRAW_AVERAGE = "peak_draw_average"

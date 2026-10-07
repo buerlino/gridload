@@ -1,5 +1,6 @@
 package io.github.buerlino.gridload
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,8 +53,8 @@ import io.github.buerlino.gridload.core.peakBilled
 import java.time.Instant
 
 // All of the app's help in one shape: a title and a few short lines, one idea each, some led by a
-// bold term. Each text is built for what's switched on, so it never explains what isn't there,
-// and it opens where its thing is: a panel's ⓘ, a setting's ⓘ, or the help (?) for the colours.
+// bold term. Each text is built for what's switched on, so it never explains what isn't there.
+// The help (?) explains the colours and each panel; a setting's ⓘ explains the setting.
 
 /** One line of help: [text], led by a bold [term] ("**Add-on**: the rest per kWh…") when set. */
 internal class HelpLine(val text: String, val term: String? = null)
@@ -68,11 +69,12 @@ private fun term(term: String, text: String) = HelpLine(text, term)
 // The help (?) and the first start.
 
 /**
- * The help (?): the colours always, then a folded topic for prices and one for each panel that
- * shows, the same text its ⓘ opens.
+ * The help (?), a screen of its own for the width: the colours always, then a folded topic for
+ * prices and one for each panel that shows, the only place the panels are explained.
  */
 @Composable
-internal fun HelpDialog(state: UiState, onDismiss: () -> Unit) {
+internal fun HelpScreen(state: UiState, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
     val help = countryHelp(state.region.country, Instant.now())
     val topics = listOfNotNull(
         "⚡" to pricesHelp(state, help),
@@ -81,20 +83,19 @@ internal fun HelpDialog(state: UiState, onDismiss: () -> Unit) {
         ("🔌" to APPLIANCES_HELP).takeIf { state.showPeak && state.appliancesEnabled },
         ("📅" to historyHelp(state)).takeIf { state.showPeak },
     )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
-        title = { Text("How GridLoad works") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { HelpContent(help, topics) } },
-    )
+    Page {
+        TitleRow("How it works", onBack)
+        HelpContent(help, topics, nextGood = !state.showCurve)
+    }
 }
 
 /**
- * The colours and what they're compared with, then [topics] folded, each with its emoji. Shared
- * by the help (?) and the first start, which has only the prices: nothing else is on yet.
+ * The colours and what they're compared with, the green dot of the [nextGood] time while it
+ * shows, then [topics] folded, each with its emoji. Shared by the help (?) and the first start,
+ * which has only the prices: nothing else is on yet.
  */
 @Composable
-internal fun HelpContent(help: CountryHelp, topics: List<Pair<String, Info>>) {
+internal fun HelpContent(help: CountryHelp, topics: List<Pair<String, Info>>, nextGood: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("GridLoad shows when electricity is cheap, based on ${help.price}.")
         Text("Cheap usually means the grid has power to spare, like at midday when solar peaks.")
@@ -103,20 +104,22 @@ internal fun HelpContent(help: CountryHelp, topics: List<Pair<String, Info>>) {
         LegendRow(RED, "Bad time", "Expensive. Wait if you can.")
         Text("Compared with the next 24 hours, so red means a cheaper time is coming.")
         help.tomorrow?.let { Text(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GreenDot(LocalContentColor.current)
-            Text("The next good time.")
+        if (nextGood) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GreenDot(LocalContentColor.current)
+                Text("The next good time.")
+            }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { topics.forEach { (emoji, info) -> Topic(emoji, info) } }
         Text("ⓘ explains what's next to it.")
     }
 }
 
-/** The first start's help: the prices only, for [country] (null: not known yet). */
+/** The first start's help: the prices only, for [country] (null: not known yet); the price curve is on by default, so no green dot. */
 @Composable
 internal fun WelcomeHelp(country: Country?) {
     val help = countryHelp(country, Instant.now())
-    HelpContent(help, listOf("⚡" to pricesHelp(null, help)))
+    HelpContent(help, listOf("⚡" to pricesHelp(null, help)), nextGood = false)
 }
 
 @Composable
@@ -187,7 +190,7 @@ internal fun InfoLabel(text: String, info: Info, modifier: Modifier = Modifier, 
     )
 }
 
-/** ⓘ on its own, in a panel's header or a title row: tapping it opens [info]; the rest of a panel's header still folds it. */
+/** ⓘ on its own, in a title row: tapping it opens [info]. */
 @Composable
 internal fun InfoButton(info: Info) {
     var open by remember { mutableStateOf(false) }
@@ -200,7 +203,7 @@ internal fun InfoButton(info: Info) {
     }
 }
 
-// The panels' ⓘ, also the help's topics.
+// The help's topics: the prices and the panels.
 
 /** The prices beyond the colours; with [state] (null on the first start) the cost line while it shows. */
 private fun pricesHelp(state: UiState?, help: CountryHelp): Info {
@@ -223,7 +226,7 @@ internal val CURVE_HELP = info(
     term("Green for now", "green until the last price known."),
 )
 
-/** The peak window's ⓘ: the bars, the limit and the alarm, plus the countdown and the preview where they're on. */
+/** The peak window's topic: the bars, the limit and the alarm, plus the countdown and the preview where they're on. */
 internal fun peakHelp(state: UiState, help: CountryHelp): Info {
     val unit = state.powerUnit.id
     return info(
@@ -252,7 +255,7 @@ internal val APPLIANCES_HELP = info(
     line("A row looks at the whole run, so it can differ from the colour."),
 )
 
-/** The history panel's ⓘ, with the base load line while it shows. */
+/** The history panel's topic, with the base load line while it shows. */
 internal fun historyHelp(state: UiState) = info(
     "History",
     line("Each day's highest ¼ hour this month. Red: the month's highest. Dark: today."),
@@ -317,11 +320,14 @@ internal val RECORDER_INFO = info(
     line("Peak load needs it."),
 )
 
+/** The floor's name, "Biggest appliance + 20%", with the [margin] set. */
+internal fun floorLabel(margin: Int) = "Biggest appliance + $margin%"
+
 /**
  * The limit's [parts] that show, each with why it's there: "billed anyway" only where [region]
  * bills the peak already, and WAIT only while the [appliances] panel shows.
  */
-internal fun limitInfo(parts: List<LimitPart>, unit: PowerUnit, region: Region, appliances: Boolean): Info {
+internal fun limitInfo(parts: List<LimitPart>, unit: PowerUnit, region: Region, appliances: Boolean, margin: Int): Info {
     val today = Instant.now().atZone(region.zone).toLocalDate()
     val billed = region.minimumKw != null && region.peakFrom?.let { today >= it } != false
     return info(
@@ -332,7 +338,8 @@ internal fun limitInfo(parts: List<LimitPart>, unit: PowerUnit, region: Region, 
             "Month's highest",
             (if (billed) "billed anyway." else "the most you drew this month.") + " Switched off, the limit can sit below it: a personal cap.",
         ),
-        term("Biggest appliance + 20%", "lets it run alone; only stacking others on it warns.").takeIf { LimitPart.FLOOR in parts },
+        term(floorLabel(margin), "lets it run alone; only stacking others on it warns. The % leaves room for the rest of the house.")
+            .takeIf { LimitPart.FLOOR in parts },
         term("Tariff minimum", if (billed) "billed anyway." else "the least your tariff will bill.").takeIf { LimitPart.MINIMUM in parts },
         line("Only above the month's highest does a warning say it sets a new peak."),
     )
@@ -345,11 +352,11 @@ internal fun goalInfo(highestOn: Boolean) = info(
     line(if (highestOn) "With Month's highest on, it can only raise the limit." else "With Month's highest off, it can sit below the month's highest: a personal cap."),
 )
 
-/** With what switching it off does to the limit while Biggest appliance + 20% is [floorOn]. */
-internal fun appliancesInfo(floorOn: Boolean) = info(
+/** With what switching it off does to the limit while the floor (with its [margin]) is [floorOn]. */
+internal fun appliancesInfo(floorOn: Boolean, margin: Int) = info(
     "Appliances",
     line("Shows your measured appliances on the main screen, each with OK or WAIT."),
-    line("Off hides the panel" + (if (floorOn) " and takes Biggest appliance + 20% out of the limit" else "") + ". The appliances stay."),
+    line("Off hides the panel" + (if (floorOn) " and takes ${floorLabel(margin)} out of the limit" else "") + ". The appliances stay."),
     term("Export", "saves them to a file, e.g. for a new phone."),
     term("Import", "adds them from such a file. One with the same name is replaced."),
 )
@@ -404,12 +411,12 @@ internal val CAN_WAIT_INFO = info(
     term("Off", "only the limit counts, e.g. a kettle."),
 )
 
-/** With a note while Biggest appliance + 20% is off, so the switch changes nothing now. */
-internal fun countsInfo(floorOn: Boolean) = info(
+/** With a note while the floor (with its [margin]) is off, so the switch changes nothing now. */
+internal fun countsInfo(floorOn: Boolean, margin: Int) = info(
     "Counts for the limit",
-    line("Its heaviest ¼ hour, plus 20%, can set the limit: Biggest appliance + 20%."),
+    line("Its heaviest ¼ hour, plus $margin%, can set the limit: ${floorLabel(margin)}."),
     line("Switch it off for one you rarely use."),
-    line("Biggest appliance + 20% is off in Settings → 📊 Mode → Limit, so this changes nothing now.").takeIf { !floorOn },
+    line("${floorLabel(margin)} is off in Settings → 📊 Mode → Limit, so this changes nothing now.").takeIf { !floorOn },
 )
 
 internal val START_DELAY_INFO = info(

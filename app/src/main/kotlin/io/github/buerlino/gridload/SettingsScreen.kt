@@ -37,6 +37,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -65,6 +67,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.buerlino.gridload.core.COUNTRIES
+import io.github.buerlino.gridload.core.FLOOR_MARGINS
 import io.github.buerlino.gridload.core.Country
 import io.github.buerlino.gridload.core.Limit
 import io.github.buerlino.gridload.core.LimitPart
@@ -79,6 +82,7 @@ import io.github.buerlino.gridload.core.limitParts
 import io.github.buerlino.gridload.core.parseNonNegative
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Where Settings opens: at the top, at the region list (from the top bar), or at the own price's add-on (from the main screen). */
 enum class SettingsAt { TOP, REGION_LIST, PRICE }
@@ -87,6 +91,7 @@ enum class SettingsAt { TOP, REGION_LIST, PRICE }
 private const val REGION = "region"
 private const val MEASUREMENT = "measurement"
 private const val MODE = "mode"
+private const val LIMIT = "limit"
 
 /**
  * The setup guide: on first start the help, then Next; then the country (preselected with the
@@ -152,8 +157,9 @@ fun SetupGuide(
  * Three sections, each a light grey card that folds to a one-line summary: the region with the
  * own price and the price curve's switch; the
  * whatwatt with its connection, the power unit and, with peak load on, the recorder; and the
- * mode, peak load with its limit, countdown and appliances. [at] opens the region section with
- * its list or at the add-on.
+ * mode, peak load with its limit (folding to the limit now), then its settings grouped by the
+ * panels in the main screen's order: this ¼ hour, the appliances, the history. [at] opens the
+ * region section with its list or at the add-on.
  */
 @Composable
 fun SettingsScreen(
@@ -220,12 +226,15 @@ fun SettingsScreen(
         ) {
             PeakLoadSwitch(state, state.region, viewModel)
             if (state.peakEnabled) {
-                LimitGroup(state, viewModel)
+                LimitGroup(state, viewModel, LIMIT !in closed) { toggle(LIMIT) }
+                GroupTitle("This ¼ hour")
                 SwitchRow("¼-hour countdown", COUNTDOWN_INFO, state.countdown, viewModel::setCountdown)
                 VibrateRow(state.vibrateAlways, viewModel::setVibrateAlways)
                 ChoiceRow("Draw ahead", drawInfo(state.appliancesEnabled), listOf(true to "2-min average", false to "Latest reading"), state.drawAverage, viewModel::setDrawAverage)
-                BaseLoad(state, viewModel)
+                GroupTitle("Appliances")
                 Appliances(state, viewModel)
+                GroupTitle("History")
+                BaseLoad(state, viewModel)
             }
         }
     }
@@ -262,6 +271,12 @@ private fun Section(
             if (open) content() else summary()
         }
     }
+}
+
+/** A group's title within a section, after the panel its settings are for. */
+@Composable
+private fun GroupTitle(text: String) {
+    Text(text, Modifier.padding(top = 8.dp), color = MUTED, fontSize = 14.sp, fontWeight = FontWeight.Bold)
 }
 
 /** A section's state when folded, in one muted line. */
@@ -419,7 +434,7 @@ private fun Appliances(state: UiState, viewModel: MainViewModel) {
     }
     // Any type: a file sent through a messenger may have lost its JSON type.
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::importAppliances) }
-    SwitchRow("Appliances", appliancesInfo(LimitPart.FLOOR in state.limitOn), state.appliancesEnabled, viewModel::setAppliancesEnabled)
+    SwitchRow("Show on main screen", appliancesInfo(LimitPart.FLOOR in state.limitOn, state.floorMargin), state.appliancesEnabled, viewModel::setAppliancesEnabled)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { export.launch("gridload_appliances.json") }, enabled = state.appliances.isNotEmpty()) { Text("Export") }
         OutlinedButton(onClick = { import.launch(arrayOf("*/*")) }) { Text("Import") }
@@ -441,17 +456,22 @@ private fun BaseLoad(state: UiState, viewModel: MainViewModel) {
 }
 
 /**
- * The limit's parts, each with its switch and value, and the limit they give now. Only the parts
- * that apply show ([limitParts]); the last one on among them can't be switched off, so nothing
- * hidden is left to hold the limit. Nothing is ever switched on by itself.
+ * The limit's parts, each with its switch and value, and the limit they give now; folded, only
+ * the limit now. Only the parts that apply show ([limitParts]); the last one on among them can't
+ * be switched off, so nothing hidden is left to hold the limit. Nothing is ever switched on by
+ * itself. The biggest appliance's margin is a slider below its switch while that's on.
  */
 @Composable
-private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
+private fun LimitGroup(state: UiState, viewModel: MainViewModel, open: Boolean, onToggle: () -> Unit) {
     val unit = state.powerUnit
     val parts = limitParts(state.appliancesEnabled, state.region.minimumKw)
     val locked = parts.singleOrNull { it in state.limitOn }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        InfoLabel("Limit", limitInfo(parts, unit, state.region, state.appliancesEnabled))
+        Fold(open, onToggle) { InfoLabel("Limit", limitInfo(parts, unit, state.region, state.appliancesEnabled, state.floorMargin)) }
+        if (!open) {
+            Text(limitLine(state.limit, state), color = MUTED)
+            return@Column
+        }
         parts.forEach { part ->
             val on = part in state.limitOn
             val onChange = { checked: Boolean -> viewModel.setLimitPart(part, checked) }
@@ -459,15 +479,30 @@ private fun LimitGroup(state: UiState, viewModel: MainViewModel) {
                 LimitPart.HIGHEST ->
                     SwitchRow("Month's highest", null, on, onChange, state.meter.highest?.let { unit.format(it.kw) } ?: "Nothing recorded yet", part != locked)
                 LimitPart.FLOOR ->
-                    SwitchRow("Biggest appliance + 20%", null, on, onChange, state.floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
+                    SwitchRow(floorLabel(state.floorMargin), null, on, onChange, state.floor?.let { "${unit.format(it.kw)}, ${it.appliance}" } ?: "No appliance counts", part != locked)
                 LimitPart.MINIMUM -> SwitchRow("Tariff minimum", null, on, onChange, state.region.minimumKw?.let(unit::format), part != locked)
                 LimitPart.GOAL -> SwitchRow("Goal", goalInfo(LimitPart.HIGHEST in state.limitOn), on, onChange, enabled = part != locked)
             }
             if (part == locked) Text("At least one must stay on.", color = MUTED)
+            if (part == LimitPart.FLOOR && on) MarginSlider(state.floorMargin, viewModel::setFloorMargin)
             if (part == LimitPart.GOAL && on) GoalField(state, viewModel::setGoal)
         }
         Text(limitLine(state.limit, state))
     }
+}
+
+/** The biggest appliance's margin, 0 to 100% in steps of 5. */
+@Composable
+private fun MarginSlider(margin: Int, onMargin: (Int) -> Unit) {
+    val range = FLOOR_MARGINS
+    Slider(
+        value = margin.toFloat(),
+        onValueChange = { value -> (value / 5).roundToInt().times(5).takeIf { it != margin }?.let(onMargin) },
+        valueRange = range.first.toFloat()..range.last.toFloat(),
+        steps = (range.last - range.first) / 5 - 1,
+        // It snaps to the steps; 20 dots along it would only add clutter.
+        colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
+    )
 }
 
 /** "Limit now: **2.7 kW**, from Cooking + 20%", or why there's none. */
@@ -482,7 +517,7 @@ private fun limitLine(limit: LimitResult, state: UiState) = buildAnnotatedString
                     LimitPart.HIGHEST -> "the month's highest" +
                         state.meter.highest?.let { ", " + dayTimeFormat.format(it.start.atZone(state.region.zone)) }.orEmpty()
                     // Kept on one line.
-                    LimitPart.FLOOR -> "${limit.appliance}\u00A0+\u00A020%"
+                    LimitPart.FLOOR -> "${limit.appliance}\u00A0+\u00A0${state.floorMargin}%"
                     LimitPart.MINIMUM -> "your tariff's minimum"
                     LimitPart.GOAL -> "your goal"
                 },

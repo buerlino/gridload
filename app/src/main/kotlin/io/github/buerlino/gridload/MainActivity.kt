@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
                 var showSettings by rememberSaveable { mutableStateOf(false) }
                 var showGuide by rememberSaveable { mutableStateOf(false) }
                 var showHistory by rememberSaveable { mutableStateOf(false) }
+                var showHelp by rememberSaveable { mutableStateOf(false) }
                 // Where Settings opens: the region in the top bar opens the region list.
                 var settingsAt by remember { mutableStateOf(SettingsAt.TOP) }
                 // Here rather than in Screen, so it's where it was after Settings or the history.
@@ -126,6 +127,7 @@ class MainActivity : ComponentActivity() {
                         onBack = { showSettings = false; settingsAt = SettingsAt.TOP },
                     )
                     showHistory -> HistoryScreen(state, onBack = { showHistory = false })
+                    showHelp -> HelpScreen(state, onBack = { showHelp = false })
                     else -> Screen(
                         state, viewModel, panelScroll, collapse,
                         onRefresh = viewModel::refresh,
@@ -134,6 +136,7 @@ class MainActivity : ComponentActivity() {
                         onTogglePeak = { viewModel.setPeakOpen(!state.peakOpen) },
                         onToggleHistory = { viewModel.setHistoryOpen(!state.historyOpen) },
                         onOpenHistory = { showHistory = true },
+                        onOpenHelp = { showHelp = true },
                     )
                 }
             }
@@ -207,15 +210,14 @@ private fun Screen(
     onTogglePeak: () -> Unit,
     onToggleHistory: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenHelp: () -> Unit,
 ) {
     val (background, content, label) = look(state)
     StatusBarIcons(dark = content == Color.Black)
-    var showHelp by remember { mutableStateOf(false) }
-    if (showHelp) HelpDialog(state, onDismiss = { showHelp = false })
     Box(Modifier.fillMaxSize().background(background)) {
         PullToRefreshBox(isRefreshing = state.loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 4.dp)) {
-                TopBar(state, content, onOpenSettings, onHelp = { showHelp = true })
+                TopBar(state, content, onOpenSettings, onHelp = onOpenHelp)
                 // Each part scrolls, so that pulling down anywhere refreshes.
                 if (state.showPanels) {
                     val scope = rememberCoroutineScope()
@@ -321,8 +323,8 @@ private class Collapse : NestedScrollConnection {
 }
 
 /**
- * The headline, the price, the cost now and the next good time; smaller and collapsing above the
- * panels. In a spot region without an add-on, the market price and a link to the add-on's field.
+ * The headline, the price, the cost now and, without the price curve, the next good time; smaller
+ * and collapsing above the panels. In a spot region without an add-on, the market price and a link to the add-on's field.
  */
 @Composable
 private fun Spot(state: UiState, label: String, content: Color, collapse: Collapse?, onSetPrice: () -> Unit, modifier: Modifier) {
@@ -369,7 +371,8 @@ private fun Spot(state: UiState, label: String, content: Color, collapse: Collap
                         Text("${state.powerUnit.format(kw)} now · ${currency.perHour(kw * price)}", color = content, fontSize = textSize)
                     }
                 }
-                status.nextGreen?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
+                // The price curve's header says it, with how long the green lasts.
+                status.nextGreen?.takeIf { !state.showCurve }?.let { NextGoodTime(it.start, content, if (small) 16.sp else 18.sp) }
             }
             state.error?.let { Text(it, color = content, textAlign = TextAlign.Center) }
             // With peak load, the peak window says it instead.

@@ -68,7 +68,6 @@ fun HistoryPanel(state: UiState, onToggle: () -> Unit, onOpen: () -> Unit) {
     Panel(
         open = state.historyOpen,
         onToggle = onToggle,
-        info = historyHelp(state),
         header = {
             val text = if (highest == null) AnnotatedString("No ¼ hours recorded yet") else highestText(highest, unit, zone)
             Text(text, Modifier.weight(1f), color = INK, fontSize = 16.sp)

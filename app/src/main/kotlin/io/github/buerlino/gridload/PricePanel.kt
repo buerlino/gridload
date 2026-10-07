@@ -44,7 +44,6 @@ fun PricePanel(state: UiState, status: Status, onToggle: () -> Unit) {
     Panel(
         open = state.curveOpen,
         onToggle = onToggle,
-        info = CURVE_HELP,
         header = {
             val until = status.greenUntil
             val next = status.nextGreen
@@ -95,10 +94,9 @@ private fun Curve(state: UiState, status: Status) {
         axis.draw(this, end)
         val zero = axis.y(0.0)
         status.window.forEachIndexed { i, (slot, level) ->
-            val left = x(slot.start.toInstant())
-            val width = x(slot.end.toInstant()) - left
-            // A hair between bars when there's room, so hourly prices show their quarters.
-            val gap = if (width >= 3.dp.toPx()) 0.5.dp.toPx() else 0f
+            // On whole pixels, so neighbouring bars meet without a light seam between them.
+            val left = x(slot.start.toInstant()).roundToInt().toFloat()
+            val width = x(slot.end.toInstant()).roundToInt() - left
             val y = axis.y(prices[i])
             val color = when (level) {
                 Level.GREEN -> GREEN
@@ -106,7 +104,7 @@ private fun Curve(state: UiState, status: Status) {
                 Level.RED -> RED
             }
             val past = !slot.end.toInstant().isAfter(now)
-            drawRect(color, Offset(left, minOf(y, zero)), Size(maxOf(width - gap, 1f), abs(zero - y)), alpha = if (past) PAST_ALPHA else 1f)
+            drawRect(color, Offset(left, minOf(y, zero)), Size(maxOf(width, 1f), abs(zero - y)), alpha = if (past) PAST_ALPHA else 1f)
         }
         // Hour labels every 6 hours, in the phone's zone like the other times.
         val zone = ZoneId.systemDefault()

@@ -43,20 +43,23 @@ val List<Piece>.kw: Double get() = maxOf { it.kw }
 val List<Piece>.heaviestQuarterKw: Double get() =
     runningFold(0.0) { t, piece -> t + piece.min }.flatMap { listOf(it, it - 15) }.maxOf { kwhBetween(it, it + 15) } * 4
 
-/** The floor's margin above the biggest appliance, for the house's base draw and some variation. */
-const val FLOOR_MARGIN = 1.2
+/** The floor's margin above the biggest appliance in %, for the house's base draw and some variation, unless set otherwise. */
+const val DEFAULT_FLOOR_MARGIN = 20
+
+/** The floor's margin's range in %, the setting's slider. */
+val FLOOR_MARGINS = 0..100
 
 /** The floor, [kw], and the [appliance] it comes from. */
 data class Floor(val kw: Double, val appliance: String)
 
 /**
  * The floor, a part of the limit ([peakLimit]): the heaviest quarter hour of the biggest appliance
- * that counts for it, plus [FLOOR_MARGIN]. That appliance sets a peak this high by itself, so it
+ * that counts for it, plus [marginPercent]. That appliance sets a peak this high by itself, so it
  * shouldn't wait for one; only stacking others on it should. Null with none.
  */
-fun peakFloor(appliances: List<Appliance>): Floor? =
+fun peakFloor(appliances: List<Appliance>, marginPercent: Int = DEFAULT_FLOOR_MARGIN): Floor? =
     appliances.filter { it.countsForLimit }.maxByOrNull { it.curve.heaviestQuarterKw }
-        ?.let { Floor(it.curve.heaviestQuarterKw * FLOOR_MARGIN, it.name) }
+        ?.let { Floor(it.curve.heaviestQuarterKw * (1 + marginPercent / 100.0), it.name) }
 
 /** Tap water's temperature, for [waterShare]. */
 private const val TAP_CELSIUS = 15.0

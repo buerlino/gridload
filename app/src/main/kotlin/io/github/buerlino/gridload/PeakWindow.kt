@@ -39,7 +39,6 @@ import io.github.buerlino.gridload.core.Ahead
 import io.github.buerlino.gridload.core.PowerUnit
 import io.github.buerlino.gridload.core.Projection
 import io.github.buerlino.gridload.core.QUARTER_SECONDS
-import io.github.buerlino.gridload.core.countryHelp
 import io.github.buerlino.gridload.core.isPeakWarning
 import io.github.buerlino.gridload.core.quarterStart
 import java.time.Duration
@@ -82,8 +81,6 @@ fun PeakWindow(state: UiState, onToggle: () -> Unit, onClosePreview: () -> Unit,
         modifier = modifier,
         onToggle = if (preview != null) onClosePreview else onToggle,
         icon = if (preview != null) "×" else null,
-        // Not during a preview: its header ("0.2 kW free with Cooking", ×) needs the room.
-        info = if (preview == null) peakHelp(state, countryHelp(state.region.country, Instant.now())) else null,
         header = {
             val title = when {
                 projection == null -> null
