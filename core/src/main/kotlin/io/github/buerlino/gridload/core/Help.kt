@@ -54,7 +54,7 @@ fun peakBilled(region: Region, now: Instant): String? {
     if (region.minimumKw == null) return null
     val who = if (region.isSpot) "in ${region.name}" else "by ${region.utility}"
     val from = region.peakFrom?.takeIf { now.atZone(region.zone).toLocalDate() < it }?.let { " from ${date(it)}" } ?: ""
-    val atLeast = region.minimumKw?.takeIf { it > 0 }?.let { ", at least ${BigDecimal.valueOf(it).stripTrailingZeros().toPlainString()} kW a month" } ?: ""
+    val atLeast = region.minimumKw.takeIf { it > 0 }?.let { ", at least ${BigDecimal.valueOf(it).stripTrailingZeros().toPlainString()} kW a month" } ?: ""
     return "Billed $who$from$atLeast."
 }
 

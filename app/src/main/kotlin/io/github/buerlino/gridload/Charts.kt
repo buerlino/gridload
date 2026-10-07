@@ -110,10 +110,14 @@ internal class Axis(
     }
 }
 
-/** An axis in [unit] from 0 to whole kW a bit above [maxKw] (2 kW steps above 8). */
+/**
+ * An axis in [unit] from 0 to whole kW a bit above [maxKw], with a tick every 1, 2, 5, 10, 20, 50…
+ * kW, at most 9 of them, so a goal typed far too high can't crowd the labels or run out of memory.
+ */
 internal fun kwAxis(measurer: TextMeasurer, unit: PowerUnit, maxKw: Double, top: Float, bottom: Float, gap: Float): Axis {
-    val topKw = ceil(maxOf(maxKw * 1.15, 1.0)).toInt()
-    val ticks = (0..topKw step if (topKw > 8) 2 else 1).map { kw -> kw.toDouble() to if (unit == PowerUnit.W) "${kw * 1000}" else "$kw" }
+    val topKw = ceil(maxOf(maxKw * 1.15, 1.0)).toLong()
+    val step = generateSequence(1L) { if (it.toString()[0] == '2') it / 2 * 5 else it * 2 }.first { topKw / it <= 8 }
+    val ticks = (0..topKw step step).map { kw -> kw.toDouble() to if (unit == PowerUnit.W) "${kw * 1000}" else "$kw" }
     return Axis(measurer, ticks, unit.id, 0.0, topKw.toDouble(), top, bottom, gap)
 }
 
