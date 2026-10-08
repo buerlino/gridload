@@ -83,6 +83,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    private val zone: ZoneId = ZoneId.systemDefault()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,6 +91,11 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     while (true) {
+                        // The phone's zone changed (travel): rebuild the screen, so every time shown follows it.
+                        if (ZoneId.systemDefault() != zone) {
+                            recreate()
+                            return@launch
+                        }
                         viewModel.update()
                         delay(60_000)
                     }
@@ -183,7 +189,10 @@ private val NEUTRAL = lightColorScheme(
 
 private data class Look(val background: Color, val content: Color, val headline: String)
 
-internal val timeFormat = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+/** "14:15" in the phone's zone, looked up on each use, so a change of zone shows without a restart. */
+internal val timeFormat: DateTimeFormatter get() = hhmm.withZone(ZoneId.systemDefault())
+
+private val hhmm = DateTimeFormatter.ofPattern("HH:mm")
 
 /** A time still to come: "14:15" ([today] before it), or "tomorrow 10:00" when it isn't today. */
 internal fun comingTime(at: Instant, today: String = ""): String {

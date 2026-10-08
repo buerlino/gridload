@@ -593,3 +593,46 @@ only deprecation AGP's `setVisible` (AGP 9.5.0 still alpha08), workflows on `che
   `assembleRelease` builds both `4efe5266423f980744300d39ba78b821b2b6e47fbd812879b151dce25b71a2c3`.
 - New store screenshots (v0.14.0, on the Fairphone 6, 20:45): the price curve, the base load and
   the Limit group show; the old ones were from v0.11.1.
+
+## Pass 2026-10-08
+
+Report (after `bc18981`): 135 tests green, lint "No issues found", no `w:` lines, the only
+deprecation AGP's `setVisible`, workflows on `checkout@v7` / `setup-java@v6` (the latest).
+
+### Bug
+- [x] B1. Times stayed in the old zone after the phone's zone changed, until a restart ("Green
+  from 00:00" in New York at 15:31, "Updated" on Zurich): `timeFormat` kept the zone from app
+  start. It now looks the zone up on each use, and `MainActivity` rebuilds the screen when the
+  zone changes (on return, and within a minute while open), since an unchanged `UiState`
+  redraws nothing. Seen on the tablet both ways (Zurich → New York open, back while in the
+  background).
+
+### Code
+- [x] C1. `setLimitPart` and `setGoal` call `derive()` like `setFloorMargin`, so the appliances'
+  advice follows a limit change at once.
+
+### Docs
+- [x] D1. README: the floor's "× 1.2" is "plus a margin, 20% by default".
+- [x] D2. `CLAUDE.md`: the broken `#price-curve` link points to `#ui`; the zone line says times
+  follow a change; Current state lists what's on master since v0.14.1.
+
+### Repo
+- [x] R1. `git gc` (234 loose objects, 2.15 MiB → 0).
+
+### No change
+- No upper bound on the goal: since the axis fix a huge goal is harmless.
+- The peak window on the tablet: the chart ends at about three quarters of its 420 dp panel, a
+  little narrower than the history's. Fine as is.
+
+### Not done (cut short by the user; for the next pass)
+- On a device: a large font size (then `font_scale` back to 1.08); Austria with odd add-on and
+  VAT values (negative, huge, letters, a comma), then back to CKW; base load with From equal to
+  To; importing bad appliance files (not JSON, not a list, a name twice, a last piece at 0 kW, a
+  piece of 0 min, an empty name; all covered by `parseAppliances`, not seen in the UI); starting
+  a measurement and discarding it. Back up the app's data first (`run-as … tar`).
+
+### Done (2026-10-08)
+- Verified: `--warning-mode all :core:test :app:lintDebug :app:lintAnalyzeDebug --rerun`,
+  `:core:compileKotlin --rerun :app:compileDebugKotlin --rerun` green; two clean unsigned
+  `assembleRelease` builds both
+  `68e4822ab4017b053dbc78cb709157ba0cdca93a57d61fd22bc4c9410a484465`.

@@ -357,12 +357,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             first?.let { putString(KEY_GOAL_KW, it.toString()) }
         }
         _state.update { it.copy(limitOn = if (on) it.limitOn + part else it.limitOn - part, goalKw = first ?: it.goalKw) }
+        derive()
     }
 
     /** The goal in kW; null (a blank field) doesn't count for the limit. */
     fun setGoal(kw: Double?) {
         prefs.edit { if (kw == null) remove(KEY_GOAL_KW) else putString(KEY_GOAL_KW, kw.toString()) }
         _state.update { it.copy(goalKw = kw) }
+        derive()
     }
 
     fun setFloorMargin(percent: Int) {
