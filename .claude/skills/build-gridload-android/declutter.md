@@ -636,3 +636,8 @@ deprecation AGP's `setVisible`, workflows on `checkout@v7` / `setup-java@v6` (th
   `:core:compileKotlin --rerun :app:compileDebugKotlin --rerun` green; two clean unsigned
   `assembleRelease` builds both
   `68e4822ab4017b053dbc78cb709157ba0cdca93a57d61fd22bc4c9410a484465`.
+- Seen on the tablet (debug build): the first start's general welcome; the setup guide through
+  rotation and process death; address validation; landscape and portrait; the help screen; the
+  margin slider 0 to 100; goal validation and a huge goal (the axis fix); offline (cached
+  prices, "whatwatt not reachable", the no-connection message, no cooldown used); 40 s in the
+  background with Wi-Fi off (no stale reading, "Reading the whatwatt…", then not reachable).

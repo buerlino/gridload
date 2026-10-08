@@ -63,6 +63,10 @@ in git.
   staging): the main screen with the price curve and the peak window; Cooking's preview; the
   appliances and the history with the base load; the History screen; the help; Settings → Mode
   with the Limit group.
+- A test tablet (Lenovo TB305FU, serial `HA24BZ2Y`, Android 15, 800 x 1340 at 180 dpi, no SIM)
+  is for edge cases, so the user's phones keep their state. Its time zone:
+  `adb shell cmd alarm set-timezone America/New_York` (back to `Europe/Zurich`, check with
+  `getprop persist.sys.timezone`); Wi-Fi off and on: `svc wifi disable|enable`. Put both back.
 - A helper that taps the first node containing a text can hit a label instead of a button;
   match whole texts for buttons.
 - If the phone is locked, don't try to unlock it; ask the user.
